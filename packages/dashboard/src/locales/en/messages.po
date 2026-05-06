@@ -1843,8 +1843,12 @@ msgid "received (Ocean)"
 msgstr "received (Ocean)"
 
 #: src/pages/Status.tsx
-msgid "Refresh the money panel now (normally updates hourly)."
-msgstr "Refresh the money panel now (normally updates hourly)."
+msgid "Refresh the money panel now (auto-refreshes every 60s)."
+msgstr "Refresh the money panel now (auto-refreshes every 60s)."
+
+#: src/pages/Status.tsx
+#~ msgid "Refresh the money panel now (normally updates hourly)."
+#~ msgstr "Refresh the money panel now (normally updates hourly)."
 
 #. placeholder {0}: formatCountdownPrecise(msUntil)
 #: src/pages/Status.tsx

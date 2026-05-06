@@ -2,6 +2,10 @@
 
 ## 2026-05-06
 
+### `[Fix]` P&L Lifetime panel refreshes every 60s instead of every hour
+
+Operator caught the P&L Lifetime panel showing `unpaid earnings (Ocean) 37,482` even though Ocean had already credited a fresh ~38k-sat block ~15 minutes prior, and the OCEAN panel directly above it was showing the new total `75,719`. Cause: the `financeQuery` had `refetchInterval: 3_600_000` (1 hour) - the original reasoning was "money is slow-moving," but the unpaid-earnings number jumps the moment a new pool block lands, so 1h cadence could leave the panel ~55 minutes behind reality after a block. Dropped to 60s to match the rest of the dashboard polling. The panel's "refreshes in" countdown was anchored to the same 1h assumption; updated to 60s. Tooltip on the manual refresh button updated. /api/finance has no server-side cache, so 60s is fine on the daemon.
+
 ### `[UI]` Tab refocus refreshes data instantly; acceptance/rejects follow chart range and cap at 100% (#90)
 
 Three small but related dashboard fixes:

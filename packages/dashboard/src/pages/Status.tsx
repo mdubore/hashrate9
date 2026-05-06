@@ -196,10 +196,14 @@ export function Status() {
   const financeQuery = useQuery({
     queryKey: ['finance'],
     queryFn: api.finance,
-    // Money is a slow-moving summary - earnings per day, lifetime
-    // figures, ocean stats. Hourly refresh is plenty; the operator can
-    // hit the refresh button on the panel for an immediate pull.
-    refetchInterval: 3_600_000,
+    // 60s matches the rest of the dashboard polls. Earlier 1h cadence
+    // assumed "money is slow-moving" - true for `spent` and
+    // `collected`, but `unpaid earnings (Ocean)` jumps the moment a
+    // new pool block lands and credits us. With 1h polling the P&L
+    // Lifetime panel could lag the OCEAN panel by ~55 minutes after
+    // a block - operator caught a 38k-sat update missing. /api/finance
+    // is a cheap query, no server-side cache, so 60s is fine.
+    refetchInterval: 60_000,
   });
 
   // Range-aware aggregates for the P&L per-day card (issue #43).
@@ -2047,10 +2051,14 @@ function FinancePanel({
   // range dropdown labels from CHART_RANGE_SPECS.
   const rangeLabel = localizedRangeLabel(chartRange, i18n.locale);
 
-  // P&L refreshes hourly server-side. Dashboard countdown is derived
-  // from checked_at_ms + 1h so the operator sees how long until fresh
-  // numbers without guessing the cadence.
-  const nextRefreshAtMs = data.checked_at_ms + 3_600_000;
+  // P&L now refreshes every 60s (matches the rest of the dashboard).
+  // Dashboard countdown is derived from checked_at_ms + 60s so the
+  // operator sees how long until fresh numbers without guessing the
+  // cadence. Earlier 1h cadence was too coarse - block-find events
+  // that bump `unpaid earnings (Ocean)` by ~38k sats took up to an
+  // hour to land in the panel even though /api/ocean had the new
+  // number within seconds.
+  const nextRefreshAtMs = data.checked_at_ms + 60_000;
 
   const headerControls = (
     <div className="flex items-center gap-2 text-[11px] text-slate-500 font-mono">
@@ -2059,7 +2067,7 @@ function FinancePanel({
         onClick={onRefresh}
         disabled={refreshing}
         className="px-1.5 py-0.5 rounded border border-slate-700 text-slate-400 hover:bg-slate-800 disabled:opacity-50"
-        title={t`Refresh the money panel now (normally updates hourly).`}
+        title={t`Refresh the money panel now (auto-refreshes every 60s).`}
       >
         {refreshing ? '…' : '↻'}
       </button>
