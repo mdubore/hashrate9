@@ -371,10 +371,19 @@ On the Umbrel Bitcoin node, assuming Bitcoin Knots with standard RPC:
 
 Recommended design: rely on `bitcoind` RPC on the LAN. ZMQ `hashblock` → trigger a lookup of the new block's coinbase tx → check its outputs → credit if one matches the configured payout address. This detects the "we actually won a block" event at the earliest possible moment (as soon as our node has seen the block from the network).
 
-### 5.3 What's **not** observable from Ocean/Braiins directly
+### 5.3 Ocean's per-address JSON API
 
-- Ocean has a public dashboard at [ocean.xyz/stats](https://ocean.xyz/stats) with per-address stats. There is **no documented Ocean public API** observed in the docs directory (`/docs/*`). The "Check your miner's stats page" flow is UI-only per Ocean's [getstarted](https://ocean.xyz/getstarted) page.
-- Braiins has `/spot/bid/delivery/{order_id}` for per-bid **share delivery** metrics - this tells you how many shares Braiins believes your paid-for hashrate pushed into the pool. It does **not** tell you about block finds or block rewards; for rewards, go via bitcoind. ([openapi.yml - SpotGetBidDeliveryHistoryResponse](https://hashpower.braiins.com/api/openapi.yml))
+The 2026-04-14 cut of this document said "no documented Ocean public API." That was wrong — empirically, Ocean exposes a per-address JSON API at `https://api.ocean.xyz/v1/`, no authentication, that returns everything `ocean.xyz/stats` renders. The daemon's `packages/daemon/src/services/ocean.ts` has been using it since the Ocean integration shipped (issue #9). Five endpoints are in scope:
+
+- **`GET /v1/statsnap/<btc-address>`** — per-wallet snapshot. Returns `unpaid` (BTC, accumulated since the last on-chain payout), `shares_in_tides` (this address's count in the current TIDES window), `estimated_total_earn_next_block` (sat we'd be credited if Ocean wins next block at current share-log %), and a few status flags. The single richest endpoint for a single address.
+- **`GET /v1/user_hashrate/<btc-address>`** — multi-interval hashrate for the address. Fields `hashrate_60s`, `hashrate_300s` (5-min, what the dashboard plots as the Ocean line), `hashrate_3600s` (1h), `hashrate_10800s` (3h, used as the income-projection denominator), plus `active_workers`. Server-smoothed; no client-side rolling-mean needed.
+- **`GET /v1/pool_stat`** — pool-wide stats keyed independently of the wallet. `current_tides_shares` (denominator for share_log %), `network_difficulty`, `current_estimated_block_reward` (subsidy + fees), `active_users`, `active_workers`. Pairs with statsnap to compute share_log = `shares_in_tides / current_tides_shares × 100`.
+- **`GET /v1/blocks`** — recent pool blocks. Each item: `height`, `ts` (ISO datetime, no TZ — parse as UTC; this caused issue #20), `total_reward_sats`, `subsidy_sats`, `txn_fees_sats`, `block_hash`, `workername`, `username`. The cube markers + "last pool block" panel row come from this list; the block-found sound trigger watches the max `height` across this array (issue #88, post-`89839b7`).
+- **`GET /v1/pool_hashrate`** — server-side 5-min smoothed pool hashrate (`pool_300s`). Used as the cleaner alternative to deriving pool hashrate from `user_hashrate ÷ share_log_pct`, which is noisy at small shares.
+
+What the API does **not** expose: per-tile authentication / rate limits (treated as best-effort polling, daemon caches each response for 60 s). What the daemon does on top: layers a hashprice estimate (`current_estimated_block_reward × blocks/day / network_hashrate_ph`), the pool-luck calc (§7.4), and the daily-earn projection that drives the time-to-payout text on the OCEAN panel. No officially-supported version commitment from Ocean — the API could change shape at any time, and the v1 path has been stable since the integration shipped but is not contractually guaranteed.
+
+Braiins has `/spot/bid/delivery/{order_id}` for per-bid **share delivery** metrics — how many shares Braiins believes your paid-for hashrate pushed into the pool — but it does NOT tell you about block finds or block rewards; for rewards, go via bitcoind. ([openapi.yml — SpotGetBidDeliveryHistoryResponse](https://hashpower.braiins.com/api/openapi.yml))
 
 ### 5.4 Net-result accounting (per SPEC §8)
 
@@ -382,9 +391,28 @@ Recommended design: rely on `bitcoind` RPC on the LAN. ZMQ `hashblock` → trigg
 - **Income** = sum of coinbase-tx outputs credited to the payout address on the Umbrel node, captured via bitcoind.
 - Both sides are denominated in sat. Valuation at time-of-receipt (for fiat PnL) would require pulling a BTC/USD price feed, which is outside scope per SPEC §2 non-goals (no external dependencies beyond listed systems). Options: skip fiat entirely, or pull from the already-present Braiins "hashprice in USD" field as a convenience (displayed in the UI; not in the OpenAPI directly).
 
+### 5.5 "Next payout" / "Next block" semantics on the OCEAN panel
+
+The OCEAN panel renders a `next payout` row whose displayed value is one of two things, computed daemon-side from the inputs above:
+
+```
+remaining_sat = PAYOUT_THRESHOLD_SAT − unpaid_sat   // 1_048_576 − unpaid
+days_remaining = remaining_sat / daily_estimate_sat
+
+if remaining_sat ≤ 0:           → "Next block"
+elif days_remaining < 1:         → "N hours"
+else:                            → "N days"
+```
+
+`PAYOUT_THRESHOLD_SAT = 1_048_576` (Ocean's TIDES on-chain payout threshold, ≈0.0105 BTC). Inputs come from `/v1/statsnap.unpaid` and the daemon-side `daily_estimate_sat` projection (user_hashrate × pool share × estimated_block_reward × blocks/day).
+
+`"Next block"` is the load-bearing string. It does NOT mean the next Bitcoin block in general — it means the next **Ocean pool block**. Under TIDES the pool can only ship a coinbase output to the operator's address when *Ocean* finds a block, since that's the only block whose coinbase Ocean controls. Once `unpaid` crosses the threshold, the accumulated balance gets included in the coinbase of the next block Ocean wins. For a pool finding ~3 blocks/day at typical share, that's a few hours' worth of waiting on average; the blue cubes on the hashrate chart mark each pool block as it lands, and one of them will be the trigger.
+
+Frequent operator-facing source of confusion: the dashboard's `next payout: Next block` and the Ocean recent-blocks list visually show "the most recent block was 9 minutes ago" together, but those two blocks are unrelated — the recent block was already mined (and its TIDES distribution has happened in unpaid balances), while the *Next block* string is forward-looking, awaiting the next Ocean find.
+
 ---
 
-### 5.4 BIP 110 signaling detection (#94)
+### 5.6 BIP 110 signaling detection (#94)
 
 Block headers carry a 32-bit `version` field. Under BIP 9 deployments the top 3 bits are `0b001` and bits 0-28 are signaling bits for in-flight soft forks. **BIP 110** ("Reduced Data Temporary Softfork") - 1-year sunset, 55% lock-in threshold, max activation height around September 2026 - uses **bit 4**.
 
@@ -603,6 +631,53 @@ Grouped from the T&S/docs/FAQ as operational landmines:
 - **Pool's difficulty too low.** Oscillating Paused/Active without meaningful delivery, still paying through the nose for share time (see §7.4/§7.5).
 - **Datum Gateway stale work.** Miner-side shares accepted, pool-side rejected due to latency; pay per share but land nothing in a block. Minimise Knots→Datum→Ocean round-trip. ([datum_gateway README - Notes/Known Issues](https://raw.githubusercontent.com/OCEAN-xyz/datum_gateway/master/README.md))
 
+### 7.11 Pool luck (#92)
+
+A Bitcoin pool's block-find rate is a Poisson process: long-run mean `pool_share_of_network × 6 blocks/hour`, but short-window variance can be wide. Operators want a one-glance answer to "is my pool finding blocks faster or slower than expected right now?" — that's pool luck.
+
+**Formula evolution during issue #92** is itself an empirical finding worth recording. Three iterations:
+
+1. **Count-based** (initial): `luck = count_in_window / poisson_expected`. Numerator moves only in discrete +1 steps regardless of elapsed time, so the plotted line shows a stair-step shape that doesn't match operator intuition ("luck should be high right after a block, decay as time passes, jump on the next find"). Operator caught this and asked for a smoother formula.
+2. **Gap-based**: `luck = (600 / pool_share) / time_since_last_pool_block` where `pool_share = pool_hashrate / network_hashrate`. Decays as 1/t between finds, jumps on each find, reads exactly 1.0× when elapsed equals the expected block gap. Two finds 20 min apart in a pool whose expected gap is ~4 h reads as ~12× lucky in the gap before the second find. Capped at 10× in the chart for readability.
+3. **Unified** (final, commit `6f80e0d`): `luck = count_in_window / (pool_share × (window + elapsed) / 600)` where `elapsed = time_since_last_pool_block_in_window`. At `elapsed = 0` (just after a find) the denominator collapses to `pool_share × window / 600 = expected_for_window` and the formula reads `count / expected` (matching the OCEAN panel's "12 (1.18× lucky)" annotation). As elapsed grows, denominator grows, luck decays continuously. On a find, count jumps +1 AND elapsed resets to 0 — both effects compound; visible step up. With no block in window, elapsed clamps to window itself and luck reads catastrophically unlucky but bounded.
+
+The unified formula is the canonical answer; chart and panel both use it (single source of truth in `services/pool-luck.ts`). It's computed daemon-side per tick into the persistent columns `pool_luck_24h` / `pool_luck_7d` (migration 0057), so the chart can plot `tick_metrics.pool_luck_*` directly without a client-side derivation.
+
+Caveat: in steady-state with average performance, `elapsed` averages to half the expected gap, so the line oscillates slightly under 1.0× rather than perfectly on it. Reaching exactly 1.0× requires a find at the moment count crosses expected_for_window. This is geometric, not a bug.
+
+### 7.12 Datum gateway-side reject counter (#91)
+
+The dashboard wants two reject series for the DATUM panel:
+
+- **Pool-rejected** — what Ocean told Braiins it rejected, surfaced via Braiins's `/spot/bid/delivery/{order_id}.shares_rejected_m × 1_000_000`. Always available when there's a primary owned bid.
+- **Datum gateway-rejected** — what Datum's *own* gateway rejected before forwarding to Ocean (e.g. it filtered stale work). This is the load-bearing signal for distinguishing "Datum saved us cost by filtering" (Datum > Braiins) vs "Ocean rejected work Datum thought was fine" (Braiins > Datum, the stale-work signature).
+
+The second is unobservable from a Braiins-only or Ocean-only view — only Datum's own counters know. DATUM Gateway has no documented stats API. The closest surface is `/umbrel-api` (port 7152 by default), the same endpoint the daemon already polls for `datum_hashrate_ph` and worker count, which returns a flat `items: { title, text, subtext }[]` list of UI tiles. Some DATUM builds expose a reject tile in this list; most builds in May 2026 do not.
+
+**Heuristic capture** (in `services/datum.ts`):
+
+```ts
+const item = payload.items?.find(
+  (i) => typeof i?.title === 'string' && /reject/i.test(i.title),
+);
+const n = item?.text ? Number.parseFloat(item.text) : null;
+return Number.isFinite(n) ? Math.round(n) : null;
+```
+
+Substring match on `title` catches `Rejected`, `Rejects`, `Rejected Shares`, `Reject Rate`, etc. without committing to a specific name DATUM may or may not adopt. Parses the leading numeric portion of `text`. Returns null when nothing matches — the common case as of May 2026.
+
+The poller also emits a one-shot log line per service instance (one per URL change, no per-poll spam):
+
+```
+[datum] /umbrel-api items observed: Hashrate | Connections | ...
+```
+
+That gives operator + agent the scoping data: next look at logs reveals exactly what tiles their DATUM build emits, and the regex can be tightened or widened accordingly.
+
+**Storage** — `tick_metrics.datum_rejected_shares_total INTEGER` (migration 0060), nullable. Cumulative count, daemon takes the most recent observation per tick. Per-tick deltas (forward only, skipping resets) drive the DATUM panel's `gateway rejects (1h)` row + the hashrate-chart `datum rejects` right-axis option. When DATUM doesn't expose the tile the column stays null on every tick and the dashboard surface silently no-ops; nothing breaks, the panel just shows acceptance % alone.
+
+**Future** — if DATUM upstream ships an explicit reject tile with a specific title, the heuristic catches it automatically. If they ship it with a non-`/reject/i` title (e.g. "bad shares", "drops"), the regex needs tightening; the per-instance log is the data path for that decision.
+
 ---
 
 ## Appendix A - Live API samples captured during this sprint
@@ -706,3 +781,4 @@ Sources that were blocked / gaps:
 | 1.2     | 2026-04-16 | Empirical gotcha: Ocean TIDES worker identity must be `<btc-address>.<label>`. A bare label (no period) runs hashrate but credits zero shares to any payout address. Validated in Config page + first-run CLI. |
 | 1.3     | 2026-04-16 | Empirical gotcha: Braiins orderbook `AskItem.hr_available_ph` is **aggregated capacity at that price level**, not unmatched supply. Existing matched orders at the same level still consume `hr_matched_ph` of it. A new bid can only claim `hr_available_ph − hr_matched_ph`. Observed live: four consecutive top-of-book ask levels each had `available == matched`, so apparent "cheapest available" was a wall of fully-booked supply. Depth-aware autopilot targeting now uses `unmatched = available − matched` (see `packages/daemon/src/controller/orderbook.ts`). |
 | 1.4     | 2026-04-26 | **Major** empirical finding documented in §1.8: the Braiins matching engine is **pay-your-bid, not CLOB** - bidders pay what they bid, never a uniform clearing price matched against the cheapest ask. Discovered after a multi-week refactor on the `dev` branch built around the wrong CLOB assumption; the v2 controller (issue #53) rebuilt around the empirical model. This had not been documented anywhere in Braiins' own materials and was load-bearing for every cost figure in §2 onward. |
+| 1.5     | 2026-05-06 | `/check-code`-driven catch-up sweep covering ~3 weeks of post-v1.4 work. §5.3 was wrong about Ocean having "no documented public API" — rewritten to describe Ocean's per-address JSON API at `api.ocean.xyz/v1/` (no auth) with the five endpoints `services/ocean.ts` actually uses (`statsnap`, `user_hashrate`, `pool_stat`, `blocks`, `pool_hashrate`). Added §5.5 explaining the OCEAN panel's `next payout` row semantics — particularly that `Next block` means the next **Ocean pool block** (since under TIDES Ocean only pays out via a coinbase output it controls), not the next Bitcoin block in general; this was a recurring operator-confusion source. Renumbered the BIP 110 detection subsection from a duplicate §5.4 to §5.6 (pre-existing numbering bug). Added §7.11 documenting the pool-luck formula (#92) — three-iteration evolution from count-based stair-steps to the unified `count_in_window / (pool_share × (window + elapsed) / 600)` shape that drives `tick_metrics.pool_luck_24h/7d` (migration 0057). Added §7.12 documenting the heuristic Datum-reject capture (#91, migration 0060) — `/reject/i` substring match against `/umbrel-api`'s `items[].title`, with the per-instance scoping log line that reveals what tiles a given DATUM build emits. Document acceptance-ratio alert recommendation in §7.5 was previously dropped per #90 review (operator cancelled the alert as a requirement). |

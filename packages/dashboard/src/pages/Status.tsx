@@ -2602,7 +2602,7 @@ function DatumPanel({
           {acceptancePct !== null && (
             <>
               <Tooltip
-                text={t`Share acceptance over the chart-range window (currently ${rangeLbl}): (shares accepted / shares submitted) × 100, capped at 100%. The seller's rig submits shares over stratum to YOUR Datum gateway, Datum responds accept/reject, and the result is what Braiins relays back as the counter - so this is a Datum-side number even though it's sourced via the Braiins API. Healthy baseline ≈ 99.95%; baseline ~0.05% rejection is normal. Sustained drops below ~99% point at Datum serving stale work, worker-identity misconfiguration, or pool difficulty too low - see docs/research.md §7.5. Cap at 100% absorbs Braiins's slight counter-sync jitter (the two cumulative counters land at slightly different times, which can read just over 100% on short windows; longer windows from the chart-range selector wash this out).`}
+                text={t`Share acceptance over the chart-range window (currently ${rangeLbl}): (shares accepted / shares submitted) × 100, capped at 100%. The seller's rig submits shares over stratum to YOUR Datum gateway, Datum responds accept/reject, and the result is what Braiins relays back as the counter - so this is a Datum-side number even though it's sourced via the Braiins API. Healthy baseline ≈ 99.95%; baseline ~0.05% rejection is normal. Sustained drops below ~99% point at Datum serving stale work, worker-identity misconfiguration, or pool difficulty too low. Cap at 100% absorbs Braiins's slight counter-sync jitter (the two cumulative counters land at slightly different times, which can read just over 100% on short windows; longer windows from the chart-range selector wash this out).`}
               >
                 <div className="text-slate-400 cursor-help">
                   <Trans>acceptance ({rangeLbl})</Trans>
@@ -2636,7 +2636,7 @@ function DatumPanel({
           {datumRejects !== null && (
             <>
               <Tooltip
-                text={t`Datum gateway-side rejects over the chart-range window (currently ${rangeLbl}): forward delta of the cumulative gateway reject counter, with bid resets / poll failures skipped. Compare with the next row - gateway > pool means Datum filtered work that never reached the pool (good); pool > gateway means the pool rejected work Datum thought was fine (stale-work signature, see research.md §4.5).`}
+                text={t`Datum gateway-side rejects over the chart-range window (currently ${rangeLbl}): forward delta of the cumulative gateway reject counter, with bid resets / poll failures skipped. Compare with the next row - gateway > pool means Datum filtered work that never reached the pool (good); pool > gateway means the pool rejected work Datum thought was fine (stale-work signature).`}
               >
                 <div className="text-slate-400 cursor-help">
                   <Trans>gateway rejects ({rangeLbl})</Trans>

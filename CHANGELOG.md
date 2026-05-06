@@ -2,6 +2,14 @@
 
 ## 2026-05-06
 
+### `[Docs]` `/check-code` sweep on research.md + drop research.md refs from user-facing tooltips
+
+Operator flagged that research.md was written at project inception (~3 weeks ago) and has accumulated drift; also flagged that an internal research doc shouldn't be referenced from dashboard tooltips. Two parts:
+
+1. **research.md catch-up sweep** (interview-driven, six findings): rewrote §5.3 — the original "no documented Ocean public API" claim is wrong, replaced with a positive description of the per-address JSON API at `api.ocean.xyz/v1/` (no auth) and the five endpoints `services/ocean.ts` actually uses. Added §5.5 documenting the OCEAN panel's `next payout` row semantics — particularly that `Next block` means the next *Ocean pool* block (TIDES coinbase mechanic), not the next Bitcoin block in general; recurring source of operator confusion. Renumbered the BIP 110 detection subsection from a duplicate §5.4 to §5.6 (pre-existing numbering bug). Added §7.11 on the gap-based pool-luck formula (#92, migration 0057) including the three-iteration evolution from count-based stair-steps to the unified formula. Added §7.12 on the heuristic Datum reject capture (#91, migration 0060). Document History gains a v1.5 row summarising the above.
+
+2. **Tooltip de-references**: dropped `see docs/research.md §7.5` from the OCEAN-panel `acceptance` tooltip and `see research.md §4.5` from the `gateway rejects (1h)` tooltip. Tooltips are user-facing surfaces; research.md is internal scaffolding and shouldn't be cited from the UI. en/nl/es catalogs updated for the two re-translated tooltips.
+
 ### `[Fix]` P&L Lifetime panel refreshes every 60s instead of every hour
 
 Operator caught the P&L Lifetime panel showing `unpaid earnings (Ocean) 37,482` even though Ocean had already credited a fresh ~38k-sat block ~15 minutes prior, and the OCEAN panel directly above it was showing the new total `75,719`. Cause: the `financeQuery` had `refetchInterval: 3_600_000` (1 hour) - the original reasoning was "money is slow-moving," but the unpaid-earnings number jumps the moment a new pool block lands, so 1h cadence could leave the panel ~55 minutes behind reality after a block. Dropped to 60s to match the rest of the dashboard polling. The panel's "refreshes in" countdown was anchored to the same 1h assumption; updated to 60s. Tooltip on the manual refresh button updated. /api/finance has no server-side cache, so 60s is fine on the daemon.
