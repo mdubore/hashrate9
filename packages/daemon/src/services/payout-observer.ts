@@ -56,6 +56,7 @@ export class PayoutObserver {
   private lastError: string | null = null;
   private running: Promise<void> | null = null;
   private timer: NodeJS.Timeout | null = null;
+  private rewardsTimer: NodeJS.Timeout | null = null;
 
   constructor(private readonly options: PayoutObserverOptions) {}
 
@@ -157,10 +158,19 @@ export class PayoutObserver {
    * Non-coinbase UTXOs at the payout address (e.g. the operator
    * received a regular payment, or self-consolidated) are skipped -
    * we only want to ring the cue for actual block finds.
+   *
+   * `detected_at` is set to the BLOCK TIME (when the payout actually
+   * landed on-chain), not when our scan happened to notice it. This
+   * matters when a daemon backfills reward_events on first run after
+   * weeks of empty state - using now() would stamp every historical
+   * payout as "today", and the chart's paid_total_sat series would
+   * show one cliff today instead of the actual payment timeline. The
+   * caller's `fallbackDetectedAt` is used only when the block-time
+   * lookup fails (RPC error, orphaned block, etc.).
    */
   private async recordNewRewardEvents(
     result: ScanTxoutSetResult,
-    detectedAt: number,
+    fallbackDetectedAt: number,
   ): Promise<void> {
     const db = this.options.db;
     if (!db) return;
@@ -177,6 +187,34 @@ export class PayoutObserver {
     const seen = new Set(existing.map((r) => `${r.txid}:${r.vout}`));
     const newOnes = coinbaseOuts.filter((u) => !seen.has(`${u.txid}:${u.vout}`));
     if (newOnes.length === 0) return;
+
+    // Look up actual block timestamps (in ms since epoch) for each
+    // unique block_height we're about to insert. Two batched RPC
+    // round-trips: getblockhash by height, then getblockheader by
+    // hash. Failure is non-fatal - rows with no mapping fall back to
+    // fallbackDetectedAt.
+    const uniqueHeights = [...new Set(newOnes.map((u) => u.height))];
+    const heightToTimeMs = new Map<number, number>();
+    try {
+      const hashes = await this.options.client.batch<string>(
+        uniqueHeights.map((h) => ({ method: 'getblockhash', params: [h] })),
+      );
+      const headers = await this.options.client.batch<{ time: number }>(
+        hashes.map((h) => ({ method: 'getblockheader', params: [h, true] })),
+      );
+      for (let i = 0; i < uniqueHeights.length; i++) {
+        const h = uniqueHeights[i];
+        const t = headers[i]?.time;
+        if (h !== undefined && typeof t === 'number') {
+          heightToTimeMs.set(h, t * 1000);
+        }
+      }
+    } catch (err) {
+      this.options.log?.(
+        `[payout] block-time lookup failed; reward_events will fall back to now() for detected_at: ${(err as Error).message}`,
+      );
+    }
+
     await db
       .insertInto('reward_events')
       .values(
@@ -186,7 +224,7 @@ export class PayoutObserver {
           block_height: u.height,
           confirmations: Math.max(0, result.height - u.height + 1),
           value_sat: Math.round(u.amount * SAT_PER_BTC),
-          detected_at: detectedAt,
+          detected_at: heightToTimeMs.get(u.height) ?? fallbackDetectedAt,
         })),
       )
       .execute();
@@ -202,11 +240,52 @@ export class PayoutObserver {
     const interval = this.options.scanIntervalMs ?? defaultInterval;
     setTimeout(() => void this.scanOnce(), 5_000);
     this.timer = setInterval(() => void this.scanOnce(), interval);
+
+    // When electrs is the primary balance source, the snapshot path
+    // never touches reward_events - electrs's listunspent doesn't
+    // expose a coinbase flag, so we can't tell which UTXOs are pool
+    // payouts vs unrelated receipts. The fast-path electrs scan
+    // keeps the panel snappy; this side-channel hourly bitcoind
+    // scantxoutset writes the per-row reward_events ledger that
+    // powers the chart's paid_total_sat series. Without it, electrs
+    // setups had a flat-zero "paid earnings (lifetime)" line on the
+    // Price chart even with real payouts visible in P&L (incident
+    // 2026-05-08).
+    if (useElectrs && this.options.db) {
+      setTimeout(() => void this.scanRewardsViaBitcoind(), 30_000);
+      this.rewardsTimer = setInterval(
+        () => void this.scanRewardsViaBitcoind(),
+        BITCOIND_INTERVAL_MS,
+      );
+    }
   }
 
   stop(): void {
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
+    if (this.rewardsTimer) clearInterval(this.rewardsTimer);
+    this.rewardsTimer = null;
+  }
+
+  /**
+   * Bitcoind-only side scan that ONLY refreshes reward_events. Used
+   * when electrs is the primary balance source - electrs's
+   * listunspent doesn't expose `coinbase`, so we still need bitcoind
+   * to identify which UTXOs are pool payouts vs unrelated receipts
+   * for the per-row reward_events ledger.
+   */
+  private async scanRewardsViaBitcoind(): Promise<void> {
+    const address = this.options.getAddress();
+    const now = this.options.now ?? Date.now;
+    try {
+      const descriptor = `addr(${address})`;
+      const result: ScanTxoutSetResult = await this.options.client.scanTxoutSet([descriptor]);
+      await this.recordNewRewardEvents(result, now());
+    } catch (err) {
+      this.options.log?.(
+        `[payout] rewards-only bitcoind scan failed: ${(err as Error).message}`,
+      );
+    }
   }
 
   getLastSnapshot(): PayoutSnapshot | null {

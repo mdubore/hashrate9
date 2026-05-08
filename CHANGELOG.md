@@ -2,6 +2,15 @@
 
 ## 2026-05-08
 
+### `[Fix]` Electrs payout-observer now writes reward_events (chart's lifetime-earnings line)
+
+Operators on `payout_source = 'electrs'` had a flat-zero "paid earnings (lifetime)" line on the Price chart even with real on-chain payouts visible in the P&L panel. Two bugs in one:
+
+1. The electrs scan path updates the balance snapshot but never inserted into `reward_events` - electrs's `listunspent` doesn't expose a `coinbase` flag, so the original code only wrote the per-row reward_events ledger via the bitcoind path. Setups with electrs as primary just skipped that step. Added a parallel hourly bitcoind `scantxoutset` side-scan when electrs is the primary source - the snapshot stays fast on electrs, but reward_events bookkeeping happens once per hour via bitcoind.
+2. Even when reward_events did get written, `detected_at` was stamped as `Date.now()` regardless of when the block actually landed. So a daemon that ran for weeks without writing reward_events and then started recording them all at once would show one cliff at "today" instead of the actual payment timeline. Now we batch-fetch each unique block's `time` via `getblockhash` + `getblockheader` and use that as `detected_at`. Fallback to `Date.now()` only when the RPC lookup fails.
+
+Once `reward_events` is populated, `runPoolLuckRecompute` (idempotent, runs on every boot) backfills `tick_metrics.paid_total_sat` across the full history - so the chart's lifetime-earnings line shows the correct timeline retroactively without any manual intervention.
+
 ### `[Fix]` Telegram inline buttons (Mark as seen / Snooze 2h) actually render now (#109)
 
 The dynamic-sink wrapper in main.ts was dropping the `opts` argument when forwarding `send` to the freshly-built `TelegramSink`, so `alert_id` and `action_buttons` never reached the outbound payload. Telegram received `reply_markup: undefined` on every alert and rendered messages without buttons - which is why the operator never saw the Mark-as-seen / Snooze 2h affordance #109 was supposed to ship. Forwarding the opts through fixes it; new firings will now carry the inline keyboard, and tapping a button routes through the existing TelegramReceiver getUpdates loop to ack/snooze the row in the alerts table.
