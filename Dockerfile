@@ -98,6 +98,16 @@ WORKDIR /app
 COPY --from=builder /app/node_modules /app/node_modules
 COPY --from=builder /app/packages /app/packages
 COPY --from=builder /app/package.json /app/pnpm-workspace.yaml ./
+# /api/build reads BUILD_NUMBER off disk to report the running
+# build. Without this copy, the endpoint returned `build: 0`
+# inside the container, the dashboard's `daemon > dashboard`
+# banner check could never trigger, and the "new version
+# available" prompt never appeared on Docker / Umbrel installs
+# (operator caught it after v1.5.1 -> v1.5.2 on Umbrel went
+# unnoticed). The umbrel-app.yml manifest is excluded from the
+# build context via .dockerignore on purpose; `version` instead
+# comes from the APP_VERSION env var the publish workflow sets.
+COPY --from=builder /app/BUILD_NUMBER ./
 
 # Persistent state directory. Operators should mount a volume here
 # (Umbrel/Start9 do this declaratively in their app manifests; for

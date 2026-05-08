@@ -2,6 +2,12 @@
 
 ## 2026-05-08
 
+### `[Release]` v1.5.3
+
+Hot-fix on top of v1.5.2 for the "new version available" banner.
+
+- Dashboard banner now actually fires on Docker / Umbrel installs. The `/api/build` endpoint reads `BUILD_NUMBER` off disk to report the running build, but the runtime stage of the Dockerfile wasn't copying that file out of the builder - `/api/build` therefore returned `build: 0` inside the container, the banner's `daemon > dashboard` comparison could never trigger, and the prompt never appeared on Umbrel. Pre-existing bug since #103; only surfaced today because the v1.5.1 → v1.5.2 update silently failed to nudge anyone on Umbrel. Two-line Dockerfile fix - copy `BUILD_NUMBER` and `rdouma-hashrate-autopilot/umbrel-app.yml` (read by the same endpoint as a fallback for the `version` field) into the runtime image. After v1.5.3 lands, future releases will surface the banner within ~60 s of the container restart.
+
 ### `[Release]` v1.5.2
 
 Hot-fix on top of v1.5.1 for the Umbrel hot-path.

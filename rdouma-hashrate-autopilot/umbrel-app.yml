@@ -7,7 +7,7 @@ manifestVersion: 1
 id: rdouma-hashrate-autopilot
 category: bitcoin
 name: Hashrate Autopilot
-version: "1.5.2"
+version: "1.5.3"
 tagline: Autopilot for renting hashrate to a non-custodial pool
 icon: https://raw.githubusercontent.com/rdouma/hashrate-autopilot/main/assets/icon-512.png
 description: >-
@@ -75,6 +75,13 @@ defaultPassword: ""
 submitter: Remco Douma
 submission: https://github.com/rdouma/hashrate-autopilot
 releaseNotes: |
+  v1.5.3 - "new version available" banner fix.
+
+  FIX
+  - Dashboard's "new version available, click to refresh" banner now actually fires on Docker / Umbrel installs. The /api/build endpoint reads BUILD_NUMBER off disk to report the running build, but the runtime image stage wasn't copying that file out of the builder - so /api/build returned `build: 0` inside the container, the banner's `daemon > dashboard` check could never be true, and the prompt never appeared. Pre-existing bug since #103; surfaced now because the v1.5.1 -> v1.5.2 update silently failed to nudge anyone on Umbrel. After this update lands, future releases will surface a banner the moment the daemon comes back up at the new version.
+
+  Restart Umbrel app or scripts/deploy.sh after upgrade.
+
   v1.5.2 - hot-fix on top of v1.5.1.
 
   FIX
