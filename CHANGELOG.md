@@ -2,6 +2,34 @@
 
 ## 2026-05-08
 
+### `[Release]` v1.5.1
+
+Polish + bug-fix release on top of v1.5.0. Two weeks of operator-driven dashboard work, plus a couple of incident-driven fixes.
+
+NEW
+- Telegram instance-label prefix - run multiple daemons against the same bot/chat and tell them apart at a glance.
+- Inline buttons on every Telegram firing now actually render (regression from 1.5.0): tap **Mark as seen** or **Snooze 2h** on your phone, the row updates server-side via the bot's `getUpdates` long-poll.
+- Stale-URL banner on Status + Config: warn when an active bid is bound to a now-stale destination URL after a Pool URL change, with a confirm-then-cancel flow that triggers a fresh bid via the next decision tick (#113).
+- DDNS: DuckDNS + generic dyndns2 providers alongside No-IP. DDNS now ticks immediately on any config save (was 5-min lag) and on any detected ISP IP rotation.
+- Price chart: clickable event dots with rich tooltips on paid earnings (per on-chain payout), unpaid earnings (per Ocean pool block), and pool blocks - all deep-linking to the configured block explorer.
+- Hashrate chart: difficulty retarget markers when right-axis = network difficulty (date, new value, % change).
+- Alerts page: "mark all as seen (N)" bulk button + sticky "unacknowledged only" filter.
+- Block explorer: separate transaction URL template (auto-derived from the existing block template via known-preset matching, so existing operators upgrade without re-configuring).
+- Bundled "Ocean mining found a block" voice clip alongside the existing four block-found cues.
+
+FIXES
+- Lifetime-earnings phantom upward spike at payout-transition buckets: the chart now uses end-of-bucket semantics for both `paid_total_sat` and `ocean_unpaid_sat`, so the sum is stable across the moment the payout lands.
+- Electrs payout-observer now writes `reward_events`: paid-earnings line on the chart was flat-zero on electrs setups because the observer's coinbase filter rejected everything; replaced with an hourly bitcoind side-scan + `INSERT ... ON CONFLICT DO NOTHING`. Backfills retroactively on first run after upgrade.
+- On-chain payout dot deep-links to the transaction (was rendering the `{hash}` placeholder literally).
+- Network difficulty removed from the Price chart's right-axis dropdown (was duplicated on both charts).
+- Various i18n + UI polish: locale leak on dates, DDNS "20582d ago" age bug, Config search width clipping tab labels, Alerts page severity-column noise.
+
+INFRA
+- Migrations 0070 (telegram_instance_label), 0071 (block_explorer_tx_url_template), 0072 (UNIQUE on `reward_events(txid, vout)`).
+- Bucketed `ocean_unpaid_sat` subquery is now sargable on `idx_tick_metrics_tick_at` - orders of magnitude cheaper on 1y / 1m chart loads.
+
+Restart Umbrel app or `scripts/deploy.sh` after upgrade.
+
 ### `[Fix]` Charts: blank dashboard caused by hook-order violation in build 286
 
 Operator pulled build 286 and got a fully-black dashboard with three React error #310s in the console ("Rendered more hooks than during the previous render"). The new `useMemo` hooks I added in the perf-review commit (`visibleRewardMarkers`, `visiblePoolBlockMarkers`, `visibleRetargetMarkers`) were placed AFTER the `if (!chartData) return …` early return — so on the first render with no data the hooks didn't run, and on the second render with data they did, breaking React's hook-order invariant. Moved all three above the early return; each callback now handles `chartData === null` internally and returns the empty array.

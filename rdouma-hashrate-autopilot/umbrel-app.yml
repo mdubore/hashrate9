@@ -7,7 +7,7 @@ manifestVersion: 1
 id: rdouma-hashrate-autopilot
 category: bitcoin
 name: Hashrate Autopilot
-version: "1.5.0"
+version: "1.5.1"
 tagline: Autopilot for renting hashrate to a non-custodial pool
 icon: https://raw.githubusercontent.com/rdouma/hashrate-autopilot/main/assets/icon-512.png
 description: >-
@@ -75,23 +75,24 @@ defaultPassword: ""
 submitter: Remco Douma
 submission: https://github.com/rdouma/hashrate-autopilot
 releaseNotes: |
-  v1.5.0 - feature release.
+  v1.5.1 - polish + bug-fix release.
 
   NEW
-  - Pool-luck plot on the Hashrate chart with a Poisson-derived "expected" multiplier in the OCEAN panel; tooltip explains the math against Ocean's live network-hashrate share.
-  - Crown markers on the chart for blocks signalling BIP 110 (Reduced Data soft fork). Detection via your bitcoind / Electrs node when configured.
-  - BIP 110 scan card on the Status page - scan the last N blocks and see who's signalling.
-  - Unit toggles in the header: hashrate in TH / PH / EH, and prices in sat / BTC / USD. Persists per browser.
-  - Audible block-found cue when Ocean credits your address with a new pool block. Four bundled sounds plus custom MP3 / OGG / WAV / WebM upload.
-  - Per-chart right-axis dropdown - plot pool luck, BTC/USD, network difficulty, Ocean unpaid balance, etc. against the chart's primary series.
-  - Auto-save on the Config page; no more Save button.
-  - Storage-estimate hints in Log Retention so you can see how big the database will grow before you commit.
+  - Telegram instance-label prefix: run multiple daemons against the same bot/chat and tell them apart at a glance.
+  - Inline Mark-as-seen / Snooze 2h buttons in Telegram messages now actually render (regression from 1.5.0). Tap on your phone, the row updates server-side via the bot's getUpdates long-poll.
+  - Stale-URL banner on Status and Config: warn when an active bid is bound to a now-stale destination URL after a Pool URL change, with a confirm-then-cancel flow that triggers a fresh bid on the next decision tick.
+  - DDNS now supports DuckDNS and generic dyndns2 alongside No-IP. Ticks immediately on any DDNS-relevant config save (was up to 5-min lag) and on any detected ISP IP rotation.
+  - Price chart: clickable event dots with rich tooltips on paid earnings (per on-chain payout), unpaid earnings (per Ocean pool block), and pool blocks. All deep-link to your configured block explorer.
+  - Hashrate chart: difficulty retarget markers when right-axis = network difficulty.
+  - Alerts page: "mark all as seen (N)" bulk button + sticky "unacknowledged only" filter.
+  - Block explorer: separate transaction URL template auto-derived from your existing block template (mempool/blockstream/blockchair/btcscan/btc.com presets). Self-hosted explorers can override either independently.
+  - Bundled "Ocean mining found a block" voice clip alongside the existing block-found cues.
 
   FIXES
-  - UPTIME stat now reads correctly at low target hashrates.
-  - BTC/USD price stays current even when the dashboard tab is closed (daemon now keeps the oracle warm).
-  - Tab refocus refreshes data instantly instead of waiting out the polling cycle.
-  - P&L Lifetime panel updates within 60s of a new block, not the next hour.
-  - Pool-luck math fixed (denominator window now matches numerator); panel and chart now agree at every find.
+  - Lifetime-earnings phantom upward spike at payout-transition buckets: chart now uses end-of-bucket semantics for both paid and unpaid totals, so the sum is stable across the moment the payout lands.
+  - Electrs payout-observer now writes the reward_events ledger: paid-earnings line on the chart was flat-zero on electrs setups. Backfills retroactively on first run after upgrade.
+  - On-chain payout dot now deep-links to the transaction (was rendering the {hash} placeholder literally).
+  - Network difficulty removed from the Price chart's right-axis dropdown (was duplicated on both charts).
+  - Various i18n + UI polish: locale leak on dates, DDNS "20582d ago" age bug, Config search width clipping tab labels.
 
   Restart Umbrel app or scripts/deploy.sh after upgrade.

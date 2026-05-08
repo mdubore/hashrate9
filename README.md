@@ -179,29 +179,78 @@ Full design: [`docs/spec.md`](docs/spec.md) · [`docs/architecture.md`](docs/arc
 - **Operator overrides** - pause/resume, switch between dry-run and live, or trigger an immediate decision tick
   from the dashboard.
 
+## Alerts
+
+Every notification the daemon records - sent, failed, muted, snoozed, given-up - lands in an append-only
+audit trail at `/alerts`.
+
+![Alerts page - audit trail of every notification](docs/images/alerts.jpg)
+
+Filter to unacknowledged only (sticky across reloads), mark them all as seen with a single button, or
+snooze individual rows for 30 min / 2 h / 24 h. LOUD and WARN firings carry inline **Mark as seen** and
+**Snooze 2h** buttons in the Telegram message itself - tapping a button on your phone routes back through
+the bot's `getUpdates` long-poll and updates the row server-side, so the dashboard badge clears even
+without opening the page. INFO recoveries (`✓ Hashrate back at or above floor`, `✓ Zero hashrate`) post
+to the same chat for context but don't carry buttons - there's nothing to dismiss on a "system is healthy
+now" message. The badge on the nav tab counts only unacknowledged firings; recoveries don't bump it.
+
+Telegram setup is a 60-second walkthrough at [`docs/setup-telegram.md`](docs/setup-telegram.md): chat to
+@BotFather, paste the token, paste your numeric chat id from @userinfobot, click Test connection. If you
+run more than one daemon against the same bot/chat, set an **Instance label** under Config →
+Notifications and every message gets prefixed with `[<label>] ` so you can tell them apart at a glance.
+
 ## Configuration
 
 Everything that influences the controller - hashrate targets, price ceilings, cheap-mode thresholds, per-bid
-budget, boot mode, payout-source backend, retention windows, the optional Datum and Ocean endpoints - is
+budget, boot mode, payout-source backend, retention windows, the optional Datum / Ocean / DDNS endpoints - is
 live-editable from the Config page. Values are validated against the same Zod schema the daemon uses at startup,
 and the page **auto-saves** every change as you make it (a small status indicator confirms the write); the next
 tick picks the new value up. No Save button, no daemon restart needed for any value on this page. A revert link
 appears when the last change can still be rolled back to the previous value.
 
-![Configuration page - all tunables in one place](docs/images/config.jpg)
+The page is split across four tabs, each grouping fields by intent.
 
-Sections map directly to the spec: **Hashrate targets** (target, floor, cheap-mode scale-up target +
-threshold + sustained-window minutes), **Pool destination** (pool URL, worker identity, Datum stats API
-URL), **Pricing** (the fillable-tracking `overpay_sat_per_eh_day` cushion plus the two safety ceilings
+### Strategy
+
+![Config → Strategy tab](docs/images/config-strategy.jpg)
+
+**Hashrate targets** (target, floor, cheap-mode scale-up target + threshold + sustained-window minutes),
+**Pricing** (the fillable-tracking `overpay_sat_per_eh_day` cushion plus the two safety ceilings
 `max_bid_sat_per_eh_day` and `max_overpay_vs_hashprice_sat_per_eh_day`), **Budget** (per-bid `amount_sat`;
 set to 0 to use the full available wallet balance on each `CREATE_BID`, clamped to Braiins' 1 BTC per-bid
-cap), **Daemon startup** (boot
-mode - always dry-run / resume last / always live), **Block explorer** (template used by the block-marker cubes
-and the Ocean panel's last-pool-block link), **On-chain payouts** (payout address + Electrs-or-bitcoind
-backend), **Profit & Loss** spend scope, **BTC price oracle** (feeds the sat↔USD toggle), **Chart
-smoothing** (rolling-mean window per-source on the hashrate chart plus the price-chart `our bid` /
-`effective` smoothing; also the toggle that enables the effective-rate line itself), and **Log retention**
-for the append-only `tick_metrics` and `decisions` tables.
+cap), and **Daemon startup** (boot mode - always dry-run / resume last / always live).
+
+### Pool & Payout
+
+![Config → Pool & Payout tab](docs/images/config-pool-and-payout.jpg)
+
+**Pool destination** (pool URL, BTC payout address, worker identity auto-derived from the address, Datum
+stats API URL), **Dynamic DNS** (No-IP / DuckDNS / generic dyndns2 - daemon-managed alternative to your
+router's DDNS client; pushes the current public IP every 5 min and immediately on any config save),
+**On-chain payouts** (payout-source backend: bitcoind RPC or Electrs), **Profit & Loss** spend scope
+(autopilot-tagged bids only vs the whole Braiins account), and **BTC price oracle** (feeds the sat ↔ USD
+header toggle; CoinGecko / Coinbase / Bitstamp / Kraken).
+
+### Notifications
+
+![Config → Notifications tab](docs/images/config-notifications.jpg)
+
+**Telegram notifications** (bot token, chat id, optional instance label, retry interval, per-event-class
+mute toggles - nine event types each individually opt-out-able) and **Block-found audible cue** (off by
+default; pick from five bundled cues - cartoon cowbell, glass drop, two metallic clanks, an "Ocean mining
+found a block" voice clip - or upload your own MP3 / OGG / WAV / WebM up to 200 KB).
+
+### Display & Logging
+
+![Config → Display & Logging tab](docs/images/config-display-and-logging.jpg)
+
+**Display** (number and date format - sticky per browser, independent of the UI language), **Block
+explorer** (separate URL templates for blocks and transactions; preset buttons for mempool.space /
+blockstream.info / blockchair / btcscan / btc.com set both at once, custom self-hosted explorers can fill
+in either independently), **Chart smoothing** (rolling-mean window per-source on the hashrate chart plus
+the price-chart `our bid` / `effective` smoothing), and **Log retention** for the append-only
+`tick_metrics` and `decisions` tables (with a live storage-estimate hint so you can see how big the DB
+will grow before you commit).
 
 For appliance / Docker setups every configurable field is also overridable via `BHA_*` environment
 variables - priority is `env > db > defaults`, read once at boot and re-validated through the same
