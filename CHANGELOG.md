@@ -2,6 +2,15 @@
 
 ## 2026-05-08
 
+### `[UI]` Config polish pass
+
+Three operator-flagged tweaks:
+
+- **DDNS layout**: Hostname row gets its Test connection button inline-right (mirroring the Bitcoin Core RPC URL layout); Username + Credential render side-by-side below in a 2-column grid. DuckDNS variant (no username) gets Credential spanning both columns to keep the row balanced.
+- **Display section consolidated**: the standalone DISPLAY card above the tab bar moved into the Display & Logging tab. Tabs are now self-contained.
+- **Section title clarification**: the Notifications card on the Notifications tab is now titled "Telegram notifications" so it doesn't read ambiguously alongside the Block-found notification card and is clearly an external push, not in-app.
+- **Date-locale leak fixed**: setting the number/date *format* preference to nl-NL no longer flips chart x-axis day abbreviations and runway/next-payout month names to Dutch when the UI language is English. Date and time formatting now follows the UI language (`useDateTimeLocale()`); the format-preference dropdown still controls separators and number layout. EN/NL/ES translations refreshed.
+
 ### `[Feature]` DDNS: DuckDNS provider + Test connection button (#111 follow-up)
 
 DuckDNS now joins No-IP as a DDNS provider option. DuckDNS's free tier has no expiration / no monthly nag, making it the default-recommended option for new setups. Single field for the token (no username, since DuckDNS just uses an account-bound bearer token). Same dashboard card, just a different option in the Provider dropdown. Also adds a yellow **Test connection** button under the credential field that pushes a real update with the current form values (without saving) and surfaces the provider's response. Lets the operator validate credentials end-to-end before committing.

@@ -10,6 +10,7 @@ import {
   UnauthorizedError,
   type AppConfig,
   type DatumTestResponse,
+  type DdnsTestResponse,
   type PoolUrlTestResponse,
   type StorageEstimateBucket,
   type StorageEstimateResponse,
@@ -593,8 +594,6 @@ export function Config() {
         </div>
       )}
 
-      <DisplaySettingsSection />
-
       <ConfigTabsAndContent
         sections={sections}
         draft={draft}
@@ -856,7 +855,15 @@ function ConfigTabsAndContent({
       </div>
 
       {/* Active tab body. */}
-      <div className="space-y-4">{body}</div>
+      <div className="space-y-4">
+        {/* Display & Logging tab leads with the format picker - same
+            "how does this render in my browser" concern as the other
+            sections in this tab. Used to render above the tabs as a
+            standalone card; consolidated here so the tab is self-
+            contained. */}
+        {activeTab === 'display' && <DisplaySettingsSection />}
+        {body}
+      </div>
     </div>
   );
 }
@@ -1491,7 +1498,7 @@ function NotificationsSection({
     <section className="bg-slate-900 border border-slate-800 rounded-lg p-4">
       <header className="mb-3">
         <h3 className="text-sm uppercase tracking-wider text-amber-400">
-          <Trans>Notifications</Trans>
+          <Trans>Telegram notifications</Trans>
         </h3>
         <p className="text-xs text-slate-500 mt-1">
           <Trans>
@@ -2628,10 +2635,27 @@ function FieldWithTestButton({
  * #112: DDNS Test connection - hits the configured provider's update
  * endpoint with the values currently in the form and surfaces the
  * provider's response (`good <ip>` / `nochg <ip>` / `badauth` / etc).
- * Same UX as the other yellow Test buttons.
+ * Inlined into the Hostname row (next to the input, same pattern as
+ * Bitcoin Core RPC URL + Test).
  */
-function DdnsTestRow({ draft }: { draft: AppConfig }) {
-  const test = useMutation({
+/**
+ * Hostname (with inline Test connection) + Username + Credential
+ * fields, laid out the same way as BitcoindRpcFields:
+ *   - Hostname row spans both columns; Test button sits inline-right
+ *     of the input. Result message renders below the row.
+ *   - Username + Credential side-by-side in a 2-col grid.
+ *
+ * DuckDNS variant: no Username field, so Credential spans both
+ * columns to keep the layout balanced.
+ */
+function DdnsCredentialFields({
+  draft,
+  onChange,
+}: {
+  draft: AppConfig;
+  onChange: <K extends keyof AppConfig>(k: K, v: AppConfig[K]) => void;
+}) {
+  const test = useMutation<DdnsTestResponse, Error, void>({
     mutationFn: () =>
       api.ddnsTest({
         provider: draft.ddns_provider,
@@ -2646,40 +2670,93 @@ function DdnsTestRow({ draft }: { draft: AppConfig }) {
     draft.ddns_credential.trim() !== '' &&
     // DuckDNS uses a token only - no username field. No-IP needs both.
     (draft.ddns_provider === 'duckdns' || draft.ddns_username.trim() !== '');
+  const hasUsernameField = draft.ddns_provider === 'noip';
   return (
-    <div>
-      <button
-        type="button"
-        onClick={() => test.mutate()}
-        disabled={!ready || test.isPending}
-        className="px-3 py-1.5 text-sm rounded bg-amber-400 text-slate-900 font-medium hover:bg-amber-300 disabled:opacity-50"
-      >
-        {test.isPending ? <Trans>Testing…</Trans> : <Trans>Test connection</Trans>}
-      </button>
-      <span className="block text-xs text-slate-500 mt-1">
-        <Trans>
-          Pushes a real update with the values currently in the form (without saving them
-          first). `nochg` and `good` are both success - they just mean "DDNS already had
-          this IP" vs "DDNS just updated".
-        </Trans>
-      </span>
-      {(test.data || test.isError) && (
-        <div className="mt-2 text-xs font-mono break-words">
-          {test.data && test.data.ok && (
-            <span className="text-emerald-300">
-              <Trans>
-                OK · {test.data.status} {test.data.ip ?? ''}
-              </Trans>
-            </span>
-          )}
-          {test.data && !test.data.ok && (
-            <span className="text-red-400">{test.data.error}</span>
-          )}
-          {test.isError && (
-            <span className="text-red-400">{(test.error as Error).message}</span>
-          )}
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+      <label className="block sm:col-span-2">
+        <span className="block text-sm text-slate-300 mb-1">
+          <Trans>Hostname</Trans>
+        </span>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={draft.ddns_hostname}
+            onChange={(e) => onChange('ddns_hostname', e.target.value as never)}
+            placeholder="alkimia.zapto.org"
+            autoComplete="off"
+            className="flex-1 bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm font-mono"
+          />
+          <button
+            type="button"
+            onClick={() => test.mutate()}
+            disabled={!ready || test.isPending}
+            className="px-3 py-1.5 text-sm rounded bg-amber-400 text-slate-900 font-medium hover:bg-amber-300 disabled:opacity-50 whitespace-nowrap"
+          >
+            {test.isPending ? <Trans>Testing…</Trans> : <Trans>Test connection</Trans>}
+          </button>
         </div>
+        <span className="block text-xs text-slate-500 mt-1">
+          <Trans>
+            The hostname being maintained. For No-IP DDNS Key groups (the modern auth flow
+            that doesn't expose your account password), use the special hostname
+            all.ddnskey.com - that updates every hostname assigned to the DDNS Key's
+            group in one call. Test connection pushes a real update with the values
+            currently in the form (without saving). `nochg` and `good` are both success.
+          </Trans>
+        </span>
+        {test.data && test.data.ok && (
+          <div className="mt-2 text-xs text-emerald-300 font-mono">
+            <Trans>
+              OK · {test.data.status} {test.data.ip ?? ''}
+            </Trans>
+          </div>
+        )}
+        {test.data && !test.data.ok && (
+          <div className="mt-2 text-xs text-red-400 font-mono break-words">
+            {test.data.error}
+          </div>
+        )}
+        {test.isError && (
+          <div className="mt-2 text-xs text-red-400 font-mono break-words">
+            {(test.error as Error).message}
+          </div>
+        )}
+      </label>
+      {hasUsernameField && (
+        <label className="block">
+          <span className="block text-sm text-slate-300 mb-1">
+            <Trans>Username (DDNS Key user)</Trans>
+          </span>
+          <input
+            type="text"
+            value={draft.ddns_username}
+            onChange={(e) => onChange('ddns_username', e.target.value as never)}
+            autoComplete="off"
+            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm font-mono"
+          />
+          <span className="block text-xs text-slate-500 mt-1">
+            <Trans>Per-hostname DDNS Key user, not your account login.</Trans>
+          </span>
+        </label>
       )}
+      <label className={hasUsernameField ? 'block' : 'block sm:col-span-2'}>
+        <span className="block text-sm text-slate-300 mb-1">
+          <Trans>Credential (DDNS Key password / token)</Trans>
+        </span>
+        <input
+          type="password"
+          value={draft.ddns_credential}
+          onChange={(e) => onChange('ddns_credential', e.target.value as never)}
+          autoComplete="off"
+          className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm font-mono"
+        />
+        <span className="block text-xs text-slate-500 mt-1">
+          <Trans>
+            Stored in the daemon's SQLite config. Use a per-hostname DDNS Key, not your
+            main account password.
+          </Trans>
+        </span>
+      </label>
     </div>
   );
 }
@@ -2804,65 +2881,7 @@ function DdnsSection({
 
         {enabled && (
           <>
-            <label className="block">
-              <span className="block text-sm text-slate-300 mb-1">
-                <Trans>Hostname</Trans>
-              </span>
-              <input
-                type="text"
-                value={draft.ddns_hostname}
-                onChange={(e) => onChange('ddns_hostname', e.target.value as never)}
-                placeholder="alkimia.zapto.org"
-                autoComplete="off"
-                className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm font-mono"
-              />
-              <span className="block text-xs text-slate-500 mt-1">
-                <Trans>
-                  The hostname being maintained. For No-IP DDNS Key groups (the modern
-                  auth flow that doesn't expose your account password), use the special
-                  hostname all.ddnskey.com - that updates every hostname assigned to the
-                  DDNS Key's group in one call.
-                </Trans>
-              </span>
-            </label>
-
-            {draft.ddns_provider === 'noip' && (
-              <label className="block">
-                <span className="block text-sm text-slate-300 mb-1">
-                  <Trans>Username (DDNS Key user)</Trans>
-                </span>
-                <input
-                  type="text"
-                  value={draft.ddns_username}
-                  onChange={(e) => onChange('ddns_username', e.target.value as never)}
-                  autoComplete="off"
-                  className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm font-mono"
-                />
-              </label>
-            )}
-
-            <label className="block">
-              <span className="block text-sm text-slate-300 mb-1">
-                <Trans>Credential (DDNS Key password / token)</Trans>
-              </span>
-              <input
-                type="password"
-                value={draft.ddns_credential}
-                onChange={(e) => onChange('ddns_credential', e.target.value as never)}
-                autoComplete="off"
-                className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm font-mono"
-              />
-              <span className="block text-xs text-slate-500 mt-1">
-                <Trans>
-                  Stored in the daemon's SQLite config. Use a per-hostname DDNS Key, not
-                  your main account password.
-                </Trans>
-              </span>
-            </label>
-
-            {/* #112: Test connection button. Same yellow styling and unsaved-form-validation
-                semantics as the Telegram / bitcoind / electrs test buttons. */}
-            <DdnsTestRow draft={draft} />
+            <DdnsCredentialFields draft={draft} onChange={onChange} />
 
             {/* Last-push status. */}
             <div className="bg-slate-800/40 border border-slate-800 rounded p-3 text-xs space-y-1 font-mono">

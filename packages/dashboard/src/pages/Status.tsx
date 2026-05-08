@@ -48,7 +48,7 @@ import { applyExplorerTemplate } from '../lib/blockExplorer';
 import { useDenomination } from '../lib/denomination';
 import { copyToClipboard } from '../lib/clipboard';
 import { actionModeLabel, bidStatusClass, bidStatusLabel } from '../lib/labels';
-import { useLocale } from '../lib/locale';
+import { useDateTimeLocale, useLocale } from '../lib/locale';
 import { localizedRangeLabel } from '../lib/range-label';
 
 const RUN_MODES = ['DRY_RUN', 'LIVE', 'PAUSED'] as const;
@@ -1610,6 +1610,10 @@ function BraiinsBalances({
   const nowMs = Date.now();
   const { i18n } = useLingui();
   void i18n;
+  // #X: dates render in the UI language, not the operator's number-
+  // format preference. Picking nl-NL for "1.234,56" should not flip
+  // month abbreviations to Dutch when the UI is in English.
+  const dateLocale = useDateTimeLocale();
   if (balances.length === 0) {
     return <div className="text-slate-500 text-sm">{'\u2014'}</div>;
   }
@@ -1623,7 +1627,7 @@ function BraiinsBalances({
         const runwayText = (() => {
           if (runwayDays === null) return '\u2014';
           const exhaustAt = new Date(nowMs + runwayDays * 86_400_000);
-          const dateLabel = exhaustAt.toLocaleDateString(locale, {
+          const dateLabel = exhaustAt.toLocaleDateString(dateLocale, {
             month: 'short',
             day: 'numeric',
           });
@@ -1672,6 +1676,7 @@ function renderPoolBlocksRow(
 
 function OceanPanel() {
   const { intlLocale } = useLocale();
+  const dateTimeLocale = useDateTimeLocale();
   const denomination = useDenomination();
   const { i18n } = useLingui();
   void i18n;
@@ -1771,7 +1776,7 @@ function OceanPanel() {
           {o.user.time_to_payout_text && (
             <Row
               k={t`next payout`}
-              v={formatNextPayout(o.user.time_to_payout_text, intlLocale)}
+              v={formatNextPayout(o.user.time_to_payout_text, dateTimeLocale)}
               tooltip={
                 // State-aware: when the daemon emits the literal
                 // 'Next block' string the balance is already past

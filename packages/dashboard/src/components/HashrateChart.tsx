@@ -33,7 +33,7 @@ import {
   formatTimestampUtc,
 } from '../lib/format';
 import { useDenomination } from '../lib/denomination';
-import { useLocale } from '../lib/locale';
+import { useDateTimeLocale, useLocale } from '../lib/locale';
 import { applyExplorerTemplate } from '../lib/blockExplorer';
 import { localizedRangeLabel } from '../lib/range-label';
 
@@ -201,6 +201,7 @@ export const HashrateChart = memo(function HashrateChart({
   const { i18n } = useLingui();
   void i18n;
   const { intlLocale } = useLocale();
+  const dateTimeLocale = useDateTimeLocale();
   const denomination = useDenomination();
   const [blockTip, setBlockTip] = useState<BlockTooltipState | null>(null);
   // #105: parity with PriceChart - operator can double chart height
@@ -791,7 +792,7 @@ export const HashrateChart = memo(function HashrateChart({
                 fill="#64748b"
                 fontFamily="monospace"
               >
-                {formatTimeTick(t, xTickInterval, intlLocale)}
+                {formatTimeTick(t, xTickInterval, dateTimeLocale)}
               </text>
             </g>
           );

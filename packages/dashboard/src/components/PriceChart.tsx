@@ -33,7 +33,7 @@ import {
   formatTimestampHuman,
   formatTimestampUtc,
 } from '../lib/format';
-import { useLocale } from '../lib/locale';
+import { useDateTimeLocale, useLocale } from '../lib/locale';
 import { SatSymbol } from './SatSymbol';
 
 const WIDTH = 880;
@@ -225,6 +225,7 @@ export const PriceChart = memo(function PriceChart({
   const [expanded, setExpanded] = useState(false);
   const chartHeight = expanded ? HEIGHT * 2 : HEIGHT;
   const { intlLocale } = useLocale();
+  const dateTimeLocale = useDateTimeLocale();
   const denomination = useDenomination();
 
   const chartData = useMemo(() => {
@@ -1199,7 +1200,7 @@ export const PriceChart = memo(function PriceChart({
                 fill="#64748b"
                 fontFamily="monospace"
               >
-                {formatTimeTick(t, xTickInterval, intlLocale)}
+                {formatTimeTick(t, xTickInterval, dateTimeLocale)}
               </text>
             </g>
           );

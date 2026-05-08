@@ -11,6 +11,7 @@
  * passed directly to Intl APIs.
  */
 
+import { useLingui } from '@lingui/react';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
 import {
@@ -86,6 +87,35 @@ export function useLocaleState(): LocaleContextValue {
     intlLocale: resolveLocale(selected),
     setSelected: setSelectedState,
   };
+}
+
+/**
+ * BCP-47 locale to use for *date and time* formatting. Derived from
+ * the UI-language setting (Lingui), NOT from the format-preference
+ * dropdown. Without this, picking a Dutch number/date format
+ * preference would also switch the chart x-axis day-name
+ * abbreviations and runway/next-payout month names to Dutch even
+ * when the operator has the UI in English. The two settings are
+ * supposed to be independent; this hook is the seam.
+ *
+ * Mapping:
+ *   en -> en-US   (Mon / Apr / etc)
+ *   nl -> nl-NL   (ma / apr / etc)
+ *   es -> es-ES   (lun / abr / etc)
+ *
+ * Date layout (DMY vs MDY) follows the language locale for now.
+ */
+export function useDateTimeLocale(): string {
+  const { i18n } = useLingui();
+  switch (i18n.locale) {
+    case 'nl':
+      return 'nl-NL';
+    case 'es':
+      return 'es-ES';
+    case 'en':
+    default:
+      return 'en-US';
+  }
 }
 
 /**

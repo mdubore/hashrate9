@@ -1611,7 +1611,6 @@ msgstr "niet gerapporteerd"
 
 #: src/pages/Config.tsx
 #: src/pages/Config.tsx
-#: src/pages/Config.tsx
 msgid "Notifications"
 msgstr "Meldingen"
 
@@ -1854,6 +1853,10 @@ msgid "Per-bid budget"
 msgstr "Budget per bod"
 
 #: src/pages/Config.tsx
+msgid "Per-hostname DDNS Key user, not your account login."
+msgstr "DDNS Key gebruiker per hostnaam, niet je account-login."
+
+#: src/pages/Config.tsx
 msgid "Per-tick bid = fillable_ask + this. Braiins matches pay-your-bid, so this is the real premium you pay over the cheapest available price. Higher = more resilient to short upward market moves, bigger premium; lower = closer to the cheapest fillable price, more sensitive to noise. 300 sat/PH/day is a reasonable starting point."
 msgstr "Per-tick bod = fillable_ask + dit. Braiins matcht pay-your-bid, dus dit is de werkelijke toeslag die je betaalt boven de goedkoopste beschikbare prijs. Hoger = beter bestand tegen korte opwaartse marktbewegingen, grotere toeslag; lager = dichter bij de goedkoopste vulbare prijs, gevoeliger voor ruis. 300 sat/PH/day is een redelijk uitgangspunt."
 
@@ -2016,10 +2019,6 @@ msgstr "Provider"
 #: src/pages/Config.tsx
 msgid "Push outage alerts (Datum unreachable, hashrate floor breach, wallet runway, etc.) to Telegram so the operator finds out within minutes, not hours. See the setup walkthrough for the @BotFather + @userinfobot steps."
 msgstr "Stuur uitvalmeldingen (Datum onbereikbaar, hashrate-vloer overschreden, wallet-runway, enz.) door naar Telegram zodat de operator het binnen minuten weet, niet uren. Zie de setup-walkthrough voor de @BotFather + @userinfobot stappen."
-
-#: src/pages/Config.tsx
-msgid "Pushes a real update with the values currently in the form (without saving them first). `nochg` and `good` are both success - they just mean \"DDNS already had this IP\" vs \"DDNS just updated\"."
-msgstr "Stuurt een echte update met de waarden die nu in het formulier staan (zonder ze eerst op te slaan). `nochg` en `good` zijn allebei succes - ze betekenen \"DDNS had dit IP al\" versus \"DDNS is net bijgewerkt\"."
 
 #: src/components/HashrateChart.tsx
 msgid "range"
@@ -2373,6 +2372,10 @@ msgid "Telegram bot token"
 msgstr "Telegram bot-token"
 
 #: src/pages/Config.tsx
+msgid "Telegram notifications"
+msgstr "Telegram-meldingen"
+
+#: src/pages/Config.tsx
 #: src/pages/Config.tsx
 #: src/pages/Config.tsx
 #: src/pages/Config.tsx
@@ -2405,8 +2408,8 @@ msgid "The daemon may not be in setup mode. Reload the page or check the daemon 
 msgstr "De daemon staat misschien niet in setup-modus. Herlaad de pagina of controleer de daemon-logs."
 
 #: src/pages/Config.tsx
-msgid "The hostname being maintained. For No-IP DDNS Key groups (the modern auth flow that doesn't expose your account password), use the special hostname all.ddnskey.com - that updates every hostname assigned to the DDNS Key's group in one call."
-msgstr "De hostnaam die wordt bijgehouden. Voor No-IP DDNS Key-groepen (de moderne auth-stroom die je account-wachtwoord niet blootstelt) gebruik je de speciale hostnaam all.ddnskey.com - die werkt elke hostnaam in de DDNS Key-groep in één call bij."
+msgid "The hostname being maintained. For No-IP DDNS Key groups (the modern auth flow that doesn't expose your account password), use the special hostname all.ddnskey.com - that updates every hostname assigned to the DDNS Key's group in one call. Test connection pushes a real update with the values currently in the form (without saving). `nochg` and `good` are both success."
+msgstr "De hostnaam die onderhouden wordt. Voor No-IP DDNS Key-groepen (de moderne auth-flow die je accountwachtwoord niet blootstelt), gebruik de speciale hostnaam all.ddnskey.com - die werkt elke hostnaam in de DDNS Key-groep in één call bij. Test connection stuurt een echte update met de waarden uit het formulier (zonder op te slaan). `nochg` en `good` zijn beide succes."
 
 #. placeholder {0}: tickResult.error
 #: src/pages/Status.tsx
