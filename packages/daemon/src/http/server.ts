@@ -58,6 +58,9 @@ import { registerRunModeRoute } from './routes/run-mode.js';
 import { registerStatsRoute } from './routes/stats.js';
 import { registerStatusRoute } from './routes/status.js';
 import { registerStorageEstimateRoute } from './routes/storage-estimate.js';
+import { registerDdnsRoute } from './routes/ddns.js';
+import type { PublicIpService } from '../services/public-ip.js';
+import type { DdnsUpdaterService } from '../services/ddns-updater.js';
 
 export interface HttpServerDeps {
   readonly controller: Controller;
@@ -77,6 +80,10 @@ export interface HttpServerDeps {
   readonly blockVersionService: BlockVersionService | null;
   /** #95: bitcoind RPC client for the BIP 110 scanner endpoint. Null when bitcoind RPC creds are not configured (scanner returns rpc_available: false). */
   readonly bitcoindClient: BitcoindClient | null;
+  /** #111: public-IP poll service - feeds the DDNS updater and the diagnostics card. */
+  readonly publicIpService: PublicIpService;
+  /** #111: DDNS updater service. */
+  readonly ddnsUpdater: DdnsUpdaterService;
   /** Sops/env secrets snapshot - fallback for empty `config` row fields. The BIP 110 scanner uses this to build a fresh client per request so saved Config edits take effect without a daemon restart. */
   readonly secrets: {
     readonly bitcoind_rpc_url?: string;
@@ -171,6 +178,11 @@ export async function createHttpServer(deps: HttpServerDeps): Promise<HttpServer
   await registerBtcPriceRoute(app, {
     btcPriceService: deps.btcPriceService,
     configRepo: deps.configRepo,
+  });
+  await registerDdnsRoute(app, {
+    configRepo: deps.configRepo,
+    publicIpService: deps.publicIpService,
+    ddnsUpdater: deps.ddnsUpdater,
   });
 
   // Serve built dashboard if present.

@@ -52,6 +52,8 @@ export class ConfigRepo {
       // Schema column is `TEXT NOT NULL DEFAULT 'off'`; the Zod enum
       // narrows valid values, but the row type is the broad SQL string.
       block_found_sound: rest.block_found_sound as AppConfig['block_found_sound'],
+      // #111: SQL column is broad TEXT; Zod narrows to '' | 'noip'.
+      ddns_provider: rest.ddns_provider as AppConfig['ddns_provider'],
     };
   }
 

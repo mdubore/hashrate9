@@ -34,6 +34,8 @@ import { HashpriceRefresher } from './services/hashprice-refresher.js';
 import { createOceanClient } from './services/ocean.js';
 import { PayoutObserver } from './services/payout-observer.js';
 import { PoolHealthTracker } from './services/pool-health.js';
+import { PublicIpService } from './services/public-ip.js';
+import { DdnsUpdaterService } from './services/ddns-updater.js';
 import { closeDatabase, openDatabase, type DatabaseHandle } from './state/db.js';
 import { AlertsRepo } from './state/repos/alerts.js';
 import { BidEventsRepo } from './state/repos/bid_events.js';
@@ -603,6 +605,19 @@ async function bootOperational(
   );
   retentionService.start();
 
+  // #111: public-IP poll + DDNS updater. Public-IP runs unconditionally
+  // (cheap, used for the diagnostics card too); the updater is a no-op
+  // until the operator configures `ddns_provider` etc. on the Config
+  // page.
+  const publicIpService = new PublicIpService({ log: (m) => log(m) });
+  publicIpService.start();
+  const ddnsUpdater = new DdnsUpdaterService({
+    cfgRef: cfgRefHolder,
+    publicIp: publicIpService,
+    log: (m) => log(m),
+  });
+  ddnsUpdater.start();
+
   // HTTP server (dashboard API + static).
   const httpServer = await createHttpServer({
     controller,
@@ -620,6 +635,8 @@ async function bootOperational(
     hashpriceCache,
     blockVersionService,
     bitcoindClient,
+    publicIpService,
+    ddnsUpdater,
     secrets: {
       bitcoind_rpc_url: secrets.bitcoind_rpc_url ?? '',
       bitcoind_rpc_user: secrets.bitcoind_rpc_user ?? '',
@@ -654,6 +671,8 @@ async function bootOperational(
     retentionService.stop();
     hashpriceRefresher.stop();
     btcPriceRefresher.stop();
+    publicIpService.stop();
+    ddnsUpdater.stop();
     await telegramReceiver.stop();
     await loop.stop();
     try {

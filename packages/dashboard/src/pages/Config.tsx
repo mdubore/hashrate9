@@ -609,6 +609,17 @@ export function Config() {
               />,
             );
           }
+          // #111: insert the DDNS / public-IP diagnostics section right after pool destination,
+          // since it's about keeping the pool URL's hostname pointed at the right IP.
+          if (section.id === 'pricing') {
+            nodes.push(
+              <DdnsSection
+                key="ddns"
+                draft={draft}
+                onChange={update}
+              />,
+            );
+          }
           // Insert the custom notifications section right before "Block-found notification"
           if (section.id === 'block-found-sound') {
             nodes.push(
@@ -2384,5 +2395,241 @@ function Field({
       />
       {spec.help && <span className="block text-xs text-slate-500 mt-1">{spec.help}</span>}
     </label>
+  );
+}
+
+/**
+ * #111: Dynamic DNS updater + public-IP diagnostics.
+ *
+ * Two reasons this card exists, beyond just exposing the config fields:
+ *   - "Pool URL hostname resolves to" vs "Daemon's current public IP"
+ *     gives the operator instant visual confirmation that DDNS is
+ *     pointing at the right place. Mismatch = DDNS drift, the precise
+ *     failure mode that motivated this feature.
+ *   - The DDNS push status (`good <ip>` / `nochg <ip>` / error) lands
+ *     in the same card so the operator sees end-to-end whether the
+ *     daemon is actually keeping things in sync.
+ *
+ * Polls /api/ddns every 30 s. The underlying daemon-side caches are
+ * already 5-min granularity; 30 s is just so the dashboard reflects
+ * a config edit's effect within a tick.
+ */
+function DdnsSection({
+  draft,
+  onChange,
+}: {
+  draft: AppConfig;
+  onChange: <K extends keyof AppConfig>(k: K, v: AppConfig[K]) => void;
+}) {
+  const { i18n } = useLingui();
+  void i18n;
+
+  const ddnsQ = useQuery({
+    queryKey: ['ddns'],
+    queryFn: () => api.ddns(),
+    refetchInterval: 30_000,
+  });
+
+  const enabled = draft.ddns_provider !== '';
+  const r = ddnsQ.data;
+
+  const ipsMatch =
+    r &&
+    r.daemon_public_ip !== null &&
+    r.pool_url_resolves_to !== null &&
+    r.daemon_public_ip === r.pool_url_resolves_to;
+
+  return (
+    <section className="bg-slate-900 border border-slate-800 rounded-lg p-4">
+      <header className="mb-3">
+        <h3 className="text-sm uppercase tracking-wider text-amber-400">
+          <Trans>Dynamic DNS</Trans>
+        </h3>
+        <p className="text-xs text-slate-500 mt-1">
+          <Trans>
+            Keep the Pool URL's hostname pointed at this box's current public IP. Replaces
+            the router-firmware-based DDNS client. Currently supports No-IP only - sign up
+            at no-ip.com (with a dash), create a hostname, generate a DDNS Key under DDNS
+            Keys / Groups, and paste the key credentials below.
+          </Trans>
+        </p>
+      </header>
+
+      {/* Diagnostic rows: what's the public IP, what does the hostname resolve to. */}
+      <div className="bg-slate-800/40 border border-slate-800 rounded p-3 mb-4 text-xs space-y-1.5 font-mono">
+        <div className="flex flex-wrap gap-x-4">
+          <span className="text-slate-400 w-44 shrink-0">
+            <Trans>Daemon's public IP:</Trans>
+          </span>
+          <span className="text-slate-100">
+            {r?.daemon_public_ip ?? <span className="text-slate-500">—</span>}
+            {r?.daemon_public_ip_error && (
+              <span className="text-red-400 ml-2">({r.daemon_public_ip_error})</span>
+            )}
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-x-4">
+          <span className="text-slate-400 w-44 shrink-0">
+            <Trans>Pool URL hostname:</Trans>
+          </span>
+          <span className="text-slate-100">
+            {r?.pool_url_hostname ?? <span className="text-slate-500">—</span>}
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-x-4">
+          <span className="text-slate-400 w-44 shrink-0">
+            <Trans>Resolves to:</Trans>
+          </span>
+          <span className="text-slate-100">
+            {r?.pool_url_resolves_to ?? <span className="text-slate-500">—</span>}
+            {r?.pool_url_resolve_error && (
+              <span className="text-red-400 ml-2">({r.pool_url_resolve_error})</span>
+            )}
+          </span>
+        </div>
+        {r && r.daemon_public_ip && r.pool_url_resolves_to && (
+          <div className="text-xs pt-1 italic">
+            {ipsMatch ? (
+              <span className="text-emerald-400">
+                <Trans>Match - hostname is pointing at this box.</Trans>
+              </span>
+            ) : (
+              <span className="text-red-400">
+                <Trans>
+                  Mismatch. If your daemon and Datum Gateway are on the same home network,
+                  these should match. Usually this means your DDNS hasn't updated since the
+                  ISP changed your public IP - configure DDNS below to fix it.
+                </Trans>
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Provider config. */}
+      <div className="space-y-4">
+        <label className="block">
+          <span className="block text-sm text-slate-300 mb-1">
+            <Trans>Provider</Trans>
+          </span>
+          <select
+            value={draft.ddns_provider}
+            onChange={(e) =>
+              onChange('ddns_provider', e.target.value as AppConfig['ddns_provider'])
+            }
+            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm"
+          >
+            <option value="">{t`Disabled`}</option>
+            <option value="noip">No-IP (no-ip.com)</option>
+          </select>
+          <span className="block text-xs text-slate-500 mt-1">
+            <Trans>
+              Leave Disabled if you maintain DDNS elsewhere (router, VPS, static IP). When
+              set, the daemon pushes an update every 5 minutes (and at minimum hourly to
+              keep free hostnames active).
+            </Trans>
+          </span>
+        </label>
+
+        {enabled && (
+          <>
+            <label className="block">
+              <span className="block text-sm text-slate-300 mb-1">
+                <Trans>Hostname</Trans>
+              </span>
+              <input
+                type="text"
+                value={draft.ddns_hostname}
+                onChange={(e) => onChange('ddns_hostname', e.target.value as never)}
+                placeholder="alkimia.zapto.org"
+                autoComplete="off"
+                className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm font-mono"
+              />
+              <span className="block text-xs text-slate-500 mt-1">
+                <Trans>
+                  The hostname being maintained. For No-IP DDNS Key groups (the modern
+                  auth flow that doesn't expose your account password), use the special
+                  hostname all.ddnskey.com - that updates every hostname assigned to the
+                  DDNS Key's group in one call.
+                </Trans>
+              </span>
+            </label>
+
+            <label className="block">
+              <span className="block text-sm text-slate-300 mb-1">
+                <Trans>Username (DDNS Key user)</Trans>
+              </span>
+              <input
+                type="text"
+                value={draft.ddns_username}
+                onChange={(e) => onChange('ddns_username', e.target.value as never)}
+                autoComplete="off"
+                className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm font-mono"
+              />
+            </label>
+
+            <label className="block">
+              <span className="block text-sm text-slate-300 mb-1">
+                <Trans>Credential (DDNS Key password / token)</Trans>
+              </span>
+              <input
+                type="password"
+                value={draft.ddns_credential}
+                onChange={(e) => onChange('ddns_credential', e.target.value as never)}
+                autoComplete="off"
+                className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm font-mono"
+              />
+              <span className="block text-xs text-slate-500 mt-1">
+                <Trans>
+                  Stored in the daemon's SQLite config. Use a per-hostname DDNS Key, not
+                  your main account password.
+                </Trans>
+              </span>
+            </label>
+
+            {/* Last-push status. */}
+            <div className="bg-slate-800/40 border border-slate-800 rounded p-3 text-xs space-y-1 font-mono">
+              <div className="flex flex-wrap gap-x-4">
+                <span className="text-slate-400 w-44 shrink-0">
+                  <Trans>Last push status:</Trans>
+                </span>
+                <span
+                  className={
+                    r?.ddns.last_status === 'good' || r?.ddns.last_status === 'nochg'
+                      ? 'text-emerald-300'
+                      : r?.ddns.last_status
+                        ? 'text-red-400'
+                        : 'text-slate-500'
+                  }
+                >
+                  {r?.ddns.last_status ?? <Trans>(no push attempted yet)</Trans>}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-x-4">
+                <span className="text-slate-400 w-44 shrink-0">
+                  <Trans>Last successful push:</Trans>
+                </span>
+                <span className="text-slate-100">
+                  {r?.ddns.last_pushed_ip ?? <span className="text-slate-500">—</span>}
+                  {r?.ddns.last_pushed_at && (
+                    <span className="text-slate-500 ml-2">
+                      {formatAge(Date.now() - r.ddns.last_pushed_at)}
+                    </span>
+                  )}
+                </span>
+              </div>
+              {r?.ddns.last_error && (
+                <div className="flex flex-wrap gap-x-4">
+                  <span className="text-slate-400 w-44 shrink-0">
+                    <Trans>Last error:</Trans>
+                  </span>
+                  <span className="text-red-400 break-words">{r.ddns.last_error}</span>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </section>
   );
 }

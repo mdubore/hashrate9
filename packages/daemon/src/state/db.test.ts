@@ -92,6 +92,7 @@ describe('openDatabase - migrations', () => {
       '0064_notification_disabled_event_classes.sql',
       '0065_pool_blocks.sql',
       '0066_paid_total_sat.sql',
+      '0067_ddns.sql',
     ]);
     expect(handle.migrations.skipped).toEqual([]);
   });

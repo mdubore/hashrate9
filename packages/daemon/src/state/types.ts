@@ -77,6 +77,14 @@ export interface ConfigTable {
   block_found_sound_custom_mime: string | null;
   /** #88: original filename of the uploaded custom blob, for the Config UI's "currently: X" display. */
   block_found_sound_custom_filename: string | null;
+  /** #111: DDNS updater - provider name (e.g. 'noip') or empty string to disable. */
+  ddns_provider: string;
+  /** #111: DDNS hostname being maintained (e.g. 'alkimia.zapto.org' for No-IP, or 'all.ddnskey.com' when using a No-IP DDNS Key group). */
+  ddns_hostname: string;
+  /** #111: DDNS provider username (or No-IP DDNS Key username). */
+  ddns_username: string;
+  /** #111: DDNS provider credential (password / DDNS Key credential / token). */
+  ddns_credential: string;
   updated_at: number;
 }
 

@@ -43,6 +43,10 @@ msgstr ""
 msgid "(cheap mode)"
 msgstr "(modo barato)"
 
+#: src/pages/Config.tsx
+msgid "(no push attempted yet)"
+msgstr "(no se ha intentado enviar nada todavía)"
+
 #. placeholder {0}: formatNumber(n, {}, intlLocale)
 #: src/pages/Setup.tsx
 msgid "{0} sat/PH/day (default - tunable later)"
@@ -756,6 +760,10 @@ msgstr "Crear oferta"
 msgid "created"
 msgstr "creada"
 
+#: src/pages/Config.tsx
+msgid "Credential (DDNS Key password / token)"
+msgstr "Credencial (contraseña / token del DDNS Key)"
+
 #: src/pages/Status.tsx
 msgid "Current (spot) market break-even. Revenue per PH/s per day from mining at the current network difficulty + block reward. The avg-hashprice row above is what the projection uses; this one is the spot value right now for quick market-drift comparison."
 msgstr "Equilibrio de mercado actual (spot). Ingreso por PH/s por día minando con la dificultad de red actual + recompensa por bloque. La fila de hashprice promedio de arriba es la que usa la proyección; esta es el valor spot ahora mismo para comparar rápidamente la deriva del mercado."
@@ -804,6 +812,10 @@ msgstr "El daemon no volvió a OPERATIONAL en 90 segundos."
 #: src/pages/Config.tsx
 msgid "Daemon startup"
 msgstr "Arranque del daemon"
+
+#: src/pages/Config.tsx
+msgid "Daemon's public IP:"
+msgstr "IP público del daemon:"
 
 #: src/pages/Setup.tsx
 #: src/pages/Setup.tsx
@@ -896,6 +908,10 @@ msgid "deployment"
 msgstr "despliegue"
 
 #: src/pages/Config.tsx
+msgid "Disabled"
+msgstr "Deshabilitado"
+
+#: src/pages/Config.tsx
 msgid "Disabled (sats only)"
 msgstr "Desactivado (solo sats)"
 
@@ -934,6 +950,10 @@ msgstr "Promedio ponderado por duración del hashrate que Datum mide en el gatew
 #: src/pages/Status.tsx
 msgid "Duration-weighted average of the hashrate Ocean credits to our payout address. Each tick (every 60 s) the daemon calls Ocean's /v1/user_hashrate endpoint and reads the `hashrate_300s` field - Ocean's own 5-minute sliding-window estimate for this wallet. So: sampled every minute, each sample is a 5-minute smoothed value. A sustained gap below Avg Braiins / Avg Datum means the pool isn't crediting work we think we delivered."
 msgstr "Promedio ponderado por duración del hashrate que Ocean acredita a nuestra dirección de pago. En cada tick (cada 60 s) el daemon llama al endpoint /v1/user_hashrate de Ocean y lee el campo `hashrate_300s` - la propia estimación de Ocean en una ventana móvil de 5 minutos para este wallet. Es decir: muestreado cada minuto, cada muestra es un valor suavizado de 5 minutos. Una brecha sostenida por debajo del promedio Braiins / promedio Datum significa que el pool no está acreditando trabajo que creemos haber entregado."
+
+#: src/pages/Config.tsx
+msgid "Dynamic DNS"
+msgstr "Dynamic DNS"
 
 #: src/pages/Config.tsx
 msgid "e.g. 192.168.1.121 or umbrel.local"
@@ -1214,6 +1234,10 @@ msgid "Host"
 msgstr "Host"
 
 #: src/pages/Config.tsx
+msgid "Hostname"
+msgstr "Nombre de host"
+
+#: src/pages/Config.tsx
 msgid "How big a single bid is. Set to 0 to use the full available wallet balance on each create - simpler mental model, no manual slicing."
 msgstr "Tamaño de una oferta. Pon 0 para usar todo el saldo disponible del wallet en cada creación - modelo mental más simple, sin trocear manualmente."
 
@@ -1268,6 +1292,10 @@ msgid "just now"
 msgstr "ahora mismo"
 
 #: src/pages/Config.tsx
+msgid "Keep the Pool URL's hostname pointed at this box's current public IP. Replaces the router-firmware-based DDNS client. Currently supports No-IP only - sign up at no-ip.com (with a dash), create a hostname, generate a DDNS Key under DDNS Keys / Groups, and paste the key credentials below."
+msgstr "Mantén el nombre de host de la Pool URL apuntando al IP público actual de esta máquina. Reemplaza el cliente DDNS del firmware del router. Actualmente sólo No-IP - regístrate en no-ip.com (con guión), crea un nombre de host, genera un DDNS Key en DDNS Keys / Groups y pega las credenciales abajo."
+
+#: src/pages/Config.tsx
 msgid "Keep whatever run mode was active before the restart. PAUSED is demoted to DRY_RUN."
 msgstr "Mantener el modo de ejecución que estaba activo antes del reinicio. PAUSED se degrada a DRY_RUN."
 
@@ -1275,10 +1303,22 @@ msgstr "Mantener el modo de ejecución que estaba activo antes del reinicio. PAU
 msgid "Language"
 msgstr "Idioma"
 
+#: src/pages/Config.tsx
+msgid "Last error:"
+msgstr "Último error:"
+
 #: src/pages/Status.tsx
 #: src/pages/Status.tsx
 msgid "last pool block"
 msgstr "último bloque del pool"
+
+#: src/pages/Config.tsx
+msgid "Last push status:"
+msgstr "Estado del último envío:"
+
+#: src/pages/Config.tsx
+msgid "Last successful push:"
+msgstr "Último envío exitoso:"
 
 #: src/pages/Status.tsx
 msgid "Last tick proposals"
@@ -1287,6 +1327,10 @@ msgstr "Propuestas del último tick"
 #: src/pages/Status.tsx
 msgid "last tick:"
 msgstr "último tick:"
+
+#: src/pages/Config.tsx
+msgid "Leave Disabled if you maintain DDNS elsewhere (router, VPS, static IP). When set, the daemon pushes an update every 5 minutes (and at minimum hourly to keep free hostnames active)."
+msgstr "Déjalo en Deshabilitado si gestionas DDNS en otro lugar (router, VPS, IP fija). Cuando está configurado, el daemon envía una actualización cada 5 minutos (y al menos cada hora para mantener activas las hostnames gratuitas)."
 
 #: src/pages/Setup.tsx
 msgid "Lets the dashboard show Ocean TIDES payouts as they arrive. Pick a backend that can read your wallet's on-chain balance."
@@ -1347,6 +1391,10 @@ msgstr "mercado en este tick"
 msgid "Marketplace API has been down for api_outage_alert_after_minutes."
 msgstr "La API del marketplace ha estado caída durante api_outage_alert_after_minutes."
 
+#: src/pages/Config.tsx
+msgid "Match - hostname is pointing at this box."
+msgstr "Coinciden - el nombre de host apunta a esta máquina."
+
 #: src/components/PriceChart.tsx
 #: src/components/PriceChart.tsx
 #: src/pages/Status.tsx
@@ -1396,6 +1444,10 @@ msgstr "Minería"
 #: src/pages/Config.tsx
 msgid "minutes"
 msgstr "minutos"
+
+#: src/pages/Config.tsx
+msgid "Mismatch. If your daemon and Datum Gateway are on the same home network, these should match. Usually this means your DDNS hasn't updated since the ISP changed your public IP - configure DDNS below to fix it."
+msgstr "No coinciden. Si tu daemon y Datum Gateway están en la misma red doméstica, deberían coincidir. Normalmente significa que tu DDNS no se ha actualizado desde que el ISP cambió tu IP público - configura DDNS abajo para arreglarlo."
 
 #: src/pages/Config.tsx
 msgid "MP3 / OGG / WAV / WebM, max 200 KB."
@@ -1825,6 +1877,10 @@ msgstr "recompensa del pool"
 msgid "Pool URL"
 msgstr "URL del pool"
 
+#: src/pages/Config.tsx
+msgid "Pool URL hostname:"
+msgstr "Nombre de host de la Pool URL:"
+
 #: src/pages/Status.tsx
 msgid "pool users"
 msgstr "usuarios del pool"
@@ -1907,6 +1963,10 @@ msgid "protocol"
 msgstr "protocolo"
 
 #: src/pages/Config.tsx
+msgid "Provider"
+msgstr "Proveedor"
+
+#: src/pages/Config.tsx
 msgid "Push outage alerts (Datum unreachable, hashrate floor breach, wallet runway, etc.) to Telegram so the operator finds out within minutes, not hours. See the setup walkthrough for the @BotFather + @userinfobot steps."
 msgstr "Envía alertas de caídas (Datum inaccesible, hashrate por debajo del piso, runway del wallet, etc.) a Telegram para que el operador se entere en minutos, no en horas. Consulta la guía de configuración para los pasos con @BotFather + @userinfobot."
 
@@ -1964,6 +2024,10 @@ msgstr "Recordarme en este dispositivo"
 #: src/pages/Config.tsx
 msgid "Replace file…"
 msgstr "Reemplazar archivo…"
+
+#: src/pages/Config.tsx
+msgid "Resolves to:"
+msgstr "Se resuelve a:"
 
 #: src/pages/Config.tsx
 msgid "Restore the values that were on this page when you opened it."
@@ -2193,6 +2257,10 @@ msgstr "estado"
 msgid "Status"
 msgstr "Status"
 
+#: src/pages/Config.tsx
+msgid "Stored in the daemon's SQLite config. Use a per-hostname DDNS Key, not your main account password."
+msgstr "Se almacena en la configuración SQLite del daemon. Usa un DDNS Key por hostname, no la contraseña de tu cuenta principal."
+
 #: src/pages/Status.tsx
 msgid "stratum DOWN ({consecutiveFailures} consecutive)"
 msgstr "stratum CAÍDO ({consecutiveFailures} consecutivos)"
@@ -2270,6 +2338,10 @@ msgstr "La dirección BTC a la que Ocean TIDES acredita los pagos. Editar esto a
 #: src/pages/Setup.tsx
 msgid "The daemon may not be in setup mode. Reload the page or check the daemon logs."
 msgstr "El daemon puede no estar en modo setup. Recarga la página o revisa los logs del daemon."
+
+#: src/pages/Config.tsx
+msgid "The hostname being maintained. For No-IP DDNS Key groups (the modern auth flow that doesn't expose your account password), use the special hostname all.ddnskey.com - that updates every hostname assigned to the DDNS Key's group in one call."
+msgstr "El nombre de host que se mantiene. Para grupos de DDNS Key de No-IP (el flujo moderno de autenticación que no expone la contraseña de tu cuenta), usa el host especial all.ddnskey.com - actualiza todos los hostnames del grupo del DDNS Key en una sola llamada."
 
 #. placeholder {0}: tickResult.error
 #: src/pages/Status.tsx
@@ -2385,6 +2457,10 @@ msgstr "Se usa para la comprobación on-chain del saldo de pagos (cuando se sele
 #: src/pages/Config.tsx
 msgid "Used for click-through from the Ocean panel's \"last pool block\" row and the block-marker tooltips on the Hashrate chart. `{hash}` and `{height}` placeholders are substituted."
 msgstr "Se usa para los enlaces desde la fila \"último bloque del pool\" del panel Ocean y los tooltips de marcadores de bloque en el gráfico de Hashrate. Los placeholders `{hash}` y `{height}` se sustituyen."
+
+#: src/pages/Config.tsx
+msgid "Username (DDNS Key user)"
+msgstr "Usuario (usuario del DDNS Key)"
 
 #: src/components/HashrateChart.tsx
 msgid "uses current share_log - an approximation for older blocks, since share_log drifts as pool hashrate moves."

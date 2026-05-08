@@ -324,10 +324,38 @@ export interface AppConfig {
     | 'metallic-clank-1'
     | 'metallic-clank-2'
     | 'custom';
+  // #111: daemon-managed Dynamic DNS updater. Empty provider = disabled.
+  ddns_provider: '' | 'noip';
+  ddns_hostname: string;
+  ddns_username: string;
+  ddns_credential: string;
 }
 
 export interface ConfigResponse {
   config: AppConfig;
+}
+
+// #111: DDNS + public IP diagnostics for the dashboard.
+export interface DdnsSnapshot {
+  enabled: boolean;
+  provider: string;
+  hostname: string;
+  last_status: string | null;
+  last_pushed_ip: string | null;
+  last_pushed_at: number | null;
+  last_attempted_at: number | null;
+  last_error: string | null;
+}
+
+export interface DdnsRouteResponse {
+  daemon_public_ip: string | null;
+  daemon_public_ip_checked_at: number | null;
+  daemon_public_ip_error: string | null;
+  pool_url_hostname: string | null;
+  pool_url_resolves_to: string | null;
+  pool_url_resolve_error: string | null;
+  ddns: DdnsSnapshot;
+  checked_at: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -476,6 +504,7 @@ export const api = {
     return URL.createObjectURL(blob);
   },
   btcPrice: () => request<BtcPriceResponse>('/api/btc-price'),
+  ddns: () => request<DdnsRouteResponse>('/api/ddns'),
   bip110Scan: (blocks: number) =>
     request<Bip110ScanResponse>(`/api/bip110/scan?blocks=${encodeURIComponent(String(blocks))}`),
   bitcoindTest: (creds: { url: string; user: string; password: string }) =>

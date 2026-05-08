@@ -2,6 +2,10 @@
 
 ## 2026-05-08
 
+### `[Feature]` Daemon-managed Dynamic DNS updater (#111, #110)
+
+New **Dynamic DNS** card on the Config page lets operators replace flaky router-firmware DDNS clients with a daemon-driven push to No-IP. Configure provider + hostname + DDNS Key credentials and the daemon pushes the box's current public IP every 5 minutes (with a forced hourly heartbeat so free-tier hostnames stay alive). Same card surfaces three diagnostic rows that catch DDNS drift instantly: the daemon's current public IP (polled from api.ipify.org), the Pool URL hostname, and what that hostname resolves to. When the resolved IP doesn't match the daemon's public IP an inline red note explains "DDNS hasn't updated since the ISP changed your public IP - configure DDNS below to fix it." Motivated by a recurring "Stratum DOWN" outage on 2026-05-07 caused by mynetgear.com going dark - took 30 minutes of shell diagnostics to localize what this card now shows in two glances. Migration 0067 adds four nullable columns; existing installs upgrade with DDNS disabled. v1 supports No-IP only; DuckDNS / dyndns2-generic planned follow-ups.
+
 ### `[UI]` Config page: collapsible sections (#107 phase A)
 
 Each Config-page section now has a click-to-collapse chevron next to its title. State persists per browser via localStorage (`braiins.configCollapsedSections`). Defaults: rarely-touched sections (Daemon startup, BTC price oracle, Block explorer, Chart smoothing, Log retention, Block-found notification) start collapsed; everything else stays expanded. Cuts the default page height roughly in half. Phase B (sticky TOC sidebar) and phase C (search-by-label filter) parked for direction approval on the issue thread.

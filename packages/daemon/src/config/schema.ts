@@ -296,6 +296,20 @@ export const AppConfigSchema = z.object({
   // row, no timer arming, no recovery message. New event classes
   // default to enabled without a migration.
   notification_disabled_event_classes: z.array(z.string()).default([]),
+
+  // #111: daemon-managed DDNS updater. When ddns_provider is non-empty
+  // the daemon pushes the current public IP to the configured DDNS
+  // provider every 5 minutes (and forces a heartbeat at least hourly,
+  // so providers with "no update in 30 days = hostname expired" rules
+  // - free No-IP - stay alive). Empty string disables the updater
+  // entirely. v1 supports 'noip' only; dyndns2-generic and DuckDNS
+  // are planned follow-ups. Driven by motivating incident on
+  // 2026-05-07 when mynetgear.com DDNS drift caused a recurring
+  // Stratum DOWN false-alarm and a 30+ minute manual diagnosis.
+  ddns_provider: z.enum(['', 'noip']).default(''),
+  ddns_hostname: z.string().default(''),
+  ddns_username: z.string().default(''),
+  ddns_credential: z.string().default(''),
 });
 
 export type AppConfig = z.infer<typeof AppConfigSchema>;
@@ -387,4 +401,9 @@ export const APP_CONFIG_DEFAULTS: Omit<
   notifications_muted: false,
   notification_retry_interval_minutes: 30,
   notification_disabled_event_classes: [],
+
+  ddns_provider: '',
+  ddns_hostname: '',
+  ddns_username: '',
+  ddns_credential: '',
 };
