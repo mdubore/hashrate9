@@ -203,6 +203,11 @@ export class AlertsRepo {
    * deliverable state. `pending` covers the very first attempt; `failed`
    * + `muted` + `snoozed` cover retry attempts after a previous miss.
    * `gave_up` and `sent` are excluded.
+   *
+   * Acknowledged rows are also excluded - if the operator has clicked
+   * "mark as seen" on the dashboard, the system MUST stop retrying.
+   * Without this filter the operator gets pinged again on every retry
+   * tick despite having explicitly confirmed receipt.
    */
   async nextDueRetries(nowMs: number, limit = 32): Promise<AlertRow[]> {
     const rows = await this.db
@@ -211,10 +216,43 @@ export class AlertsRepo {
       .where('next_retry_at_ms', 'is not', null)
       .where('next_retry_at_ms', '<=', nowMs)
       .where('delivery_status', 'in', ['pending', 'failed', 'muted', 'snoozed'])
+      .where('acknowledged_at_ms', 'is', null)
       .orderBy('next_retry_at_ms', 'asc')
       .limit(limit)
       .execute();
     return rows as AlertRow[];
+  }
+
+  /**
+   * Find the most recent alert row for the given event_class that
+   * still represents an "open" outage - i.e. no later alert row pairs
+   * back to it via `paired_alert_id` (no recovery has fired yet).
+   *
+   * Used by AlertEvaluator.hydrate() at daemon boot so a process
+   * restart while a bad state is still active doesn't fire a duplicate
+   * Telegram alert: the evaluator inherits the existing alert row's
+   * id rather than recording a fresh one. Combined with the
+   * acknowledged-stops-retries filter on nextDueRetries, this means
+   * "ack via the dashboard, restart the daemon" is silent.
+   */
+  async findOpenAlert(eventClass: string): Promise<AlertRow | null> {
+    const row = await this.db
+      .selectFrom('alerts')
+      .selectAll()
+      .where('event_class', '=', eventClass)
+      .where(({ eb, not, exists, selectFrom }) =>
+        not(
+          exists(
+            selectFrom('alerts as recovery')
+              .select('recovery.id')
+              .whereRef('recovery.paired_alert_id', '=', 'alerts.id'),
+          ),
+        ),
+      )
+      .orderBy('created_at', 'desc')
+      .limit(1)
+      .executeTakeFirst();
+    return (row as AlertRow | undefined) ?? null;
   }
 
   /** Count of un-acknowledged alerts at LOUD or WARN severity. Drives the top-nav badge. */

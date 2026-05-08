@@ -467,6 +467,10 @@ async function bootOperational(
     }),
   });
   const alertEvaluator = new AlertEvaluator({ alertManager });
+  // Rebuild in-memory event state from the alerts table so a daemon
+  // restart while a bad state is still active does not fire a
+  // duplicate Telegram alert. See AlertEvaluator.hydrate JSDoc.
+  await alertEvaluator.hydrate(alertsRepo);
 
   const loop = new TickLoop({
     controller,

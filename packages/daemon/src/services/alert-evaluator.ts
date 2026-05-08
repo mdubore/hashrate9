@@ -6,13 +6,15 @@
  * a bad state. On transitions it calls into AlertManager.recordAlert
  * (or pairs a recovery row); steady-state ticks short-circuit.
  *
- * State-tracking lives entirely in this object's instance fields.
- * Restarting the daemon clears the in-memory state - that's intentional
- * and consistent with how `belowFloorSince` is rehydrated from
- * runtime_state on boot. If the bad state is still active at boot, the
- * first post-boot tick will see "transition into bad state" and fire
- * the alert again. That's a feature, not a bug: the operator wants a
- * fresh ping after every restart, not silence.
+ * State-tracking lives in instance fields, hydrated from the alerts
+ * table on boot via `hydrate()`. The hydrate query looks up the most
+ * recent "open" alert per event class (open = no recovery row pairs
+ * back to it) and inherits its id as the active_alert_id. Without
+ * this, restarting the daemon while a bad state was still active
+ * fired a duplicate Telegram alert - even if the operator had already
+ * acknowledged the prior one - because the in-memory map was empty
+ * and the next tick saw "transition into bad state" from scratch.
+ * This was a real complaint from the operator during #100 testing.
  *
  * Detectors wired end-to-end:
  *   - datum_unreachable     LOUD - the 2026-05-06 motivating incident
@@ -33,6 +35,7 @@
  */
 
 import type { AlertManager } from './alert-manager.js';
+import type { AlertsRepo } from '../state/repos/alerts.js';
 import type { State } from '../controller/types.js';
 
 interface EventState {
@@ -67,24 +70,58 @@ export class AlertEvaluator {
   }
 
   /**
+   * Rebuild the in-memory event-state map from the alerts table on
+   * boot. Without this, restarting the daemon while a bad state is
+   * still active fires a fresh Telegram alert - even if the operator
+   * already acknowledged the previous one, because the in-memory
+   * map is empty and the next tick reads "transition into bad
+   * state" from scratch.
+   *
+   * Hydration looks up the most recent "open" alert per event class
+   * (open = no later alert row pairs back to it via paired_alert_id)
+   * and inherits its id as the active_alert_id, with `bad_since_ms`
+   * set to the alert's `created_at`. Subsequent ticks observing
+   * isBad=true are now in the "already armed and fired" branch,
+   * which short-circuits without recording a new row.
+   */
+  async hydrate(alertsRepo: AlertsRepo): Promise<void> {
+    const classes: Array<[string, (s: EventState) => void]> = [
+      ['datum_unreachable', (s) => { this.datum_unreachable = s; }],
+      ['hashrate_below_floor', (s) => { this.hashrate_below_floor = s; }],
+      ['zero_hashrate', (s) => { this.zero_hashrate = s; }],
+      ['api_unreachable', (s) => { this.api_unreachable = s; }],
+      ['unknown_bid', (s) => { this.unknown_bid = s; }],
+      ['sustained_paused', (s) => { this.sustained_paused = s; }],
+      ['beta_exit', (s) => { this.beta_exit = s; }],
+    ];
+    for (const [cls, setter] of classes) {
+      const open = await alertsRepo.findOpenAlert(cls);
+      if (open) {
+        setter({ bad_since_ms: open.created_at, active_alert_id: open.id });
+      }
+    }
+  }
+
+  /**
    * Per-tick evaluation. Call once per tick after the controller has
    * produced its TickResult. Order: detectors fire in declaration order;
    * each detector's transition logic is independent.
    */
   async evaluate(state: State): Promise<void> {
-    await this.evaluateDatumUnreachable(state);
-    await this.evaluateBelowFloor(state);
-    await this.evaluateZeroHashrate(state);
-    await this.evaluateApiUnreachable(state);
-    await this.evaluateUnknownBid(state);
-    await this.evaluateSustainedPaused(state);
-    await this.evaluateBetaExit(state);
+    const disabled = new Set(state.config.notification_disabled_event_classes);
+    await this.evaluateDatumUnreachable(state, disabled);
+    await this.evaluateBelowFloor(state, disabled);
+    await this.evaluateZeroHashrate(state, disabled);
+    await this.evaluateApiUnreachable(state, disabled);
+    await this.evaluateUnknownBid(state, disabled);
+    await this.evaluateSustainedPaused(state, disabled);
+    await this.evaluateBetaExit(state, disabled);
     // TODO(#100): wallet_runway needs daily-burn input; low_acceptance
     //   needs an acceptance-ratio series in tick_metrics. Both are
     //   scoped for a small follow-up commit.
   }
 
-  private async evaluateDatumUnreachable(state: State): Promise<void> {
+  private async evaluateDatumUnreachable(state: State, disabledClasses: ReadonlySet<string>): Promise<void> {
     // Skip when Datum integration isn't configured at all.
     if (state.datum === null) {
       this.datum_unreachable = INITIAL;
@@ -99,6 +136,7 @@ export class AlertEvaluator {
       isBad,
       thresholdMs,
       currentState: this.datum_unreachable,
+      disabledClasses,
       title: 'Datum stratum unreachable',
       bodyForFiring: (durMs) =>
         `Datum gateway has been unreachable for ${formatDuration(durMs)}. Buyer-side hashrate cannot reach Ocean - shares are not crediting.`,
@@ -107,7 +145,7 @@ export class AlertEvaluator {
     });
   }
 
-  private async evaluateBelowFloor(state: State): Promise<void> {
+  private async evaluateBelowFloor(state: State, disabledClasses: ReadonlySet<string>): Promise<void> {
     const isBad = state.below_floor_since !== null;
     const thresholdMs = state.config.below_floor_alert_after_minutes * 60_000;
     this.hashrate_below_floor = await this.runTransition({
@@ -116,6 +154,7 @@ export class AlertEvaluator {
       isBad,
       thresholdMs,
       currentState: this.hashrate_below_floor,
+      disabledClasses,
       title: 'Hashrate below floor',
       bodyForFiring: (durMs) =>
         `Delivered hashrate has been below the configured floor for ${formatDuration(durMs)}. Current: ${state.actual_hashrate.total_ph.toFixed(2)} PH/s; floor: ${state.config.minimum_floor_hashrate_ph.toFixed(2)} PH/s.`,
@@ -124,7 +163,7 @@ export class AlertEvaluator {
     });
   }
 
-  private async evaluateZeroHashrate(state: State): Promise<void> {
+  private async evaluateZeroHashrate(state: State, disabledClasses: ReadonlySet<string>): Promise<void> {
     const isBad = state.actual_hashrate.total_ph < 0.001;
     const thresholdMs =
       state.config.zero_hashrate_loud_alert_after_minutes * 60_000;
@@ -134,6 +173,7 @@ export class AlertEvaluator {
       isBad,
       thresholdMs,
       currentState: this.zero_hashrate,
+      disabledClasses,
       title: 'Zero hashrate',
       bodyForFiring: (durMs) =>
         `No hashrate delivered for ${formatDuration(durMs)}. Likely the upstream marketplace stopped routing - check the active bid and fee state.`,
@@ -142,7 +182,7 @@ export class AlertEvaluator {
     });
   }
 
-  private async evaluateApiUnreachable(state: State): Promise<void> {
+  private async evaluateApiUnreachable(state: State, disabledClasses: ReadonlySet<string>): Promise<void> {
     // state.market is null when the Braiins API failed this tick.
     const isBad = state.market === null;
     const thresholdMs = state.config.api_outage_alert_after_minutes * 60_000;
@@ -152,6 +192,7 @@ export class AlertEvaluator {
       isBad,
       thresholdMs,
       currentState: this.api_unreachable,
+      disabledClasses,
       title: 'Braiins API unreachable',
       bodyForFiring: (durMs) =>
         `The Braiins marketplace API has been unreachable for ${formatDuration(durMs)}. The autopilot cannot read orderbook / balance / fee data and is making no decisions until it recovers.`,
@@ -160,7 +201,7 @@ export class AlertEvaluator {
     });
   }
 
-  private async evaluateUnknownBid(state: State): Promise<void> {
+  private async evaluateUnknownBid(state: State, disabledClasses: ReadonlySet<string>): Promise<void> {
     // No threshold: an unknown bid is a "PAUSE NOW" condition per
     // SPEC §9, so the alert fires on the first tick we see one.
     const isBad = state.unknown_bids.length > 0;
@@ -170,6 +211,7 @@ export class AlertEvaluator {
       isBad,
       thresholdMs: 0,
       currentState: this.unknown_bid,
+      disabledClasses,
       title: 'Unknown bid detected',
       bodyForFiring: () => {
         const ids = state.unknown_bids.map((b) => b.braiins_order_id).join(', ');
@@ -180,7 +222,7 @@ export class AlertEvaluator {
     });
   }
 
-  private async evaluateSustainedPaused(state: State): Promise<void> {
+  private async evaluateSustainedPaused(state: State, disabledClasses: ReadonlySet<string>): Promise<void> {
     // Primary owned bid (first non-fulfilled) carries the
     // last_pause_reason flag. We treat "any non-null pause reason"
     // as the bad signal; the threshold is the operator's choice of
@@ -196,6 +238,7 @@ export class AlertEvaluator {
       isBad: isBad ?? false,
       thresholdMs,
       currentState: this.sustained_paused,
+      disabledClasses,
       title: 'Bid sustained-paused by Braiins',
       bodyForFiring: (durMs) =>
         `Primary owned bid has been Paused by Braiins for ${formatDuration(durMs)} (last_pause_reason: ${primary?.last_pause_reason ?? 'unknown'}). Likely the Paused/Active oscillation hazard - check the destination pool / Datum gateway and consider a manual edit.`,
@@ -204,7 +247,7 @@ export class AlertEvaluator {
     });
   }
 
-  private async evaluateBetaExit(state: State): Promise<void> {
+  private async evaluateBetaExit(state: State, disabledClasses: ReadonlySet<string>): Promise<void> {
     // Beta-exit signal: Braiins applies a non-zero fee_rate to bids
     // when the marketplace exits beta. Detectable per-bid via
     // owned_bids[].fee_rate_pct. Fires immediately (no threshold) on
@@ -218,6 +261,7 @@ export class AlertEvaluator {
       isBad: anyFeeBearing,
       thresholdMs: 0,
       currentState: this.beta_exit,
+      disabledClasses,
       title: 'Braiins beta-exit fees detected',
       bodyForFiring: () => {
         const sample = state.owned_bids.find((b) => (b.fee_rate_pct ?? 0) > 0);
@@ -241,7 +285,14 @@ export class AlertEvaluator {
     title: string;
     bodyForFiring: (durMs: number) => string;
     bodyForRecovery: (durMs: number) => string;
+    disabledClasses: ReadonlySet<string>;
   }): Promise<EventState> {
+    // #106: per-event-class opt-out. Skip everything for disabled
+    // classes - no alert row, no timer arming, no recovery message.
+    // Re-enabling mid-outage starts a fresh "bad since now".
+    if (args.disabledClasses.has(args.event_class)) {
+      return INITIAL;
+    }
     const nowMs = this.now();
 
     if (args.isBad) {
