@@ -2,6 +2,18 @@
 
 ## 2026-05-08
 
+### `[Feature]` DDNS: DuckDNS provider + Test connection button (#111 follow-up)
+
+DuckDNS now joins No-IP as a DDNS provider option. DuckDNS's free tier has no expiration / no monthly nag, making it the default-recommended option for new setups. Single field for the token (no username, since DuckDNS just uses an account-bound bearer token). Same dashboard card, just a different option in the Provider dropdown. Also adds a yellow **Test connection** button under the credential field that pushes a real update with the current form values (without saving) and surfaces the provider's response. Lets the operator validate credentials end-to-end before committing.
+
+### `[Feature]` Test connection buttons on Pool URL and Datum stats API (#112)
+
+Yellow **Test connection** buttons inline-right of the Pool URL and Datum stats API fields, matching the Telegram / bitcoind / electrs pattern. Pool URL test TCP-probes the parsed host:port (same primitive the daemon's pool-health monitor uses); Datum API test runs a real `GET /umbrel-api` poll and reports connection count + hashrate or the error string. Both validate UNSAVED form values - useful when the operator just edited the URL and wants to confirm before saving.
+
+### `[UI]` Fix orphan tab-bar scrollbar on wide screens
+
+The horizontal-scroll tab bar was rendering an empty scrollbar track on macOS (always-on scrollbars). Added `[scrollbar-width:none]` + WebKit override so the scroll affordance only shows when content actually overflows.
+
 ### `[Fix]` Time-based ocean_unpaid_sat cleanup, broader cutoff (#108 follow-up)
 
 The previous cleanup used the migration boundary (`0053_*` applied_at) as the cutoff, which left contaminated rows in place wherever the daemon had been running with the column already in place but Ocean was unreachable at tick time and the bad recompute filled the null. Operator caught this on the chart - a 4M-sat plateau in the historical region they never actually had. Switching to a value-based heuristic: find the latest tick where `ocean_unpaid_sat > 1.5M sats` (implausibly high for the project's 1 PH/s hobbyist target given Ocean's 1,048,576-sat payout threshold) and null everything at or before that timestamp. Idempotent across re-boots (post-cleanup the threshold-query returns null and the cleanup no-ops).

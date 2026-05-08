@@ -306,7 +306,7 @@ export const AppConfigSchema = z.object({
   // are planned follow-ups. Driven by motivating incident on
   // 2026-05-07 when mynetgear.com DDNS drift caused a recurring
   // Stratum DOWN false-alarm and a 30+ minute manual diagnosis.
-  ddns_provider: z.enum(['', 'noip']).default(''),
+  ddns_provider: z.enum(['', 'noip', 'duckdns']).default(''),
   ddns_hostname: z.string().default(''),
   ddns_username: z.string().default(''),
   ddns_credential: z.string().default(''),

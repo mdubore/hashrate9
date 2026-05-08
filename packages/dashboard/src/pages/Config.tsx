@@ -9,6 +9,8 @@ import {
   api,
   UnauthorizedError,
   type AppConfig,
+  type DatumTestResponse,
+  type PoolUrlTestResponse,
   type StorageEstimateBucket,
   type StorageEstimateResponse,
 } from '../lib/api';
@@ -835,8 +837,8 @@ function ConfigTabsAndContent({
         )}
       </div>
 
-      {/* Tab bar - horizontal scroll on narrow viewports. */}
-      <div className="flex gap-0 overflow-x-auto border-b border-slate-700">
+      {/* Tab bar - horizontal scroll on narrow viewports, scrollbar hidden so wide screens don't show an empty track. */}
+      <div className="flex gap-0 overflow-x-auto border-b border-slate-700 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {TAB_ORDER.map((id) => (
           <button
             key={id}
@@ -2283,18 +2285,33 @@ function Field({
       addr.length > 0 &&
       !(v.startsWith(addr + '.') && v.length > addr.length + 1);
     const showWarning = noPeriod || prefixMismatch;
+    // #112: inline Test connection button next to Pool URL and Datum stats API.
+    const testKind: 'pool' | 'datum' | null =
+      spec.key === 'destination_pool_url' ? 'pool' : spec.key === 'datum_api_url' ? 'datum' : null;
     return (
       <label className="block">
         <span className="block text-sm text-slate-300 mb-1">{spec.label}</span>
-        <input
-          type="text"
-          value={v}
-          onChange={(e) => onChange(spec.key, e.target.value as never)}
-          className={
-            'w-full bg-slate-800 border rounded px-3 py-1.5 text-sm font-mono ' +
-            (showWarning ? 'border-amber-600' : 'border-slate-700')
-          }
-        />
+        {testKind ? (
+          <FieldWithTestButton
+            kind={testKind}
+            value={v}
+            onChange={(s) => onChange(spec.key, s as never)}
+            className={
+              'w-full bg-slate-800 border rounded px-3 py-1.5 text-sm font-mono ' +
+              (showWarning ? 'border-amber-600' : 'border-slate-700')
+            }
+          />
+        ) : (
+          <input
+            type="text"
+            value={v}
+            onChange={(e) => onChange(spec.key, e.target.value as never)}
+            className={
+              'w-full bg-slate-800 border rounded px-3 py-1.5 text-sm font-mono ' +
+              (showWarning ? 'border-amber-600' : 'border-slate-700')
+            }
+          />
+        )}
         {noPeriod && (
           <span className="block text-xs text-amber-400 mt-1">
             <Trans>
@@ -2532,6 +2549,141 @@ function Field({
  * already 5-min granularity; 30 s is just so the dashboard reflects
  * a config edit's effect within a tick.
  */
+
+/**
+ * #112: input + yellow Test connection button on the same row.
+ * Used by Pool URL and Datum stats API to validate UNSAVED form
+ * values before saving (same pattern as Telegram / bitcoind / electrs).
+ */
+function FieldWithTestButton({
+  kind,
+  value,
+  onChange,
+  className,
+}: {
+  kind: 'pool' | 'datum';
+  value: string;
+  onChange: (next: string) => void;
+  className: string;
+}) {
+  const test = useMutation({
+    mutationFn: () => (kind === 'pool' ? api.poolUrlTest(value) : api.datumTest(value)),
+  });
+  return (
+    <div>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className={`flex-1 ${className}`}
+        />
+        <button
+          type="button"
+          onClick={() => test.mutate()}
+          disabled={test.isPending || !value.trim()}
+          className="px-3 py-1.5 text-sm rounded bg-amber-400 text-slate-900 font-medium hover:bg-amber-300 disabled:opacity-50 whitespace-nowrap"
+        >
+          {test.isPending ? <Trans>Testing…</Trans> : <Trans>Test connection</Trans>}
+        </button>
+      </div>
+      {(test.data || test.isError) && (
+        <div className="mt-2 text-xs font-mono break-words">
+          {test.data && test.data.ok && (
+            <span className="text-emerald-300">
+              {kind === 'pool' ? (
+                (() => {
+                  const d = test.data as PoolUrlTestResponse;
+                  return d.latency_ms !== null && d.latency_ms !== undefined ? (
+                    <Trans>OK · connected in {d.latency_ms}ms</Trans>
+                  ) : (
+                    <Trans>OK</Trans>
+                  );
+                })()
+              ) : (
+                (() => {
+                  const d = test.data as DatumTestResponse;
+                  return (
+                    <Trans>
+                      OK · {d.connections ?? '-'} connections, {d.hashrate_ph ?? '-'} PH/s
+                    </Trans>
+                  );
+                })()
+              )}
+            </span>
+          )}
+          {test.data && !test.data.ok && (
+            <span className="text-red-400">{test.data.error}</span>
+          )}
+          {test.isError && (
+            <span className="text-red-400">{(test.error as Error).message}</span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * #112: DDNS Test connection - hits the configured provider's update
+ * endpoint with the values currently in the form and surfaces the
+ * provider's response (`good <ip>` / `nochg <ip>` / `badauth` / etc).
+ * Same UX as the other yellow Test buttons.
+ */
+function DdnsTestRow({ draft }: { draft: AppConfig }) {
+  const test = useMutation({
+    mutationFn: () =>
+      api.ddnsTest({
+        provider: draft.ddns_provider,
+        hostname: draft.ddns_hostname,
+        username: draft.ddns_username,
+        credential: draft.ddns_credential,
+      }),
+  });
+  const ready =
+    draft.ddns_provider !== '' &&
+    draft.ddns_hostname.trim() !== '' &&
+    draft.ddns_credential.trim() !== '' &&
+    // DuckDNS uses a token only - no username field. No-IP needs both.
+    (draft.ddns_provider === 'duckdns' || draft.ddns_username.trim() !== '');
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => test.mutate()}
+        disabled={!ready || test.isPending}
+        className="px-3 py-1.5 text-sm rounded bg-amber-400 text-slate-900 font-medium hover:bg-amber-300 disabled:opacity-50"
+      >
+        {test.isPending ? <Trans>Testing…</Trans> : <Trans>Test connection</Trans>}
+      </button>
+      <span className="block text-xs text-slate-500 mt-1">
+        <Trans>
+          Pushes a real update with the values currently in the form (without saving them
+          first). `nochg` and `good` are both success - they just mean "DDNS already had
+          this IP" vs "DDNS just updated".
+        </Trans>
+      </span>
+      {(test.data || test.isError) && (
+        <div className="mt-2 text-xs font-mono break-words">
+          {test.data && test.data.ok && (
+            <span className="text-emerald-300">
+              <Trans>
+                OK · {test.data.status} {test.data.ip ?? ''}
+              </Trans>
+            </span>
+          )}
+          {test.data && !test.data.ok && (
+            <span className="text-red-400">{test.data.error}</span>
+          )}
+          {test.isError && (
+            <span className="text-red-400">{(test.error as Error).message}</span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DdnsSection({
   draft,
   onChange,
@@ -2566,9 +2718,9 @@ function DdnsSection({
         <p className="text-xs text-slate-500 mt-1">
           <Trans>
             Keep the Pool URL's hostname pointed at this box's current public IP. Replaces
-            the router-firmware-based DDNS client. Currently supports No-IP only - sign up
-            at no-ip.com (with a dash), create a hostname, generate a DDNS Key under DDNS
-            Keys / Groups, and paste the key credentials below.
+            the router-firmware-based DDNS client. Supports No-IP (sign up at no-ip.com -
+            create a hostname, then generate a DDNS Key under DDNS Keys / Groups) and
+            DuckDNS (sign up at duckdns.org - free, no expiration, no monthly re-confirm).
           </Trans>
         </p>
       </header>
@@ -2639,6 +2791,7 @@ function DdnsSection({
           >
             <option value="">{t`Disabled`}</option>
             <option value="noip">No-IP (no-ip.com)</option>
+            <option value="duckdns">DuckDNS (duckdns.org)</option>
           </select>
           <span className="block text-xs text-slate-500 mt-1">
             <Trans>
@@ -2673,18 +2826,20 @@ function DdnsSection({
               </span>
             </label>
 
-            <label className="block">
-              <span className="block text-sm text-slate-300 mb-1">
-                <Trans>Username (DDNS Key user)</Trans>
-              </span>
-              <input
-                type="text"
-                value={draft.ddns_username}
-                onChange={(e) => onChange('ddns_username', e.target.value as never)}
-                autoComplete="off"
-                className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm font-mono"
-              />
-            </label>
+            {draft.ddns_provider === 'noip' && (
+              <label className="block">
+                <span className="block text-sm text-slate-300 mb-1">
+                  <Trans>Username (DDNS Key user)</Trans>
+                </span>
+                <input
+                  type="text"
+                  value={draft.ddns_username}
+                  onChange={(e) => onChange('ddns_username', e.target.value as never)}
+                  autoComplete="off"
+                  className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm font-mono"
+                />
+              </label>
+            )}
 
             <label className="block">
               <span className="block text-sm text-slate-300 mb-1">
@@ -2704,6 +2859,10 @@ function DdnsSection({
                 </Trans>
               </span>
             </label>
+
+            {/* #112: Test connection button. Same yellow styling and unsaved-form-validation
+                semantics as the Telegram / bitcoind / electrs test buttons. */}
+            <DdnsTestRow draft={draft} />
 
             {/* Last-push status. */}
             <div className="bg-slate-800/40 border border-slate-800 rounded p-3 text-xs space-y-1 font-mono">

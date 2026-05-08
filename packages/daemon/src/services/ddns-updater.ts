@@ -144,21 +144,24 @@ export class DdnsUpdaterService {
       return;
     }
 
-    if (provider !== 'noip') {
-      this.snapshot = {
-        enabled: true,
-        provider,
-        hostname,
-        last_status: 'unsupported_provider',
-        last_pushed_ip: this.snapshot.last_pushed_ip,
-        last_pushed_at: this.snapshot.last_pushed_at,
-        last_attempted_at: now,
-        last_error: `provider '${provider}' is not supported in this build`,
-      };
+    if (provider === 'noip') {
+      await this.pushNoIp({ hostname, username, credential, ip, now });
       return;
     }
-
-    await this.pushNoIp({ hostname, username, credential, ip, now });
+    if (provider === 'duckdns') {
+      await this.pushDuckDns({ hostname, credential, ip, now });
+      return;
+    }
+    this.snapshot = {
+      enabled: true,
+      provider,
+      hostname,
+      last_status: 'unsupported_provider',
+      last_pushed_ip: this.snapshot.last_pushed_ip,
+      last_pushed_at: this.snapshot.last_pushed_at,
+      last_attempted_at: now,
+      last_error: `provider '${provider}' is not supported in this build`,
+    };
   }
 
   private async pushNoIp(args: {
@@ -218,6 +221,70 @@ export class DdnsUpdaterService {
         last_error: msg,
       };
       this.options.log?.(`[ddns] noip push errored: ${msg}`);
+    } finally {
+      clearTimeout(t);
+    }
+  }
+
+  /**
+   * DuckDNS update protocol: GET https://www.duckdns.org/update with
+   * `domains`, `token`, `ip` query params. The hostname stored in
+   * `ddns_hostname` here is the full `<sub>.duckdns.org` form; we
+   * strip the `.duckdns.org` suffix before sending because DuckDNS's
+   * `domains=` param expects bare subdomains. Token is the
+   * per-account bearer string DuckDNS hands out at sign-up; we store
+   * it in `ddns_credential`. Username field is unused for this
+   * provider (left empty in the dashboard / ignored here).
+   *
+   * Response: literal "OK" or "KO" on its own line. KO has no error
+   * detail per their spec, so we surface the body verbatim.
+   */
+  private async pushDuckDns(args: {
+    hostname: string;
+    credential: string;
+    ip: string;
+    now: number;
+  }): Promise<void> {
+    const { hostname, credential, ip, now } = args;
+    const sub = hostname.replace(/\.duckdns\.org$/i, '');
+    const url = `https://www.duckdns.org/update?domains=${encodeURIComponent(sub)}&token=${encodeURIComponent(credential)}&ip=${encodeURIComponent(ip)}`;
+    const ac = new AbortController();
+    const t = setTimeout(() => ac.abort(), 5_000);
+    try {
+      const resp = await this.fetcher(url, {
+        headers: { 'User-Agent': this.userAgent },
+        signal: ac.signal,
+      });
+      const body = (await resp.text()).trim();
+      const happy = body === 'OK';
+      this.snapshot = {
+        enabled: true,
+        provider: 'duckdns',
+        hostname,
+        last_status: happy ? 'good' : body || `HTTP ${resp.status}`,
+        last_pushed_ip: happy ? ip : this.snapshot.last_pushed_ip,
+        last_pushed_at: happy ? now : this.snapshot.last_pushed_at,
+        last_attempted_at: now,
+        last_error: happy ? null : body || `HTTP ${resp.status}`,
+      };
+      this.options.log?.(
+        happy
+          ? `[ddns] duckdns push: OK ${ip} -> ${hostname}`
+          : `[ddns] duckdns push failed: ${body}`,
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.snapshot = {
+        enabled: true,
+        provider: 'duckdns',
+        hostname,
+        last_status: 'network_error',
+        last_pushed_ip: this.snapshot.last_pushed_ip,
+        last_pushed_at: this.snapshot.last_pushed_at,
+        last_attempted_at: now,
+        last_error: msg,
+      };
+      this.options.log?.(`[ddns] duckdns push errored: ${msg}`);
     } finally {
       clearTimeout(t);
     }

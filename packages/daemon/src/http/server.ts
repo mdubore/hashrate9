@@ -59,6 +59,9 @@ import { registerStatsRoute } from './routes/stats.js';
 import { registerStatusRoute } from './routes/status.js';
 import { registerStorageEstimateRoute } from './routes/storage-estimate.js';
 import { registerDdnsRoute } from './routes/ddns.js';
+import { registerDdnsTestRoute } from './routes/ddns-test.js';
+import { registerPoolUrlTestRoute } from './routes/pool-url-test.js';
+import { registerDatumTestRoute } from './routes/datum-test.js';
 import type { PublicIpService } from '../services/public-ip.js';
 import type { DdnsUpdaterService } from '../services/ddns-updater.js';
 
@@ -186,6 +189,9 @@ export async function createHttpServer(deps: HttpServerDeps): Promise<HttpServer
     publicIpService: deps.publicIpService,
     ddnsUpdater: deps.ddnsUpdater,
   });
+  await registerDdnsTestRoute(app);
+  await registerPoolUrlTestRoute(app);
+  await registerDatumTestRoute(app);
 
   // Serve built dashboard if present.
   if (deps.staticRoot) {

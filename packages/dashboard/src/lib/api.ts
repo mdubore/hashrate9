@@ -325,7 +325,7 @@ export interface AppConfig {
     | 'metallic-clank-2'
     | 'custom';
   // #111: daemon-managed Dynamic DNS updater. Empty provider = disabled.
-  ddns_provider: '' | 'noip';
+  ddns_provider: '' | 'noip' | 'duckdns';
   ddns_hostname: string;
   ddns_username: string;
   ddns_credential: string;
@@ -356,6 +356,29 @@ export interface DdnsRouteResponse {
   pool_url_resolve_error: string | null;
   ddns: DdnsSnapshot;
   checked_at: number;
+}
+
+export interface DdnsTestResponse {
+  ok: boolean;
+  status?: string;
+  ip?: string;
+  raw?: string;
+  error?: string;
+}
+
+export interface PoolUrlTestResponse {
+  ok: boolean;
+  host?: string;
+  port?: number;
+  latency_ms?: number | null;
+  error?: string;
+}
+
+export interface DatumTestResponse {
+  ok: boolean;
+  connections?: number | null;
+  hashrate_ph?: number | null;
+  error?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -505,6 +528,21 @@ export const api = {
   },
   btcPrice: () => request<BtcPriceResponse>('/api/btc-price'),
   ddns: () => request<DdnsRouteResponse>('/api/ddns'),
+  ddnsTest: (creds: { provider: string; hostname: string; username: string; credential: string }) =>
+    request<DdnsTestResponse>('/api/ddns/test', {
+      method: 'POST',
+      body: JSON.stringify(creds),
+    }),
+  poolUrlTest: (url: string) =>
+    request<PoolUrlTestResponse>('/api/pool-url/test', {
+      method: 'POST',
+      body: JSON.stringify({ url }),
+    }),
+  datumTest: (url: string) =>
+    request<DatumTestResponse>('/api/datum/test', {
+      method: 'POST',
+      body: JSON.stringify({ url }),
+    }),
   bip110Scan: (blocks: number) =>
     request<Bip110ScanResponse>(`/api/bip110/scan?blocks=${encodeURIComponent(String(blocks))}`),
   bitcoindTest: (creds: { url: string; user: string; password: string }) =>

@@ -1309,8 +1309,8 @@ msgid "just now"
 msgstr "just now"
 
 #: src/pages/Config.tsx
-msgid "Keep the Pool URL's hostname pointed at this box's current public IP. Replaces the router-firmware-based DDNS client. Currently supports No-IP only - sign up at no-ip.com (with a dash), create a hostname, generate a DDNS Key under DDNS Keys / Groups, and paste the key credentials below."
-msgstr "Keep the Pool URL's hostname pointed at this box's current public IP. Replaces the router-firmware-based DDNS client. Currently supports No-IP only - sign up at no-ip.com (with a dash), create a hostname, generate a DDNS Key under DDNS Keys / Groups, and paste the key credentials below."
+msgid "Keep the Pool URL's hostname pointed at this box's current public IP. Replaces the router-firmware-based DDNS client. Supports No-IP (sign up at no-ip.com - create a hostname, then generate a DDNS Key under DDNS Keys / Groups) and DuckDNS (sign up at duckdns.org - free, no expiration, no monthly re-confirm)."
+msgstr "Keep the Pool URL's hostname pointed at this box's current public IP. Replaces the router-firmware-based DDNS client. Supports No-IP (sign up at no-ip.com - create a hostname, then generate a DDNS Key under DDNS Keys / Groups) and DuckDNS (sign up at duckdns.org - free, no expiration, no monthly re-confirm)."
 
 #: src/pages/Config.tsx
 msgid "Keep whatever run mode was active before the restart. PAUSED is demoted to DRY_RUN."
@@ -1675,8 +1675,26 @@ msgstr "Off"
 
 #: src/pages/Config.tsx
 #: src/pages/Config.tsx
+#: src/pages/Config.tsx
 msgid "OK"
 msgstr "OK"
+
+#. placeholder {0}: test.data.status
+#. placeholder {1}: test.data.ip ?? ''
+#: src/pages/Config.tsx
+msgid "OK · {0} {1}"
+msgstr "OK · {0} {1}"
+
+#. placeholder {0}: d.connections ?? '-'
+#. placeholder {1}: d.hashrate_ph ?? '-'
+#: src/pages/Config.tsx
+msgid "OK · {0} connections, {1} PH/s"
+msgstr "OK · {0} connections, {1} PH/s"
+
+#. placeholder {0}: d.latency_ms
+#: src/pages/Config.tsx
+msgid "OK · connected in {0}ms"
+msgstr "OK · connected in {0}ms"
 
 #: src/pages/Config.tsx
 msgid "OK · message delivered"
@@ -1998,6 +2016,10 @@ msgstr "Provider"
 #: src/pages/Config.tsx
 msgid "Push outage alerts (Datum unreachable, hashrate floor breach, wallet runway, etc.) to Telegram so the operator finds out within minutes, not hours. See the setup walkthrough for the @BotFather + @userinfobot steps."
 msgstr "Push outage alerts (Datum unreachable, hashrate floor breach, wallet runway, etc.) to Telegram so the operator finds out within minutes, not hours. See the setup walkthrough for the @BotFather + @userinfobot steps."
+
+#: src/pages/Config.tsx
+msgid "Pushes a real update with the values currently in the form (without saving them first). `nochg` and `good` are both success - they just mean \"DDNS already had this IP\" vs \"DDNS just updated\"."
+msgstr "Pushes a real update with the values currently in the form (without saving them first). `nochg` and `good` are both success - they just mean \"DDNS already had this IP\" vs \"DDNS just updated\"."
 
 #: src/components/HashrateChart.tsx
 msgid "range"
@@ -2353,6 +2375,8 @@ msgstr "Telegram bot token"
 #: src/pages/Config.tsx
 #: src/pages/Config.tsx
 #: src/pages/Config.tsx
+#: src/pages/Config.tsx
+#: src/pages/Config.tsx
 msgid "Test connection"
 msgstr "Test connection"
 
@@ -2360,6 +2384,8 @@ msgstr "Test connection"
 msgid "Test sound"
 msgstr "Test sound"
 
+#: src/pages/Config.tsx
+#: src/pages/Config.tsx
 #: src/pages/Config.tsx
 #: src/pages/Config.tsx
 #: src/pages/Config.tsx

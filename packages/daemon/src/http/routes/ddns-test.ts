@@ -1,0 +1,94 @@
+/**
+ * POST /api/ddns/test
+ *
+ * Validates DDNS credentials by performing a real update against the
+ * configured provider with the values currently in the form. Same
+ * shape as the other test routes: take unsaved values, run the call,
+ * report success or the provider's error string back to the operator.
+ *
+ * For No-IP we use the dyndns2 protocol on dynupdate.no-ip.com.
+ * Happy responses: `good <ip>` (IP changed), `nochg <ip>` (already
+ * matched - still a success). Anything else is an error per
+ * provider's spec (`badauth`, `nohost`, `abuse`, etc.).
+ */
+
+import type { FastifyInstance } from 'fastify';
+
+const NOIP_UPDATE_URL = 'https://dynupdate.no-ip.com/nic/update';
+const USER_AGENT = 'hashrate-autopilot/1.0';
+
+export interface DdnsTestRequest {
+  provider?: string;
+  hostname?: string;
+  username?: string;
+  credential?: string;
+}
+
+export interface DdnsTestResponse {
+  ok: boolean;
+  status?: string;
+  ip?: string;
+  raw?: string;
+  error?: string;
+}
+
+export async function registerDdnsTestRoute(app: FastifyInstance): Promise<void> {
+  app.post<{ Body?: DdnsTestRequest }>(
+    '/api/ddns/test',
+    async (req): Promise<DdnsTestResponse> => {
+      const body = req.body ?? {};
+      const provider = typeof body.provider === 'string' ? body.provider.trim() : '';
+      const hostname = typeof body.hostname === 'string' ? body.hostname.trim() : '';
+      const username = typeof body.username === 'string' ? body.username.trim() : '';
+      const credential = typeof body.credential === 'string' ? body.credential : '';
+
+      if (!provider) return { ok: false, error: 'provider is required' };
+      if (!hostname) return { ok: false, error: 'hostname is required' };
+      if (!username) return { ok: false, error: 'username is required' };
+      if (!credential) return { ok: false, error: 'credential is required' };
+
+      const ac = new AbortController();
+      const timer = setTimeout(() => ac.abort(), 8_000);
+      try {
+        if (provider === 'noip') {
+          const url = `${NOIP_UPDATE_URL}?hostname=${encodeURIComponent(hostname)}`;
+          const auth = Buffer.from(`${username}:${credential}`).toString('base64');
+          const resp = await fetch(url, {
+            headers: {
+              Authorization: `Basic ${auth}`,
+              'User-Agent': USER_AGENT,
+            },
+            signal: ac.signal,
+          });
+          const raw = (await resp.text()).trim();
+          const parts = raw.split(/\s+/);
+          const status = parts[0] ?? '';
+          const ip = parts[1] ?? '';
+          const happy = status === 'good' || status === 'nochg';
+          return happy
+            ? { ok: true, status, ip, raw }
+            : { ok: false, status, raw, error: raw || `HTTP ${resp.status}` };
+        }
+        if (provider === 'duckdns') {
+          // DuckDNS expects bare subdomain, no `ip=` (their server uses the source IP).
+          const sub = hostname.replace(/\.duckdns\.org$/i, '');
+          const url = `https://www.duckdns.org/update?domains=${encodeURIComponent(sub)}&token=${encodeURIComponent(credential)}`;
+          const resp = await fetch(url, {
+            headers: { 'User-Agent': USER_AGENT },
+            signal: ac.signal,
+          });
+          const raw = (await resp.text()).trim();
+          const happy = raw === 'OK';
+          return happy
+            ? { ok: true, status: 'good', raw }
+            : { ok: false, status: raw || 'KO', raw, error: raw || `HTTP ${resp.status}` };
+        }
+        return { ok: false, error: `provider '${provider}' is not supported` };
+      } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : String(err) };
+      } finally {
+        clearTimeout(timer);
+      }
+    },
+  );
+}
