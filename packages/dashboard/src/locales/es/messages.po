@@ -2073,10 +2073,6 @@ msgstr "recibido (Datum)"
 msgid "received (Ocean)"
 msgstr "recibido (Ocean)"
 
-#: src/pages/Alerts.tsx
-msgid "recovery"
-msgstr "recuperación"
-
 #: src/components/Layout.tsx
 msgid "Refresh"
 msgstr "Recargar"
@@ -2248,10 +2244,6 @@ msgstr "Elige unidad de hashrate (1 EH = 1.000 PH = 1.000.000 TH)"
 #: src/pages/Setup.tsx
 msgid "Setting up…"
 msgstr "Configurando…"
-
-#: src/pages/Alerts.tsx
-msgid "severity"
-msgstr "severidad"
 
 #: src/components/HashrateChart.tsx
 #: src/pages/Status.tsx

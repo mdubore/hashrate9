@@ -824,7 +824,7 @@ function ConfigTabsAndContent({
             </button>
           ))}
         </div>
-        <div className="relative ml-auto pb-1 w-full max-w-xs">
+        <div className="relative ml-auto pb-1 w-full max-w-[10rem] sm:max-w-[12rem]">
           <input
             type="search"
             placeholder={t`Search settings...`}

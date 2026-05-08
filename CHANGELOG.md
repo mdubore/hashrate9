@@ -2,6 +2,13 @@
 
 ## 2026-05-08
 
+### `[UI]` Config search width + Alerts severity column dropped
+
+Two papercuts:
+
+- Config search input was clipping the **Display & Logging** tab label - much worse in NL ("Display & Logg") and ES. Halved the search width (`max-w-xs` → `max-w-[10rem]` mobile, `[12rem]` sm+) so the tab labels render in full.
+- The Alerts table still showed the **LOUD / WARN / INFO** severity column and a separate **recovery / herstel** marker. Operator framing all run has been "every alert that fires is just a notification" - LOUD added no signal, recovery was confusing. Dropped both. The `✓` prefix in the recovery row's title (e.g. "✓ Hashrate below floor") plus the body text ("Hashrate back at or above floor - was below for 15m") already conveys "this resolved" without a separate badge.
+
 ### `[Fix]` DDNS "last successful push" age + status localization (#111 polish)
 
 Two related papercuts in the DDNS status block on Config:

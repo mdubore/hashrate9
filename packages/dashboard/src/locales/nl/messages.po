@@ -2073,10 +2073,6 @@ msgstr "ontvangen (Datum)"
 msgid "received (Ocean)"
 msgstr "ontvangen (Ocean)"
 
-#: src/pages/Alerts.tsx
-msgid "recovery"
-msgstr "herstel"
-
 #: src/components/Layout.tsx
 msgid "Refresh"
 msgstr "Vernieuwen"
@@ -2248,10 +2244,6 @@ msgstr "Kies hashratemaat (1 EH = 1.000 PH = 1.000.000 TH)"
 #: src/pages/Setup.tsx
 msgid "Setting up…"
 msgstr "Bezig met instellen…"
-
-#: src/pages/Alerts.tsx
-msgid "severity"
-msgstr "ernst"
 
 #: src/components/HashrateChart.tsx
 #: src/pages/Status.tsx

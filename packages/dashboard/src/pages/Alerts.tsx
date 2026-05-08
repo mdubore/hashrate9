@@ -7,7 +7,6 @@ import {
   api,
   type AlertDeliveryStatus,
   type AlertRow,
-  type AlertSeverity,
 } from '../lib/api';
 import { formatAge } from '../lib/format';
 
@@ -106,9 +105,6 @@ export function Alerts() {
                   <Trans>when</Trans>
                 </th>
                 <th className="text-left px-3 py-2 font-normal">
-                  <Trans>severity</Trans>
-                </th>
-                <th className="text-left px-3 py-2 font-normal">
                   <Trans>title</Trans>
                 </th>
                 <th className="text-left px-3 py-2 font-normal">
@@ -145,19 +141,10 @@ function AlertRow({
   onAcknowledge: () => void;
   onSnooze: (minutes: number) => void;
 }) {
-  const isRecovery = row.paired_alert_id !== null;
   return (
     <tr className="border-t border-slate-800 align-top">
       <td className="px-3 py-2 text-xs text-slate-400 whitespace-nowrap">
         {formatAge(row.created_at)}
-      </td>
-      <td className="px-3 py-2">
-        <SeverityBadge severity={row.severity} />
-        {isRecovery && (
-          <span className="ml-1.5 text-[10px] uppercase tracking-wider text-emerald-400">
-            <Trans>recovery</Trans>
-          </span>
-        )}
       </td>
       <td className="px-3 py-2">
         <div className="text-slate-200">{row.title}</div>
@@ -203,24 +190,6 @@ function AlertRow({
         )}
       </td>
     </tr>
-  );
-}
-
-function SeverityBadge({ severity }: { severity: AlertSeverity }) {
-  const cls =
-    severity === 'LOUD'
-      ? 'bg-red-950/40 text-red-300 border-red-800'
-      : severity === 'WARN'
-        ? 'bg-amber-950/40 text-amber-300 border-amber-800'
-        : 'bg-slate-800/40 text-slate-400 border-slate-700';
-  return (
-    <span
-      className={
-        'inline-block px-1.5 py-0.5 text-[10px] uppercase tracking-wider border rounded ' + cls
-      }
-    >
-      {severity}
-    </span>
   );
 }
 
