@@ -2,6 +2,10 @@
 
 ## 2026-05-08
 
+### `[Feature]` Stale-URL banner: warn when an active bid is bound to a now-stale destination URL (#113)
+
+Braiins's API does not allow editing `dest_upstream` on a live bid - only price, amount, speed limit, and memo. So once `destination_pool_url` changes in Config (e.g. after the operator switches DDNS providers), the active bid keeps routing miners to the old hostname until it finishes naturally. Today's incident exercised exactly this: alkimia.mynetgear.com to alkimia.zapto.org migration, dashboard reported "running fine" while miners were silently going to a dead host. Migration 0069 adds `dest_url` to `owned_bids`; CREATE_BID persists the URL at create time. New `/api/stale-urls` endpoint compares each active bid's persisted `dest_url` (hostname:port, case-insensitive) against current config and surfaces mismatches. New banner on Status and Config pages renders when there's a real mismatch and exposes a confirm-then-cancel flow that calls Braiins's CANCEL_BID; the autopilot's next decision tick then creates a fresh bid with the new URL via the existing CREATE_BID path. Banner is silent on IP-only DDNS pushes for the same hostname (miners re-resolve, the bid stays valid). Refund estimate ("about N sats unconsumed") is shown up-front; a Braiins exit fee may be deducted on top - we tell the operator that explicitly.
+
 ### `[Feature]` DDNS: generic dyndns2 provider (#111 follow-up)
 
 Adds **Other (generic dyndns2)** as a third DDNS provider option. dyndns2 is the 2003 update protocol almost every DDNS service speaks (Dynu, FreeDNS / afraid.org, many self-hosted scripts). Operators select Other, paste the provider's update URL (Dynu: `https://api.dynu.com/nic/update`, FreeDNS: `https://freedns.afraid.org/nic/update`, etc.), and the daemon pushes updates the same way it does for No-IP. Single code path for all dyndns2-compatible providers - no per-provider build needed when someone wants Dynu or Afraid. Migration 0068 adds the `ddns_update_url` column.

@@ -663,6 +663,7 @@ async function bootOperational(
     bitcoindClient,
     publicIpService,
     ddnsUpdater,
+    braiinsClient,
     secrets: {
       bitcoind_rpc_url: secrets.bitcoind_rpc_url ?? '',
       bitcoind_rpc_user: secrets.bitcoind_rpc_user ?? '',

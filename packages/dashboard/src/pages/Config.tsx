@@ -5,6 +5,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { NumberField } from '../components/NumberField';
+import { StaleUrlBanner } from '../components/StaleUrlBanner';
 import {
   api,
   UnauthorizedError,
@@ -532,6 +533,10 @@ export function Config() {
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto pb-24">
+      {/* #113: same banner as on Status, mounted here too because the
+          stale URL is a Config-page-side mistake the operator just
+          made. */}
+      <StaleUrlBanner />
       <header className="sticky top-0 z-30 -mx-4 px-4 py-3 bg-slate-950/85 backdrop-blur border-b border-slate-800 flex flex-wrap items-center gap-3">
         <div className="flex-1 min-w-0">
           <h2 className="text-2xl text-slate-100">

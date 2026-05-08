@@ -165,6 +165,7 @@ async function executeLive(deps: ExecuteDeps, proposal: Proposal): Promise<Execu
           amount_sat: proposal.amount_sat,
           speed_limit_ph: proposal.speed_limit_ph,
           last_known_status: 'BID_STATUS_CREATED',
+          dest_url: proposal.dest_pool_url,
         });
         return {
           proposal,

@@ -22,9 +22,12 @@ export interface OwnedBidRow {
   readonly last_known_status: string | null;
   readonly price_sat: number | null;
   readonly amount_sat: number | null;
+  readonly amount_consumed_sat: number;
   readonly speed_limit_ph: number | null;
   readonly last_price_decrease_at: number | null;
   readonly abandoned: boolean;
+  /** #113: stratum URL the bid was created with. NULL on rows older than migration 0069. */
+  readonly dest_url: string | null;
 }
 
 export interface InsertOwnedBidArgs {
@@ -35,6 +38,8 @@ export interface InsertOwnedBidArgs {
   readonly amount_sat: number;
   readonly speed_limit_ph: number | null;
   readonly last_known_status?: string;
+  /** #113: persist the URL the bid was created with. */
+  readonly dest_url: string;
 }
 
 export interface ReconcilableBid {
@@ -92,6 +97,7 @@ export class OwnedBidsRepo {
         amount_sat: args.amount_sat,
         speed_limit_ph: args.speed_limit_ph,
         last_price_decrease_at: null,
+        dest_url: args.dest_url,
       })
       .onConflict((oc) => oc.column('braiins_order_id').doNothing())
       .execute();
@@ -170,8 +176,10 @@ function toDomain(row: OwnedBidsRow): OwnedBidRow {
     last_known_status: row.last_known_status,
     price_sat: row.price_sat,
     amount_sat: row.amount_sat,
+    amount_consumed_sat: row.amount_consumed_sat,
     speed_limit_ph: row.speed_limit_ph,
     last_price_decrease_at: row.last_price_decrease_at,
     abandoned: row.abandoned === 1,
+    dest_url: row.dest_url,
   };
 }

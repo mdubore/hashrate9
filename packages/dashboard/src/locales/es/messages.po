@@ -39,6 +39,10 @@ msgstr "\"predeterminado del sistema\" sigue tu navegador. Las otras opciones fi
 msgid "(avg cost / hashrate delivered) minus the delta-weighted average hashprice during periods we were actually billed. Negative means we paid below break-even (good - cheaper than mining at current difficulty), positive means above. Same delta weighting as the avg cost card so the two stay consistent."
 msgstr ""
 
+#: src/components/StaleUrlBanner.tsx
+msgid "(Braiins may deduct an exit fee)"
+msgstr "(Braiins puede aplicar una comisión de salida)"
+
 #: src/pages/Status.tsx
 msgid "(cheap mode)"
 msgstr "(modo barato)"
@@ -257,6 +261,10 @@ msgstr "Activa"
 msgid "active (in-flight)"
 msgstr "activas (en curso)"
 
+#: src/components/StaleUrlBanner.tsx
+msgid "Active bid is using a stale destination URL"
+msgstr "La oferta activa está usando una URL de destino obsoleta"
+
 #: src/pages/Status.tsx
 msgid "Actual sat consumed across the selected range, scaled to a 24h rate. Derived from primary_bid_consumed_sat deltas (what Braiins charged us), not a modelled bid × delivered."
 msgstr "Sats realmente consumidos en el rango seleccionado, escalado a una tasa de 24h. Derivado de los deltas de primary_bid_consumed_sat (lo que Braiins nos cobró), no de un modelo bid × entregado."
@@ -434,6 +442,10 @@ msgstr "Oferta llenando a {speed}."
 msgid "Bid sustained-paused"
 msgstr "Puja con pausa sostenida"
 
+#: src/components/StaleUrlBanner.tsx
+msgid "Bid:"
+msgstr "Oferta:"
+
 #: src/pages/Status.tsx
 msgid "Bids"
 msgstr "Ofertas"
@@ -555,6 +567,10 @@ msgstr "API de Braiins inalcanzable"
 msgid "Braiins API unreachable - waiting for connectivity."
 msgstr "API de Braiins inaccesible - esperando conectividad."
 
+#: src/components/StaleUrlBanner.tsx
+msgid "Braiins doesn't allow changing a live bid's destination URL. Your config now points at a different host than the bid was created with - miners on this bid keep going to the old destination until you cancel and recreate. Cancel here, the next decision tick will create a fresh bid with the current URL automatically."
+msgstr "Braiins no permite cambiar la URL de destino de una oferta en curso. Tu configuración ahora apunta a un host distinto del que se creó la oferta - los mineros de esta oferta siguen yendo al destino antiguo hasta que canceles y la recrees. Cancela aquí; el siguiente tick creará automáticamente una oferta nueva con la URL actual."
+
 #: src/pages/Status.tsx
 msgid "Braiins marketplace API - reachable when the last observe() read market/orderbook/balance without error."
 msgstr "API del marketplace de Braiins - accesible cuando el último observe() leyó market/orderbook/balance sin error."
@@ -612,14 +628,25 @@ msgstr "cancelar"
 msgid "CANCEL"
 msgstr "CANCELAR"
 
+#: src/components/StaleUrlBanner.tsx
+msgid "Cancel & recreate now"
+msgstr "Cancelar y recrear ahora"
+
 #: src/pages/Status.tsx
 msgid "Cancel bid"
 msgstr "Cancelar oferta"
+
+#. placeholder {0}: bid.bid_id
+#. placeholder {1}: formatSat(bid.unconsumed_sat)
+#: src/components/StaleUrlBanner.tsx
+msgid "Cancel bid {0}? About {1} of unconsumed budget will be refunded by Braiins (an exit fee may be deducted on top). The autopilot's next tick will create a fresh bid with the new URL."
+msgstr "¿Cancelar la oferta {0}? Braiins reembolsará aproximadamente {1} de presupuesto no consumido (puede deducirse una comisión de salida). El siguiente tick del autopilot creará una oferta nueva con la URL actual."
 
 #: src/lib/labels.ts
 msgid "Cancelled"
 msgstr "Cancelada"
 
+#: src/components/StaleUrlBanner.tsx
 #: src/lib/labels.ts
 msgid "Cancelling…"
 msgstr "Cancelando…"
@@ -708,6 +735,10 @@ msgstr "Config"
 msgid "Configuration"
 msgstr "Configuración"
 
+#: src/components/StaleUrlBanner.tsx
+msgid "Confirm cancel"
+msgstr "Confirmar cancelación"
+
 #: src/pages/Setup.tsx
 msgid "Confirm password"
 msgstr "Confirmar contraseña"
@@ -795,6 +826,10 @@ msgstr "oferta actual"
 #: src/pages/Status.tsx
 msgid "current bid · primary of {0}"
 msgstr "oferta actual · principal de {0}"
+
+#: src/components/StaleUrlBanner.tsx
+msgid "Current config:"
+msgstr "Config actual:"
 
 #: src/pages/Status.tsx
 msgid "Current owned-bid price (sat/PH/day). Under pay-your-bid this is exactly what Braiins charges per delivered EH-day - the live price you're paying. The plus/minus next to it is the spread vs Ocean's spot hashprice (positive = paying above break-even, negative = below). For the spend-weighted average paid across the selected chart range (handy when the bid moved during the window), see the AVG COST / PH DELIVERED stats card."
@@ -1320,6 +1355,10 @@ msgstr "histórico insuficiente"
 msgid "just now"
 msgstr "ahora mismo"
 
+#: src/components/StaleUrlBanner.tsx
+msgid "Keep bid running"
+msgstr "Mantener la oferta"
+
 #: src/pages/Config.tsx
 msgid "Keep the Pool URL's hostname pointed at this box's current public IP. Replaces the router-firmware-based DDNS client. Supports No-IP (sign up at no-ip.com - create a hostname, then generate a DDNS Key under DDNS Keys / Groups), DuckDNS (sign up at duckdns.org - free, no expiration, no monthly re-confirm), and \"Other\" for any provider that speaks the dyndns2 protocol (Dynu, FreeDNS / afraid.org, many self-hosted scripts)."
 msgstr "Mantén el nombre de host de la Pool URL apuntando al IP público actual de esta máquina. Reemplaza el cliente DDNS del firmware del router. Soporta No-IP (regístrate en no-ip.com, crea un nombre de host y luego genera un DDNS Key en DDNS Keys / Groups), DuckDNS (regístrate en duckdns.org - gratis, sin vencimiento, sin reconfirmación mensual) y \"Otro\" para cualquier proveedor que hable el protocolo dyndns2 (Dynu, FreeDNS / afraid.org, muchos scripts auto-alojados)."
@@ -1723,6 +1762,10 @@ msgstr "OK · conectado en {0}ms"
 msgid "OK · message delivered"
 msgstr "OK · mensaje entregado"
 
+#: src/components/StaleUrlBanner.tsx
+msgid "Old destination:"
+msgstr "Destino antiguo:"
+
 #: src/pages/Status.tsx
 msgid "On target - bid at fillable + overpay."
 msgstr "En el objetivo - oferta igual a rellenable + sobrepago."
@@ -2094,6 +2137,10 @@ msgstr "se refresca en {0}"
 #: src/pages/Status.tsx
 msgid "refreshing…"
 msgstr "refrescando…"
+
+#: src/components/StaleUrlBanner.tsx
+msgid "Refundable on cancel:"
+msgstr "Reembolsable al cancelar:"
 
 #: src/pages/Login.tsx
 msgid "Remember me on this device"

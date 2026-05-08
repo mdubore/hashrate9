@@ -382,6 +382,26 @@ export interface DatumTestResponse {
   error?: string;
 }
 
+// #113: stale-URL bids - active Braiins bids whose dest_upstream URL
+// differs from the current `destination_pool_url` setting.
+export interface StaleUrlBid {
+  bid_id: string;
+  created_at: number;
+  old_host_port: string;
+  new_host_port: string;
+  amount_sat: number | null;
+  amount_consumed_sat: number;
+  unconsumed_sat: number | null;
+  status: string | null;
+}
+
+export interface StaleUrlsResponse {
+  stale: StaleUrlBid[];
+  current_destination_pool_url: string;
+  current_host_port: string | null;
+  checked_at: number;
+}
+
 // ---------------------------------------------------------------------------
 // First-run onboarding wizard (#57) - public endpoints, no auth.
 // ---------------------------------------------------------------------------
@@ -529,6 +549,12 @@ export const api = {
   },
   btcPrice: () => request<BtcPriceResponse>('/api/btc-price'),
   ddns: () => request<DdnsRouteResponse>('/api/ddns'),
+  staleUrls: () => request<StaleUrlsResponse>('/api/stale-urls'),
+  cancelStaleUrlBid: (bidId: string) =>
+    request<{ ok: boolean; error?: string }>('/api/stale-urls/cancel', {
+      method: 'POST',
+      body: JSON.stringify({ bid_id: bidId }),
+    }),
   ddnsTest: (creds: {
     provider: string;
     hostname: string;

@@ -62,6 +62,8 @@ import { registerDdnsRoute } from './routes/ddns.js';
 import { registerDdnsTestRoute } from './routes/ddns-test.js';
 import { registerPoolUrlTestRoute } from './routes/pool-url-test.js';
 import { registerDatumTestRoute } from './routes/datum-test.js';
+import { registerStaleUrlsRoute } from './routes/stale-urls.js';
+import type { BraiinsClient } from '@braiins-hashrate/braiins-client';
 import type { PublicIpService } from '../services/public-ip.js';
 import type { DdnsUpdaterService } from '../services/ddns-updater.js';
 
@@ -88,6 +90,8 @@ export interface HttpServerDeps {
   readonly publicIpService: PublicIpService;
   /** #111: DDNS updater service. */
   readonly ddnsUpdater: DdnsUpdaterService;
+  /** #113: Braiins client - used by the stale-URL cancel endpoint to call Braiins's cancelBid. */
+  readonly braiinsClient: BraiinsClient;
   /** Sops/env secrets snapshot - fallback for empty `config` row fields. The BIP 110 scanner uses this to build a fresh client per request so saved Config edits take effect without a daemon restart. */
   readonly secrets: {
     readonly bitcoind_rpc_url?: string;
@@ -192,6 +196,11 @@ export async function createHttpServer(deps: HttpServerDeps): Promise<HttpServer
   await registerDdnsTestRoute(app);
   await registerPoolUrlTestRoute(app);
   await registerDatumTestRoute(app);
+  await registerStaleUrlsRoute(app, {
+    configRepo: deps.configRepo,
+    ownedBidsRepo: deps.ownedBidsRepo,
+    braiinsClient: deps.braiinsClient,
+  });
 
   // Serve built dashboard if present.
   if (deps.staticRoot) {

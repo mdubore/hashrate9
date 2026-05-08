@@ -133,6 +133,14 @@ export interface OwnedBidsTable {
    * = lifetime spend (used by the finance panel).
    */
   amount_consumed_sat: Generated<number>;
+  /**
+   * #113: stratum URL the bid was created with. Used by the
+   * stale-URL banner to flag bids whose dest_upstream drifts from
+   * current config (Braiins's API does not allow editing dest_upstream
+   * post-creation, so only cancel-and-recreate fixes a mismatch).
+   * Nullable - legacy rows from before the column landed have no value.
+   */
+  dest_url: string | null;
 }
 
 // ---------------------------------------------------------------------------

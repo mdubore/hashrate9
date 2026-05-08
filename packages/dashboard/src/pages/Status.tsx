@@ -19,6 +19,7 @@ import { PriceChart } from '../components/PriceChart';
 import { ModeBadge } from '../components/ModeBadge';
 import { BtcSymbol } from '../components/BtcSymbol';
 import { SatSymbol } from '../components/SatSymbol';
+import { StaleUrlBanner } from '../components/StaleUrlBanner';
 import { Tooltip } from '../components/Tooltip';
 import {
   api,
@@ -241,6 +242,9 @@ export function Status() {
 
   return (
     <div className="space-y-5">
+      {/* #113: stale-URL banner. Renders only when there's a real
+          mismatch between config and an active bid - silent otherwise. */}
+      <StaleUrlBanner />
       {/* No "Status" h2 header - the top nav already announces the
           page, and last-tick info is duplicated in the
           NextActionCard's footer. Saved a chunk of vertical real
