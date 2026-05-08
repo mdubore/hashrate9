@@ -2,13 +2,13 @@
 
 ## 2026-05-08
 
+### `[UI]` Config page: tabs + cross-tab search (#107)
+
+Replaces the single-column scroll with **four tabs** - Strategy, Pool & Payout, Notifications, Display & Logging - and a search box above the tab bar that jumps across tabs to any matching field. Active tab is reflected in the URL (`/config?tab=pool`), so direct links / bookmarks / refresh land on the same place. Default landing tab is Strategy. Tab bar scrolls horizontally on narrow viewports. Clicking a search result switches tab, scrolls the target field into view, and briefly outlines its section in amber. Replaces the collapsibles approach (#107 phase A) that landed earlier today; the locked-in spec on #107 was tabs + search, the agent that implemented phase A had a different recommendation that contradicted the spec, and the working dashboard now matches the agreed direction. Also reverts BUILD_NUMBER 257 → not-an-issue (we're now at 259).
+
 ### `[Feature]` Daemon-managed Dynamic DNS updater (#111, #110)
 
 New **Dynamic DNS** card on the Config page lets operators replace flaky router-firmware DDNS clients with a daemon-driven push to No-IP. Configure provider + hostname + DDNS Key credentials and the daemon pushes the box's current public IP every 5 minutes (with a forced hourly heartbeat so free-tier hostnames stay alive). Same card surfaces three diagnostic rows that catch DDNS drift instantly: the daemon's current public IP (polled from api.ipify.org), the Pool URL hostname, and what that hostname resolves to. When the resolved IP doesn't match the daemon's public IP an inline red note explains "DDNS hasn't updated since the ISP changed your public IP - configure DDNS below to fix it." Motivated by a recurring "Stratum DOWN" outage on 2026-05-07 caused by mynetgear.com going dark - took 30 minutes of shell diagnostics to localize what this card now shows in two glances. Migration 0067 adds four nullable columns; existing installs upgrade with DDNS disabled. v1 supports No-IP only; DuckDNS / dyndns2-generic planned follow-ups.
-
-### `[UI]` Config page: collapsible sections (#107 phase A)
-
-Each Config-page section now has a click-to-collapse chevron next to its title. State persists per browser via localStorage (`braiins.configCollapsedSections`). Defaults: rarely-touched sections (Daemon startup, BTC price oracle, Block explorer, Chart smoothing, Log retention, Block-found notification) start collapsed; everything else stays expanded. Cuts the default page height roughly in half. Phase B (sticky TOC sidebar) and phase C (search-by-label filter) parked for direction approval on the issue thread.
 
 ### `[Feature]` Telegram inline-keyboard ack/snooze (#109)
 

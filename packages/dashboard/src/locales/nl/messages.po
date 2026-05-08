@@ -447,6 +447,7 @@ msgid "Bitcoin Core (bitcoind RPC)"
 msgstr "Bitcoin Core (bitcoind RPC)"
 
 #: src/pages/Config.tsx
+#: src/pages/Config.tsx
 msgid "Bitcoin Core RPC"
 msgstr "Bitcoin Core RPC"
 
@@ -628,6 +629,7 @@ msgid "Chart smoothing"
 msgstr "Grafiek-smoothing"
 
 #: src/pages/Config.tsx
+#: src/pages/Config.tsx
 msgid "Chat ID"
 msgstr "Chat-ID"
 
@@ -760,6 +762,7 @@ msgstr "Bod aanmaken"
 msgid "created"
 msgstr "aangemaakt"
 
+#: src/pages/Config.tsx
 #: src/pages/Config.tsx
 msgid "Credential (DDNS Key password / token)"
 msgstr "Credential (DDNS Key wachtwoord / token)"
@@ -912,12 +915,20 @@ msgid "Disabled"
 msgstr "Uitgeschakeld"
 
 #: src/pages/Config.tsx
+msgid "Disabled (no payout tracking)"
+msgstr "Uitgeschakeld (geen payout-tracking)"
+
+#: src/pages/Config.tsx
 msgid "Disabled (sats only)"
 msgstr "Uitgeschakeld (alleen sats)"
 
 #: src/pages/Config.tsx
 msgid "Display"
 msgstr "Weergave"
+
+#: src/pages/Config.tsx
+msgid "Display & Logging"
+msgstr "Weergave en logging"
 
 #: src/pages/Status.tsx
 msgid "Distinct payout addresses currently mining on Ocean."
@@ -951,6 +962,7 @@ msgstr "Duur-gewogen gemiddelde van de hashrate die Datum bij de gateway meet. E
 msgid "Duration-weighted average of the hashrate Ocean credits to our payout address. Each tick (every 60 s) the daemon calls Ocean's /v1/user_hashrate endpoint and reads the `hashrate_300s` field - Ocean's own 5-minute sliding-window estimate for this wallet. So: sampled every minute, each sample is a 5-minute smoothed value. A sustained gap below Avg Braiins / Avg Datum means the pool isn't crediting work we think we delivered."
 msgstr "Duur-gewogen gemiddelde van de hashrate die Ocean toeschrijft aan ons uitbetaaladres. Elke tick (elke 60 s) roept de daemon Oceans /v1/user_hashrate-endpoint aan en leest het `hashrate_300s`-veld - Oceans eigen 5-minuten schuivend-venster schatting voor deze wallet. Dus: elke minuut bemonsterd, elke meting is een 5-minuten gladde waarde. Een aanhoudend tekort onder Gem. Braiins / Gem. Datum betekent dat de pool geen werk credit geeft waarvan wij denken dat het geleverd is."
 
+#: src/pages/Config.tsx
 #: src/pages/Config.tsx
 msgid "Dynamic DNS"
 msgstr "Dynamic DNS"
@@ -1023,6 +1035,10 @@ msgstr "Praktisch geen levering gedurende zero_hashrate_loud_alert_after_minutes
 #: src/components/Bip110ScanCard.tsx
 msgid "elapsed"
 msgstr "verstreken"
+
+#: src/pages/Config.tsx
+msgid "Electrs"
+msgstr "Electrs"
 
 #. placeholder {0}: form.electrs_host
 #. placeholder {1}: form.electrs_port
@@ -1233,6 +1249,7 @@ msgstr "host"
 msgid "Host"
 msgstr "Host"
 
+#: src/pages/Config.tsx
 #: src/pages/Config.tsx
 msgid "Hostname"
 msgstr "Hostnaam"
@@ -1462,6 +1479,7 @@ msgid "must contain a period - without it shares are uncredited on Ocean"
 msgstr "moet een punt bevatten - zonder dat worden shares niet bijgeschreven op Ocean"
 
 #: src/pages/Config.tsx
+#: src/pages/Config.tsx
 msgid "Mute all Telegram notifications"
 msgstr "Alle Telegram-meldingen dempen"
 
@@ -1591,6 +1609,8 @@ msgstr "niet in LIVE-modus"
 msgid "not reported"
 msgstr "niet gerapporteerd"
 
+#: src/pages/Config.tsx
+#: src/pages/Config.tsx
 #: src/pages/Config.tsx
 msgid "Notifications"
 msgstr "Meldingen"
@@ -1799,6 +1819,10 @@ msgstr "Uitbetaaladres"
 msgid "Payout observer is starting up. Waiting for the first balance scan to complete - usually a few seconds with Electrs, up to a minute with bitcoind scantxoutset."
 msgstr "Uitbetaal-observer is aan het opstarten. Wachten op de eerste saldo-scan - meestal enkele seconden met Electrs, tot een minuut met bitcoind scantxoutset."
 
+#: src/pages/Config.tsx
+msgid "Payout source"
+msgstr "Payout-bron"
+
 #: src/pages/Setup.tsx
 msgid "Payout tracking"
 msgstr "Uitbetaalmonitoring"
@@ -1830,6 +1854,10 @@ msgstr "Elke 5 minuten bevraagd. De daemon neemt nooit beslissingen op basis van
 #: src/pages/Status.tsx
 msgid "pool"
 msgstr "pool"
+
+#: src/pages/Config.tsx
+msgid "Pool & Payout"
+msgstr "Pool en payout"
 
 #: src/components/HashrateChart.tsx
 msgid "pool block"
@@ -1963,6 +1991,7 @@ msgid "protocol"
 msgstr "protocol"
 
 #: src/pages/Config.tsx
+#: src/pages/Config.tsx
 msgid "Provider"
 msgstr "Provider"
 
@@ -2041,6 +2070,7 @@ msgstr "Laatste modus hervatten"
 msgid "retarget window:"
 msgstr "herrekenvenster:"
 
+#: src/pages/Config.tsx
 #: src/pages/Config.tsx
 msgid "Retry interval"
 msgstr "Herhaalinterval"
@@ -2154,6 +2184,10 @@ msgstr "gescand"
 msgid "Scanning…"
 msgstr "Bezig met scannen…"
 
+#: src/pages/Config.tsx
+msgid "Search settings..."
+msgstr "Zoek instellingen..."
+
 #: src/components/Layout.tsx
 msgid "Select display currency"
 msgstr "Kies weergavevaluta"
@@ -2261,6 +2295,10 @@ msgstr "Status"
 msgid "Stored in the daemon's SQLite config. Use a per-hostname DDNS Key, not your main account password."
 msgstr "Opgeslagen in de SQLite-config van de daemon. Gebruik een DDNS Key per hostnaam, niet je hoofd-accountwachtwoord."
 
+#: src/pages/Config.tsx
+msgid "Strategy"
+msgstr "Strategie"
+
 #: src/pages/Status.tsx
 msgid "stratum DOWN ({consecutiveFailures} consecutive)"
 msgstr "stratum OFFLINE ({consecutiveFailures} achtereenvolgens)"
@@ -2307,6 +2345,7 @@ msgstr "Doel-hashrate"
 msgid "TCP probe of the Datum gateway's stratum port."
 msgstr "TCP-probe van de stratum-poort van de Datum-gateway."
 
+#: src/pages/Config.tsx
 #: src/pages/Config.tsx
 msgid "Telegram bot token"
 msgstr "Telegram bot-token"
@@ -2458,6 +2497,7 @@ msgstr "Wordt gebruikt door de on-chain saldocontrole van uitbetalingen (wanneer
 msgid "Used for click-through from the Ocean panel's \"last pool block\" row and the block-marker tooltips on the Hashrate chart. `{hash}` and `{height}` placeholders are substituted."
 msgstr "Wordt gebruikt voor click-through vanuit de \"laatste pool-blok\"-rij in het Ocean-paneel en de blok-marker tooltips op de Hashrate-grafiek. `{hash}` en `{height}` placeholders worden vervangen."
 
+#: src/pages/Config.tsx
 #: src/pages/Config.tsx
 msgid "Username (DDNS Key user)"
 msgstr "Gebruikersnaam (DDNS Key gebruiker)"

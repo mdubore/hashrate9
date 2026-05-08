@@ -2,7 +2,7 @@ import { Trans, t } from '@lingui/macro';
 import { useLingui } from '@lingui/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { NumberField } from '../components/NumberField';
 import {
@@ -593,83 +593,268 @@ export function Config() {
 
       <DisplaySettingsSection />
 
-      {(() => {
-        const nodes: React.ReactNode[] = [];
-        let i = 0;
-        while (i < sections.length) {
-          const section = sections[i] as Section;
-          // Insert the custom payout-source section right before "Profit & Loss"
-          if (section.id === 'profit-and-loss') {
-            nodes.push(
-              <PayoutSourceSection
-                key="payout-source"
-                draft={draft}
-                locale={intlLocale}
-                onChange={update}
-              />,
-            );
+      <ConfigTabsAndContent
+        sections={sections}
+        draft={draft}
+        locale={intlLocale}
+        onChange={update}
+      />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// #107: tabbed Config layout with cross-tab search.
+// ---------------------------------------------------------------------------
+
+type TabId = 'strategy' | 'pool' | 'notifications' | 'display';
+
+const TAB_ORDER: TabId[] = ['strategy', 'pool', 'notifications', 'display'];
+
+/**
+ * Section IDs assigned to each tab. The order here is the visual order
+ * within the tab. Custom sections (`payout-source`, `ddns`,
+ * `notifications`) are rendered via ad-hoc components rather than the
+ * generic SectionCard, so they share the namespace with regular section
+ * IDs but get their own switch arm during rendering.
+ */
+const TAB_SECTIONS: Record<TabId, readonly string[]> = {
+  strategy: ['hashrate-targets', 'pricing', 'budget', 'daemon-startup'],
+  pool: ['pool-destination', 'ddns', 'payout-source', 'profit-and-loss', 'btc-price-oracle'],
+  notifications: ['notifications', 'block-found-sound'],
+  display: ['block-explorer', 'chart-smoothing', 'log-retention'],
+};
+
+function isTabId(s: string | null): s is TabId {
+  return s === 'strategy' || s === 'pool' || s === 'notifications' || s === 'display';
+}
+
+function ConfigTabsAndContent({
+  sections,
+  draft,
+  locale,
+  onChange,
+}: {
+  sections: Section[];
+  draft: AppConfig;
+  locale: string | undefined;
+  onChange: <K extends keyof AppConfig>(k: K, v: AppConfig[K]) => void;
+}) {
+  const { i18n } = useLingui();
+  void i18n;
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const activeTab: TabId = isTabId(searchParams.get('tab')) ? (searchParams.get('tab') as TabId) : 'strategy';
+
+  const setActiveTab = (id: TabId) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('tab', id);
+    setSearchParams(next, { replace: true });
+  };
+
+  const tabLabels: Record<TabId, string> = {
+    strategy: t`Strategy`,
+    pool: t`Pool & Payout`,
+    notifications: t`Notifications`,
+    display: t`Display & Logging`,
+  };
+
+  // Custom sections need synthetic title + searchable labels for the
+  // search dropdown (they don't go through useSections).
+  const customSectionMeta: Record<string, { title: string; labels: string[] }> = {
+    'payout-source': {
+      title: t`Payout source`,
+      labels: [t`Bitcoin Core RPC`, t`Electrs`, t`Disabled (no payout tracking)`],
+    },
+    ddns: {
+      title: t`Dynamic DNS`,
+      labels: [
+        t`Provider`,
+        t`Hostname`,
+        t`Username (DDNS Key user)`,
+        t`Credential (DDNS Key password / token)`,
+      ],
+    },
+    notifications: {
+      title: t`Notifications`,
+      labels: [t`Telegram bot token`, t`Chat ID`, t`Mute all Telegram notifications`, t`Retry interval`],
+    },
+  };
+
+  const [search, setSearch] = useState('');
+  const [highlightedSectionId, setHighlightedSectionId] = useState<string | null>(null);
+
+  const searchResults = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return [] as Array<{ tabId: TabId; sectionId: string; sectionTitle: string; fieldLabel?: string }>;
+    const out: Array<{ tabId: TabId; sectionId: string; sectionTitle: string; fieldLabel?: string }> = [];
+    for (const tab of TAB_ORDER) {
+      for (const sid of TAB_SECTIONS[tab]) {
+        const std = sections.find((s) => s.id === sid);
+        if (std) {
+          if (std.title.toLowerCase().includes(q)) {
+            out.push({ tabId: tab, sectionId: sid, sectionTitle: std.title });
           }
-          // #111: insert the DDNS / public-IP diagnostics section right after pool destination,
-          // since it's about keeping the pool URL's hostname pointed at the right IP.
-          if (section.id === 'pricing') {
-            nodes.push(
-              <DdnsSection
-                key="ddns"
-                draft={draft}
-                onChange={update}
-              />,
-            );
-          }
-          // Insert the custom notifications section right before "Block-found notification"
-          if (section.id === 'block-found-sound') {
-            nodes.push(
-              <NotificationsSection
-                key="notifications"
-                draft={draft}
-                locale={intlLocale}
-                onChange={update}
-              />,
-            );
-          }
-          // Group consecutive sideBySide sections into one row.
-          if (section.sideBySide) {
-            const group: Section[] = [];
-            while (i < sections.length && (sections[i] as Section).sideBySide) {
-              group.push(sections[i] as Section);
-              i += 1;
+          for (const f of std.fields) {
+            if (f.label.toLowerCase().includes(q)) {
+              out.push({ tabId: tab, sectionId: sid, sectionTitle: std.title, fieldLabel: f.label });
             }
-            const firstId = (group[0] as Section).id;
-            nodes.push(
-              <div
-                key={`side-by-side-${firstId}`}
-                className="grid grid-cols-1 sm:grid-cols-2 gap-6"
-              >
-                {group.map((s) => (
-                  <SectionCard
-                    key={s.id}
-                    section={s}
-                    draft={draft}
-                    locale={intlLocale}
-                    onChange={update}
-                  />
-                ))}
-              </div>,
-            );
-            continue;
           }
-          nodes.push(
-            <SectionCard
-              key={section.id}
-              section={section}
-              draft={draft}
-              locale={intlLocale}
-              onChange={update}
-            />,
-          );
-          i += 1;
+          continue;
         }
-        return nodes;
-      })()}
+        const meta = customSectionMeta[sid];
+        if (meta) {
+          if (meta.title.toLowerCase().includes(q)) {
+            out.push({ tabId: tab, sectionId: sid, sectionTitle: meta.title });
+          }
+          for (const lbl of meta.labels) {
+            if (lbl.toLowerCase().includes(q)) {
+              out.push({ tabId: tab, sectionId: sid, sectionTitle: meta.title, fieldLabel: lbl });
+            }
+          }
+        }
+      }
+    }
+    return out.slice(0, 12);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, sections, i18n.locale]);
+
+  const jumpTo = (tabId: TabId, sectionId: string) => {
+    setActiveTab(tabId);
+    setSearch('');
+    // Wait for the tab's content to mount before scrolling/highlighting.
+    setTimeout(() => {
+      const el = document.querySelector(`[data-section-id="${sectionId}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setHighlightedSectionId(sectionId);
+        setTimeout(() => setHighlightedSectionId(null), 1800);
+      }
+    }, 60);
+  };
+
+  const wrapHighlight = (sid: string, child: React.ReactNode) => (
+    <div
+      key={sid}
+      data-section-id={sid}
+      className={
+        highlightedSectionId === sid
+          ? 'ring-2 ring-amber-400 rounded-lg transition-shadow duration-300'
+          : 'transition-shadow duration-300'
+      }
+    >
+      {child}
+    </div>
+  );
+
+  const renderSection = (sid: string): React.ReactNode => {
+    if (sid === 'payout-source') {
+      return wrapHighlight(
+        sid,
+        <PayoutSourceSection draft={draft} locale={locale} onChange={onChange} />,
+      );
+    }
+    if (sid === 'ddns') {
+      return wrapHighlight(sid, <DdnsSection draft={draft} onChange={onChange} />);
+    }
+    if (sid === 'notifications') {
+      return wrapHighlight(
+        sid,
+        <NotificationsSection draft={draft} locale={locale} onChange={onChange} />,
+      );
+    }
+    const std = sections.find((s) => s.id === sid);
+    if (!std) return null;
+    return wrapHighlight(
+      sid,
+      <SectionCard section={std} draft={draft} locale={locale} onChange={onChange} />,
+    );
+  };
+
+  // Build the active tab's body. Honors sideBySide grouping for any
+  // run of consecutive sections in the tab whose definitions are
+  // marked sideBySide.
+  const activeSectionIds = TAB_SECTIONS[activeTab];
+  const body: React.ReactNode[] = [];
+  for (let i = 0; i < activeSectionIds.length; ) {
+    const sid = activeSectionIds[i] as string;
+    const std = sections.find((s) => s.id === sid);
+    if (std?.sideBySide) {
+      const group: string[] = [];
+      while (i < activeSectionIds.length) {
+        const sCandidate = sections.find((s) => s.id === activeSectionIds[i]);
+        if (!sCandidate?.sideBySide) break;
+        group.push(activeSectionIds[i] as string);
+        i += 1;
+      }
+      body.push(
+        <div key={`side-by-side-${group[0]}`} className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          {group.map((g) => renderSection(g))}
+        </div>,
+      );
+      continue;
+    }
+    body.push(renderSection(sid));
+    i += 1;
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Search input - sits ABOVE the tab bar so it can route across tabs. */}
+      <div className="relative">
+        <input
+          type="search"
+          placeholder={t`Search settings...`}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm placeholder:text-slate-500"
+        />
+        {searchResults.length > 0 && (
+          <div className="absolute z-10 left-0 right-0 mt-1 bg-slate-900 border border-slate-700 rounded shadow-xl max-h-80 overflow-y-auto">
+            {searchResults.map((r, i) => (
+              <button
+                key={`${r.tabId}-${r.sectionId}-${r.fieldLabel ?? ''}-${i}`}
+                type="button"
+                onClick={() => jumpTo(r.tabId, r.sectionId)}
+                className="block w-full text-left px-3 py-2 text-sm hover:bg-slate-800 border-b border-slate-800 last:border-0"
+              >
+                <span className="text-amber-400 text-xs uppercase tracking-wide">
+                  {tabLabels[r.tabId]}
+                </span>
+                <span className="text-slate-500 mx-1.5">›</span>
+                <span className="text-slate-300">{r.sectionTitle}</span>
+                {r.fieldLabel && (
+                  <>
+                    <span className="text-slate-500 mx-1.5">›</span>
+                    <span className="text-slate-100 font-medium">{r.fieldLabel}</span>
+                  </>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Tab bar - horizontal scroll on narrow viewports. */}
+      <div className="flex gap-0 overflow-x-auto border-b border-slate-700">
+        {TAB_ORDER.map((id) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setActiveTab(id)}
+            className={
+              activeTab === id
+                ? 'px-4 py-2 text-sm whitespace-nowrap text-amber-400 border-b-2 border-amber-400 -mb-px font-medium'
+                : 'px-4 py-2 text-sm whitespace-nowrap text-slate-300 hover:text-amber-300 border-b-2 border-transparent'
+            }
+          >
+            {tabLabels[id]}
+          </button>
+        ))}
+      </div>
+
+      {/* Active tab body. */}
+      <div className="space-y-4">{body}</div>
     </div>
   );
 }
@@ -805,39 +990,6 @@ function BidBudgetField({
   );
 }
 
-// #107: section ids that start collapsed by default. Picked for
-// "rarely touched after first-run setup" - the operator can expand
-// any of them with a click but the page no longer scrolls past
-// 2,000 px of barely-edited config every time.
-const COLLAPSED_BY_DEFAULT = new Set<string>([
-  'btc-price-oracle',
-  'block-explorer',
-  'chart-smoothing',
-  'log-retention',
-  'block-found-sound',
-  'daemon-startup',
-]);
-
-const COLLAPSED_STATE_STORAGE_KEY = 'braiins.configCollapsedSections';
-
-function readCollapsedState(): Record<string, boolean> {
-  if (typeof window === 'undefined') return {};
-  try {
-    const raw = window.localStorage.getItem(COLLAPSED_STATE_STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as unknown;
-    if (parsed && typeof parsed === 'object') return parsed as Record<string, boolean>;
-  } catch {
-    /* corrupt storage: start fresh */
-  }
-  return {};
-}
-
-function isSectionCollapsed(sectionId: string, stored: Record<string, boolean>): boolean {
-  if (sectionId in stored) return stored[sectionId] === true;
-  return COLLAPSED_BY_DEFAULT.has(sectionId);
-}
-
 function SectionCard({
   section,
   draft,
@@ -849,20 +1001,6 @@ function SectionCard({
   locale: string | undefined;
   onChange: <K extends keyof AppConfig>(k: K, v: AppConfig[K]) => void;
 }) {
-  const [storedState, setStoredState] = useState<Record<string, boolean>>(() =>
-    readCollapsedState(),
-  );
-  const collapsed = isSectionCollapsed(section.id, storedState);
-  const toggleCollapsed = () => {
-    const next = { ...storedState, [section.id]: !collapsed };
-    setStoredState(next);
-    try {
-      window.localStorage.setItem(COLLAPSED_STATE_STORAGE_KEY, JSON.stringify(next));
-    } catch {
-      /* private mode / storage full - non-fatal */
-    }
-  };
-
   // In a side-by-side row each card is already half-width; use a single
   // column inside so the dropdown and its help text span the panel.
   const gridCls = section.sideBySide
@@ -870,47 +1008,27 @@ function SectionCard({
     : 'grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3';
   return (
     <section className="bg-slate-900 border border-slate-800 rounded-lg p-4 h-full">
-      <header className={collapsed ? '' : 'mb-3'}>
-        <button
-          type="button"
-          onClick={toggleCollapsed}
-          className="flex items-center gap-2 w-full text-left group"
-          aria-expanded={!collapsed}
-        >
-          <span
-            aria-hidden="true"
-            className={
-              'inline-block text-amber-400 text-xs transition-transform ' +
-              (collapsed ? '' : 'rotate-90')
-            }
-          >
-            ▶
-          </span>
-          <h3 className="text-sm uppercase tracking-wider text-amber-400">{section.title}</h3>
-        </button>
-        {!collapsed && section.description && (
+      <header className="mb-3">
+        <h3 className="text-sm uppercase tracking-wider text-amber-400">{section.title}</h3>
+        {section.description && (
           <p className="text-xs text-slate-500 mt-1">{section.description}</p>
         )}
-        {!collapsed && section.id === 'log-retention' && (
+        {section.id === 'log-retention' && (
           <LogRetentionTotalHint draft={draft} locale={locale} />
         )}
       </header>
-      {!collapsed && (
-        <>
-          <div className={gridCls}>
-            {section.fields.map((f) => (
-              <div
-                key={f.key as string}
-                className={!section.sideBySide && f.fullWidth ? 'sm:col-span-2' : ''}
-              >
-                <Field spec={f} draft={draft} locale={locale} onChange={onChange} />
-              </div>
-            ))}
+      <div className={gridCls}>
+        {section.fields.map((f) => (
+          <div
+            key={f.key as string}
+            className={!section.sideBySide && f.fullWidth ? 'sm:col-span-2' : ''}
+          >
+            <Field spec={f} draft={draft} locale={locale} onChange={onChange} />
           </div>
-          {section.id === 'block-found-sound' && (
-            <BlockFoundSoundExtras draft={draft} onChange={onChange} />
-          )}
-        </>
+        ))}
+      </div>
+      {section.id === 'block-found-sound' && (
+        <BlockFoundSoundExtras draft={draft} onChange={onChange} />
       )}
     </section>
   );
