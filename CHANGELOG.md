@@ -2,6 +2,10 @@
 
 ## 2026-05-08
 
+### `[UI]` Config: search box moved into the tab row
+
+Search input now sits at the right end of the tab bar instead of in its own row above the tabs. Tighter use of vertical space and the search dropdown still anchors to the input position. Operator-flagged after the previous "search above tabs" landing - "I do think it will look better in the top row."
+
 ### `[UI]` Config polish pass
 
 Three operator-flagged tweaks:

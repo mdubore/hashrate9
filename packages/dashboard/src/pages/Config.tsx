@@ -801,57 +801,62 @@ function ConfigTabsAndContent({
 
   return (
     <div className="space-y-4">
-      {/* Search input - sits ABOVE the tab bar so it can route across tabs. */}
-      <div className="relative">
-        <input
-          type="search"
-          placeholder={t`Search settings...`}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm placeholder:text-slate-500"
-        />
-        {searchResults.length > 0 && (
-          <div className="absolute z-10 left-0 right-0 mt-1 bg-slate-900 border border-slate-700 rounded shadow-xl max-h-80 overflow-y-auto">
-            {searchResults.map((r, i) => (
-              <button
-                key={`${r.tabId}-${r.sectionId}-${r.fieldLabel ?? ''}-${i}`}
-                type="button"
-                onClick={() => jumpTo(r.tabId, r.sectionId)}
-                className="block w-full text-left px-3 py-2 text-sm hover:bg-slate-800 border-b border-slate-800 last:border-0"
-              >
-                <span className="text-amber-400 text-xs uppercase tracking-wide">
-                  {tabLabels[r.tabId]}
-                </span>
-                <span className="text-slate-500 mx-1.5">›</span>
-                <span className="text-slate-300">{r.sectionTitle}</span>
-                {r.fieldLabel && (
-                  <>
-                    <span className="text-slate-500 mx-1.5">›</span>
-                    <span className="text-slate-100 font-medium">{r.fieldLabel}</span>
-                  </>
-                )}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Tab bar - horizontal scroll on narrow viewports, scrollbar hidden so wide screens don't show an empty track. */}
-      <div className="flex gap-0 overflow-x-auto border-b border-slate-700 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {TAB_ORDER.map((id) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => setActiveTab(id)}
-            className={
-              activeTab === id
-                ? 'px-4 py-2 text-sm whitespace-nowrap text-amber-400 border-b-2 border-amber-400 -mb-px font-medium'
-                : 'px-4 py-2 text-sm whitespace-nowrap text-slate-300 hover:text-amber-300 border-b-2 border-transparent'
-            }
-          >
-            {tabLabels[id]}
-          </button>
-        ))}
+      {/* Tab bar + search on a single row. Tabs scroll horizontally on
+          narrow viewports (scrollbar hidden so wide screens don't show
+          an empty track); the search input sits at the right end and
+          shrinks down on small screens via max-w. The bottom border
+          spans the full row so the active-tab underline still anchors
+          to it. */}
+      <div className="flex items-center gap-3 border-b border-slate-700">
+        <div className="flex gap-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {TAB_ORDER.map((id) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setActiveTab(id)}
+              className={
+                activeTab === id
+                  ? 'px-4 py-2 text-sm whitespace-nowrap text-amber-400 border-b-2 border-amber-400 -mb-px font-medium'
+                  : 'px-4 py-2 text-sm whitespace-nowrap text-slate-300 hover:text-amber-300 border-b-2 border-transparent'
+              }
+            >
+              {tabLabels[id]}
+            </button>
+          ))}
+        </div>
+        <div className="relative ml-auto pb-1 w-full max-w-xs">
+          <input
+            type="search"
+            placeholder={t`Search settings...`}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm placeholder:text-slate-500"
+          />
+          {searchResults.length > 0 && (
+            <div className="absolute z-10 right-0 mt-1 w-[28rem] max-w-[90vw] bg-slate-900 border border-slate-700 rounded shadow-xl max-h-80 overflow-y-auto">
+              {searchResults.map((r, i) => (
+                <button
+                  key={`${r.tabId}-${r.sectionId}-${r.fieldLabel ?? ''}-${i}`}
+                  type="button"
+                  onClick={() => jumpTo(r.tabId, r.sectionId)}
+                  className="block w-full text-left px-3 py-2 text-sm hover:bg-slate-800 border-b border-slate-800 last:border-0"
+                >
+                  <span className="text-amber-400 text-xs uppercase tracking-wide">
+                    {tabLabels[r.tabId]}
+                  </span>
+                  <span className="text-slate-500 mx-1.5">›</span>
+                  <span className="text-slate-300">{r.sectionTitle}</span>
+                  {r.fieldLabel && (
+                    <>
+                      <span className="text-slate-500 mx-1.5">›</span>
+                      <span className="text-slate-100 font-medium">{r.fieldLabel}</span>
+                    </>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Active tab body. */}
