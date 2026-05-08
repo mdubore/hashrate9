@@ -2,6 +2,10 @@
 
 ## 2026-05-08
 
+### `[Feature]` Hashrate chart: difficulty retarget markers
+
+When the right-axis is set to **network difficulty**, the chart now renders a small dot at every detected retarget tick. Hover/click opens a tooltip with the retarget date, the new difficulty (in trillions), the previous epoch's difficulty, and the % change (red for harder, green for easier). Detection: per-tick step in `network_difficulty` larger than 0.5%, with a sustained-value check on the next non-null tick - filters out spurious detections on bucket-AVG-aggregated long ranges where the bucket spanning a retarget shows an intermediate averaged value. No explorer link (we don't carry block height per tick yet); the retarget heights are derivable client-side as multiples of 2016 if we want to add that later.
+
 ### `[Feature]` Alerts: "mark all as seen" bulk button
 
 Operator returning to the dashboard with N pending notifications wanted a single click to clear them rather than chasing the row-level button N times. New button next to the "unacknowledged only" filter on the Alerts page; shows the current unack count. Server-side: new `POST /api/alerts/acknowledge-all` endpoint and `markAllAcknowledged()` repo method that bulk-update every row where `acknowledged_at_ms IS NULL`. Disabled when there's nothing to ack. NL/ES translated.

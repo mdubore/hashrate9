@@ -676,6 +676,10 @@ msgstr "Annuleren…"
 msgid "Cartoon cowbell"
 msgstr "Cartoon-koebel"
 
+#: src/components/HashrateChart.tsx
+msgid "change"
+msgstr ""
+
 #: src/components/Layout.tsx
 msgid "changelog"
 msgstr "wijzigingslog"
@@ -709,6 +713,7 @@ msgstr "Kies bestand…"
 msgid "click outside to close"
 msgstr "klik buiten om te sluiten"
 
+#: src/components/HashrateChart.tsx
 #: src/components/HashrateChart.tsx
 #: src/components/PriceChart.tsx
 #: src/components/PriceChart.tsx
@@ -974,6 +979,10 @@ msgstr "delta"
 #: src/components/Bip110ScanCard.tsx
 msgid "deployment"
 msgstr "uitrol"
+
+#: src/components/HashrateChart.tsx
+msgid "DIFFICULTY RETARGET"
+msgstr "MOEILIJKHEIDS-RETARGET"
 
 #: src/pages/Config.tsx
 msgid "Disabled"
@@ -1594,6 +1603,10 @@ msgstr "netwerkfout"
 msgid "Network's break-even rate at current difficulty + block reward: (block_reward_sat * 144 blocks/day) / network_hashrate. If you're paying ABOVE this for hashrate you're losing money vs mining; below this you're winning. The autopilot's max-overpay-vs-hashprice cap clamps your bid relative to this number."
 msgstr "De break-even rate van het netwerk bij de huidige moeilijkheidsgraad + blokbeloning: (block_reward_sat * 144 blokken/dag) / network_hashrate. Betaal je hierboven voor hashrate, dan verlies je geld tegenover zelf minen; eronder win je. De max-overpay-vs-hashprice cap van de autopilot klemt je bod ten opzichte van dit getal."
 
+#: src/components/HashrateChart.tsx
+msgid "new difficulty"
+msgstr "nieuwe moeilijkheid"
+
 #: src/components/PriceChart.tsx
 msgid "new speed"
 msgstr "nieuwe snelheid"
@@ -2060,6 +2073,10 @@ msgstr "poort"
 #: src/pages/Setup.tsx
 msgid "Port"
 msgstr "Poort"
+
+#: src/components/HashrateChart.tsx
+msgid "previous"
+msgstr "vorige"
 
 #: src/components/PriceChart.tsx
 #: src/components/PriceChart.tsx

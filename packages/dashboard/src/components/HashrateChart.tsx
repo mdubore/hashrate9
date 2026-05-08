@@ -126,6 +126,22 @@ function formatDuration(ms: number): string {
 }
 
 
+interface RetargetEvent {
+  /** Tick timestamp of the first sample at the new difficulty. */
+  tick_at: number;
+  /** New difficulty (raw integer). */
+  difficulty: number;
+  /** Difficulty during the previous epoch. */
+  previous: number;
+}
+
+interface RetargetTooltipState {
+  event: RetargetEvent;
+  x: number;
+  y: number;
+  pinned: boolean;
+}
+
 /**
  * #93: which series to draw on the chart's right Y-axis.
  * - 'none': hide the right axis entirely.
@@ -198,6 +214,11 @@ export const HashrateChart = memo(function HashrateChart({
   const dateTimeLocale = useDateTimeLocale();
   const denomination = useDenomination();
   const [blockTip, setBlockTip] = useState<PoolBlockTooltipState | null>(null);
+  // Difficulty-retarget markers (#22 follow-up): when the right-axis
+  // series is `network_difficulty`, place a dot on the line at every
+  // detected retarget tick with a tooltip showing the new difficulty
+  // and the % change vs the previous epoch.
+  const [retargetTip, setRetargetTip] = useState<RetargetTooltipState | null>(null);
   // #105: parity with PriceChart - operator can double chart height
   // for closer inspection of floor breaches / BIP 110 marker positions.
   // State is local; PriceChart's expand toggle is independent.
@@ -225,6 +246,45 @@ export const HashrateChart = memo(function HashrateChart({
   );
   const closeBlockTip = useCallback(() => setBlockTip(null), []);
 
+  const onRetargetEnter = useCallback(
+    (event: RetargetEvent) => (e: React.MouseEvent) => {
+      setRetargetTip((prev) => {
+        if (prev?.pinned) return prev;
+        return { event, x: e.clientX, y: e.clientY, pinned: false };
+      });
+    },
+    [],
+  );
+  const onRetargetLeave = useCallback(() => {
+    setRetargetTip((prev) => (prev?.pinned ? prev : null));
+  }, []);
+  const onRetargetClick = useCallback(
+    (event: RetargetEvent) => (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setRetargetTip({ event, x: e.clientX, y: e.clientY, pinned: true });
+    },
+    [],
+  );
+  const closeRetargetTip = useCallback(() => setRetargetTip(null), []);
+
+  useEffect(() => {
+    if (!retargetTip?.pinned) return;
+    const onDocClick = (ev: MouseEvent) => {
+      const target = ev.target as Node | null;
+      if (
+        target &&
+        document
+          .getElementById('hashrate-chart-pinned-retarget-tooltip')
+          ?.contains(target)
+      ) {
+        return;
+      }
+      setRetargetTip(null);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [retargetTip?.pinned]);
+
   useEffect(() => {
     if (!blockTip?.pinned) return;
     const onDocClick = (ev: MouseEvent) => {
@@ -240,6 +300,37 @@ export const HashrateChart = memo(function HashrateChart({
     document.addEventListener('mousedown', onDocClick);
     return () => document.removeEventListener('mousedown', onDocClick);
   }, [blockTip?.pinned]);
+
+  // Detect retarget points where `network_difficulty` steps. The
+  // sustained-check filter (current matches the next non-null tick)
+  // suppresses spurious detection on bucket-AVG-aggregated long
+  // ranges where the bucket spanning the retarget shows an
+  // intermediate averaged value. The 0.5% threshold separates real
+  // retargets from rounding noise.
+  const difficultyRetargets = useMemo<RetargetEvent[]>(() => {
+    if (rightAxisSeries !== 'network_difficulty') return [];
+    const out: RetargetEvent[] = [];
+    let prev: number | null = null;
+    for (let i = 0; i < points.length; i += 1) {
+      const d = points[i]!.network_difficulty;
+      if (typeof d !== 'number' || !Number.isFinite(d)) continue;
+      if (prev !== null && Math.abs(d - prev) / prev > 0.005) {
+        let next: number | null = null;
+        for (let j = i + 1; j < points.length; j += 1) {
+          const dn = points[j]!.network_difficulty;
+          if (typeof dn === 'number' && Number.isFinite(dn)) {
+            next = dn;
+            break;
+          }
+        }
+        if (next === null || Math.abs(next - d) / d <= 0.005) {
+          out.push({ tick_at: points[i]!.tick_at, difficulty: d, previous: prev });
+        }
+      }
+      prev = d;
+    }
+    return out;
+  }, [points, rightAxisSeries]);
 
   const chartData = useMemo(() => {
     if (points.length < 2) return null;
@@ -685,6 +776,40 @@ export const HashrateChart = memo(function HashrateChart({
           />
         )}
 
+        {rightAxisSeries === 'network_difficulty' &&
+          rightAxis &&
+          difficultyRetargets
+            .filter((r) => r.tick_at >= minX && r.tick_at <= maxX)
+            .map((r) => {
+              const cx = xScale(r.tick_at);
+              const cy = shareLogYScale(r.difficulty);
+              return (
+                <g
+                  key={`retarget-${r.tick_at}`}
+                  onMouseEnter={onRetargetEnter(r)}
+                  onMouseLeave={onRetargetLeave}
+                  onClick={onRetargetClick(r)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <circle
+                    cx={cx}
+                    cy={cy}
+                    r="4.5"
+                    fill={rightAxis.stroke}
+                    stroke="#0f172a"
+                    strokeWidth="1.5"
+                  />
+                  <rect
+                    x={cx - 9}
+                    y={cy - 9}
+                    width="18"
+                    height="18"
+                    fill="transparent"
+                  />
+                </g>
+              );
+            })}
+
         {ourBlocks
             .filter((b) => b.timestamp_ms >= minX && b.timestamp_ms <= maxX)
             .map((b) => {
@@ -825,6 +950,14 @@ export const HashrateChart = memo(function HashrateChart({
           shareLogPct={shareLogPct}
           onClose={closeBlockTip}
           pinnedDomId="hashrate-chart-pinned-tooltip"
+        />
+      )}
+      {retargetTip && (
+        <RetargetTooltip
+          tip={retargetTip}
+          locale={intlLocale}
+          dateTimeLocale={dateTimeLocale}
+          onClose={closeRetargetTip}
         />
       )}
     </div>
@@ -986,6 +1119,109 @@ export function PoolBlockTooltip({
         >
           <Trans>open in block explorer →</Trans>
         </a>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Tooltip rendered when an operator hovers / clicks one of the
+ * difficulty-retarget dots on the right-axis network_difficulty
+ * line. Shows the date of the retarget tick, the new difficulty in
+ * trillions, and the % change vs the previous epoch (positive
+ * green, negative red - matches the "easier vs harder" intuition).
+ */
+function RetargetTooltip({
+  tip,
+  locale,
+  dateTimeLocale,
+  onClose,
+}: {
+  tip: RetargetTooltipState;
+  locale: string | undefined;
+  dateTimeLocale: string | undefined;
+  onClose: () => void;
+}) {
+  const { i18n } = useLingui();
+  void i18n;
+  const { event, pinned } = tip;
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [pos, setPos] = useState<{ left: number; top: number; ready: boolean }>({
+    left: tip.x + 12,
+    top: tip.y + 12,
+    ready: false,
+  });
+
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const margin = 8;
+    let left = tip.x + 12;
+    let top = tip.y + 12;
+    if (left + rect.width > window.innerWidth - margin) left = tip.x - rect.width - 12;
+    if (top + rect.height > window.innerHeight - margin) top = tip.y - rect.height - 12;
+    if (left < margin) left = margin;
+    if (top < margin) top = margin;
+    setPos({ left, top, ready: true });
+  }, [tip.x, tip.y, event.tick_at]);
+
+  const pct = ((event.difficulty - event.previous) / event.previous) * 100;
+  const pctText = `${pct >= 0 ? '+' : ''}${new Intl.NumberFormat(locale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(pct)}%`;
+  const pctColor = pct >= 0 ? 'text-red-300' : 'text-emerald-300';
+  const diffT = (event.difficulty / 1e12).toLocaleString(locale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  const prevT = (event.previous / 1e12).toLocaleString(locale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
+  return (
+    <div
+      ref={ref}
+      id={pinned ? 'hashrate-chart-pinned-retarget-tooltip' : undefined}
+      className={`fixed z-50 bg-slate-950 border rounded-lg shadow-lg p-3 text-xs whitespace-nowrap ${pinned ? 'border-slate-500 pointer-events-auto' : 'border-slate-700 pointer-events-none'} ${pos.ready ? '' : 'invisible'}`}
+      style={{ left: pos.left, top: pos.top }}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <span className="font-semibold uppercase tracking-wider text-violet-300">
+          <Trans>DIFFICULTY RETARGET</Trans>
+        </span>
+        {pinned && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t`close`}
+            className="text-slate-500 hover:text-slate-200 leading-none text-base -mt-0.5 -mr-0.5"
+          >
+            ×
+          </button>
+        )}
+      </div>
+      <div className="text-slate-300 mt-1">
+        {formatTimestamp(event.tick_at, dateTimeLocale)}
+        <span className="text-slate-500 ml-2">· {formatAgeMinutes(event.tick_at)}</span>
+      </div>
+      <div className="text-slate-500 text-[10px]">{formatTimestampUtc(event.tick_at)}</div>
+
+      <div className="mt-2 space-y-0.5 text-slate-300">
+        <div className="flex justify-between gap-3">
+          <span className="text-slate-500"><Trans>new difficulty</Trans></span>
+          <span className="font-mono tabular-nums">{diffT} T</span>
+        </div>
+        <div className="flex justify-between gap-3">
+          <span className="text-slate-500"><Trans>previous</Trans></span>
+          <span className="font-mono tabular-nums text-slate-400">{prevT} T</span>
+        </div>
+        <div className="flex justify-between gap-3">
+          <span className="text-slate-500"><Trans>change</Trans></span>
+          <span className={`font-mono tabular-nums ${pctColor}`}>{pctText}</span>
+        </div>
       </div>
     </div>
   );
