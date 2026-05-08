@@ -9,7 +9,7 @@
  *   DATUM_HOST=192.168.1.50 DATUM_PORT=7152 pnpm tsx scripts/probe-datum.ts
  */
 
-const HOST = process.env['DATUM_HOST'] ?? 'alkimia.mynetgear.com';
+const HOST = process.env['DATUM_HOST'] ?? 'umbrel.local';
 const PORT = Number(process.env['DATUM_PORT'] ?? '7152');
 const BASE = `http://${HOST}:${PORT}`;
 

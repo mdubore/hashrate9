@@ -1674,7 +1674,7 @@ function NotificationsSection({
             onChange={(e) =>
               onChange('telegram_instance_label', e.target.value as never)
             }
-            placeholder="prod / dev / clarent"
+            placeholder="prod / dev / umbrel"
             maxLength={32}
             className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm font-mono"
           />
@@ -2814,7 +2814,7 @@ function DdnsCredentialFields({
             type="text"
             value={draft.ddns_hostname}
             onChange={(e) => onChange('ddns_hostname', e.target.value as never)}
-            placeholder="alkimia.zapto.org"
+            placeholder="myhomerig.duckdns.org"
             autoComplete="off"
             className="flex-1 bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm font-mono"
           />

@@ -2,6 +2,13 @@
 
 ## 2026-05-08
 
+### `[Release]` v1.5.2
+
+Hot-fix on top of v1.5.1 for the Umbrel hot-path.
+
+- Electrs payout-observer now writes `reward_events` *natively* (no bitcoind RPC required). v1.5.1's fix only worked when bitcoind was also configured - on a typical Umbrel install (no bitcoind dependency declared) the chart's lifetime-earnings line stayed flat-zero. ElectrsClient grew `listUnspent` and `getBlockTimeByHeight`; `scanViaElectrs` populates the table on every poll. Retroactive backfill on first scan after restart (electrs cadence is 1 min, so within ~60 s).
+- Two example placeholders in the Config UI no longer leak the operator's dev-box hostname into shipped strings (Telegram instance label and DDNS hostname). Plus a few pool-URL example strings in code comments / Datum probe script swapped for generic `myrig.example.com` / `umbrel.local`.
+
 ### `[Fix]` reward_events written via electrs (Umbrel hot-path) - v1.5.1 follow-up
 
 The "Electrs payout-observer now writes reward_events" fix that landed in v1.5.1 only worked when bitcoind RPC was ALSO configured - the side-scan I added requires `bitcoindClient`, which is null on Umbrel installs that haven't declared bitcoind as a dependency (the default for our app, since the autopilot doesn't strictly need bitcoind to bid). Operator deployed v1.5.1 to clarent (electrs-only, no bitcoind RPC) and reported the same flat-zero "paid earnings (lifetime)" line we thought we'd fixed.

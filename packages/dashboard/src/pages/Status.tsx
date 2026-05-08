@@ -2571,7 +2571,7 @@ function DatumPanel({
 
   // Split the pool URL into scheme / host / port so the card doesn't
   // wrap an unreadable 60-character string. Pool URLs on Ocean look
-  // like stratum+tcp://alkimia.mynetgear.com:23334 - we care about
+  // like stratum+tcp://myrig.example.com:23334 - we care about
   // the host most, the scheme rarely, the port sometimes. Rendering
   // three aligned rows beats a wrapped monofont URL every time.
   const urlParts = splitPoolUrl(url);
@@ -2684,7 +2684,7 @@ function BidProgress({ pct }: { pct: number | null }) {
 }
 
 /**
- * Parse a pool URL like `stratum+tcp://alkimia.example.com:23334`
+ * Parse a pool URL like `stratum+tcp://myrig.example.com:23334`
  * into its three human-readable pieces. Any part that can't be
  * extracted comes back null (the component renders "-" for missing
  * pieces). This is cosmetic-only - the copy button still copies the

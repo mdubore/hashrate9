@@ -109,7 +109,7 @@ export interface BitcoindClient {
  *
  * Node's `fetch` collapses every network-layer failure into a single
  * "fetch failed" message and stuffs the real diagnosis on `.cause`
- * (e.g. `ENOTFOUND alkimia.mynetgear.com`, `ECONNREFUSED 127.0.0.1:8332`,
+ * (e.g. `ENOTFOUND myrig.example.com`, `ECONNREFUSED 127.0.0.1:8332`,
  * `ETIMEDOUT`). Without surfacing that, the dashboard error UI just
  * shows "fetch failed" which is unhelpful. Also strips userinfo from
  * the URL so the password never lands in a log line or the dashboard.
