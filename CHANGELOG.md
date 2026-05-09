@@ -2,6 +2,10 @@
 
 ## 2026-05-09
 
+### `[UI]` Mobile: hamburger menu collapses unit/currency/language/sign-out
+
+The top bar fit a brand + Status/Alerts/Config tabs + TH/PH/EH toggle + sats/BTC/USD toggle + language picker + sign-out button on a single row, which overflowed the right edge of mobile viewports. Operator caught it on iPhone Safari (`clarent:3010`). On `< sm` the four right-cluster controls now collapse into a hamburger popover (three-bar icon, opens a dropdown with the same controls grouped under labelled headings, click-outside dismisses). On `>= sm` the inline cluster is unchanged. Top bar stays single-row on mobile with only Status / Alerts / Config visible.
+
 ### `[UI]` Log retention: 2x2 grid (Tick metrics / Alerts / Decisions uneventful / Decisions eventful)
 
 The Tick metrics field was full-width which left Alerts alone on a row by itself, with the two Decisions fields paired in the middle. Operator preferred a uniform 2x2: row 1 has Tick metrics + Alerts, row 2 has Decisions uneventful + Decisions eventful. Removed `fullWidth: true` from the Tick metrics spec and reordered the field array so Alerts is the second entry (placing it in the right cell of row 1).

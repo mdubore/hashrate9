@@ -1004,6 +1004,10 @@ msgstr "delivery"
 msgid "delta"
 msgstr "delta"
 
+#: src/components/Layout.tsx
+msgid "denomination"
+msgstr "denomination"
+
 #: src/components/Bip110ScanCard.tsx
 msgid "deployment"
 msgstr "deployment"
@@ -1336,6 +1340,10 @@ msgstr "Hashrate Ocean credits to our payout address (5-min sliding window). Sou
 msgid "Hashrate targets"
 msgstr "Hashrate targets"
 
+#: src/components/Layout.tsx
+msgid "hashrate unit"
+msgstr "hashrate unit"
+
 #: src/pages/Config.tsx
 msgid "headers"
 msgstr "headers"
@@ -1448,6 +1456,10 @@ msgstr "Keep the Pool URL's hostname pointed at this box's current public IP. Re
 #: src/pages/Config.tsx
 msgid "Keep whatever run mode was active before the restart. PAUSED is demoted to DRY_RUN."
 msgstr "Keep whatever run mode was active before the restart. PAUSED is demoted to DRY_RUN."
+
+#: src/components/Layout.tsx
+msgid "language"
+msgstr "language"
 
 #: src/components/LanguagePicker.tsx
 msgid "Language"
@@ -1592,6 +1604,10 @@ msgstr "Max premium over hashprice"
 #: src/pages/Config.tsx
 msgid "Maximum"
 msgstr "Maximum"
+
+#: src/components/Layout.tsx
+msgid "menu"
+msgstr "menu"
 
 #: src/pages/Config.tsx
 msgid "Metallic clank 1"
@@ -2474,6 +2490,7 @@ msgstr "showing {0} of {totalCount}"
 msgid "sign in"
 msgstr "sign in"
 
+#: src/components/Layout.tsx
 #: src/components/Layout.tsx
 msgid "sign out"
 msgstr "sign out"

@@ -1004,6 +1004,10 @@ msgstr "entrega"
 msgid "delta"
 msgstr "delta"
 
+#: src/components/Layout.tsx
+msgid "denomination"
+msgstr "denominación"
+
 #: src/components/Bip110ScanCard.tsx
 msgid "deployment"
 msgstr "despliegue"
@@ -1336,6 +1340,10 @@ msgstr "Hashrate que Ocean acredita a nuestra dirección de pago (ventana desliz
 msgid "Hashrate targets"
 msgstr "Objetivos de hashrate"
 
+#: src/components/Layout.tsx
+msgid "hashrate unit"
+msgstr "unidad de hashrate"
+
 #: src/pages/Config.tsx
 msgid "headers"
 msgstr "encabezados"
@@ -1448,6 +1456,10 @@ msgstr "Mantén el nombre de host de la Pool URL apuntando al IP público actual
 #: src/pages/Config.tsx
 msgid "Keep whatever run mode was active before the restart. PAUSED is demoted to DRY_RUN."
 msgstr "Mantener el modo de ejecución que estaba activo antes del reinicio. PAUSED se degrada a DRY_RUN."
+
+#: src/components/Layout.tsx
+msgid "language"
+msgstr "idioma"
 
 #: src/components/LanguagePicker.tsx
 msgid "Language"
@@ -1592,6 +1604,10 @@ msgstr "Prima máxima sobre hashprice"
 #: src/pages/Config.tsx
 msgid "Maximum"
 msgstr "Máximo"
+
+#: src/components/Layout.tsx
+msgid "menu"
+msgstr "menú"
 
 #: src/pages/Config.tsx
 msgid "Metallic clank 1"
@@ -2474,6 +2490,7 @@ msgstr "mostrando {0} de {totalCount}"
 msgid "sign in"
 msgstr "iniciar sesión"
 
+#: src/components/Layout.tsx
 #: src/components/Layout.tsx
 msgid "sign out"
 msgstr "cerrar sesión"

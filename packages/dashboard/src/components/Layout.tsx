@@ -1,6 +1,7 @@
 import { Trans, t } from '@lingui/macro';
 import { useLingui } from '@lingui/react';
 import { useQuery } from '@tanstack/react-query';
+import { useEffect, useRef, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 import { api } from '../lib/api';
@@ -139,19 +140,24 @@ export function Layout() {
             })}
           </nav>
 
-          <div className="flex items-center gap-3 ml-auto text-xs">
+          {/* Inline cluster on >= sm screens. Below that it overflows
+              the viewport; the hamburger picks up the same controls
+              from a dropdown so the top bar stays single-row on
+              mobile with only Status/Alerts/Config visible. */}
+          <div className="hidden sm:flex items-center gap-3 ml-auto text-xs">
             <HashrateUnitToggle />
-
             <DenominationToggle />
-
             <LanguagePicker />
-
             <button
               onClick={logout}
               className="px-2 py-1 text-[11px] text-slate-300 border border-slate-700 rounded hover:bg-slate-800"
             >
               <Trans>sign out</Trans>
             </button>
+          </div>
+
+          <div className="sm:hidden ml-auto">
+            <MobileMenu onSignOut={logout} />
           </div>
         </div>
       </header>
@@ -176,6 +182,89 @@ export function Layout() {
           <Trans>changelog</Trans>
         </a>
       </footer>
+    </div>
+  );
+}
+
+/**
+ * Mobile-only hamburger that holds the unit/currency/language/sign-out
+ * cluster. The desktop header has these inline; on viewports below
+ * `sm` the inline cluster overflows the right edge (the operator
+ * caught it on iPhone Safari), so they collapse into a popover here.
+ *
+ * Click-outside dismisses the popover; opening it does not block
+ * scroll, since the page underneath stays useful.
+ */
+function MobileMenu({ onSignOut }: { onSignOut: () => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-label={t`menu`}
+        aria-expanded={open}
+        className="px-2 py-1.5 text-slate-300 border border-slate-700 rounded hover:bg-slate-800"
+      >
+        {/* Three-bar hamburger icon. Rendered as SVG so it scales
+            with the surrounding font-size and respects currentColor. */}
+        <svg
+          width="18"
+          height="14"
+          viewBox="0 0 18 14"
+          aria-hidden="true"
+          className="block"
+        >
+          <rect width="18" height="2" rx="1" fill="currentColor" />
+          <rect y="6" width="18" height="2" rx="1" fill="currentColor" />
+          <rect y="12" width="18" height="2" rx="1" fill="currentColor" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="absolute right-0 mt-2 w-64 bg-slate-900 border border-slate-700 rounded-lg shadow-lg p-3 z-30 space-y-3">
+          <div>
+            <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
+              <Trans>hashrate unit</Trans>
+            </div>
+            <HashrateUnitToggle />
+          </div>
+          <div>
+            <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
+              <Trans>denomination</Trans>
+            </div>
+            <DenominationToggle />
+          </div>
+          <div>
+            <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
+              <Trans>language</Trans>
+            </div>
+            <LanguagePicker />
+          </div>
+          <button
+            onClick={() => {
+              setOpen(false);
+              onSignOut();
+            }}
+            className="w-full px-2 py-1.5 text-xs text-slate-300 border border-slate-700 rounded hover:bg-slate-800"
+          >
+            <Trans>sign out</Trans>
+          </button>
+        </div>
+      )}
     </div>
   );
 }
