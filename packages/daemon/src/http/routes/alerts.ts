@@ -9,14 +9,18 @@
 
 import type { FastifyInstance } from 'fastify';
 
+import { formatTelegramBody } from '../../services/alert-manager.js';
+import { TelegramSink } from '../../services/notifier.js';
 import type {
   AlertDeliveryStatus,
   AlertSeverity,
 } from '../../state/types.js';
 import type { AlertRow, AlertsRepo } from '../../state/repos/alerts.js';
+import type { ConfigRepo } from '../../state/repos/config.js';
 
 export interface AlertsRouteDeps {
   readonly alertsRepo: AlertsRepo;
+  readonly configRepo: ConfigRepo;
 }
 
 export interface AlertsListQuery {
@@ -60,6 +64,64 @@ export interface AcknowledgeAllResponse {
 }
 
 const VALID_SEVERITIES: ReadonlySet<AlertSeverity> = new Set(['INFO', 'WARNING', 'ERROR']);
+
+/**
+ * #109 follow-up (operator request 2026-05-09): when the operator
+ * acks or snoozes an alert from the dashboard, mirror the same
+ * Telegram-message edit that TelegramReceiver does for in-Telegram
+ * acks. Strip the inline keyboard and append a confirmation footer
+ * so the operator's chat history reflects the resolution regardless
+ * of which surface they used.
+ *
+ * The edit is best-effort: failures are logged but never block the
+ * HTTP response. The dashboard already persisted the ack/snooze on
+ * the alert row before this runs.
+ */
+async function editTelegramMessageForRow(
+  row: AlertRow,
+  cfg: { telegram_bot_token: string; telegram_chat_id: string; telegram_instance_label: string },
+  confirmation: string,
+  nowMs: number,
+): Promise<void> {
+  if (!row.delivery_meta_json) return;
+  if (!cfg.telegram_bot_token || !cfg.telegram_chat_id) return;
+
+  let messageId: number | null = null;
+  try {
+    const meta = JSON.parse(row.delivery_meta_json) as { message_id?: number };
+    if (typeof meta.message_id === 'number') messageId = meta.message_id;
+  } catch {
+    return;
+  }
+  if (messageId === null) return;
+
+  // Reconstruct the original message body from the row (severity
+  // emoji + bracket label + title + body), then append the
+  // confirmation footer in italics. Mirrors the existing Telegram-
+  // side ack flow but preserves the bold title formatting that the
+  // receiver path loses (it reads cb.message.text which Telegram
+  // returns plain).
+  const isRecovery = row.paired_alert_id !== null;
+  const original = formatTelegramBody(row.severity, row.title, row.body, isRecovery);
+  const footer = `\n\n<i>${confirmation} · ${new Date(nowMs).toISOString()}</i>`;
+  const labelPrefix = cfg.telegram_instance_label.trim();
+  const fullText = labelPrefix ? `[${labelPrefix}] ${original}${footer}` : `${original}${footer}`;
+
+  const sink = new TelegramSink({
+    bot_token: cfg.telegram_bot_token,
+    chat_id: cfg.telegram_chat_id,
+    instance_label: '', // already prefixed above; don't double-prefix.
+  });
+  const result = await sink.editMessage(messageId, fullText);
+  if (!result.ok) {
+    // "message is not modified" is a benign 400 (Telegram returns it
+    // when the new text equals the old). Anything else gets logged
+    // for the operator to investigate; never throws.
+    if (result.error && !result.error.includes('not modified')) {
+      console.warn(`[alerts] Telegram edit failed: ${result.error}`);
+    }
+  }
+}
 const VALID_DELIVERY: ReadonlySet<AlertDeliveryStatus> = new Set([
   'pending',
   'sent',
@@ -146,6 +208,13 @@ export async function registerAlertsRoutes(
       }
       const now = Date.now();
       await deps.alertsRepo.markAcknowledged(id, now);
+      // Best-effort Telegram edit so the in-chat message reflects
+      // the dashboard-side ack. Run after the row is already
+      // persisted; never blocks the HTTP response on Telegram.
+      const cfg = await deps.configRepo.get();
+      if (cfg) {
+        await editTelegramMessageForRow(existing, cfg, '✓ acknowledged', now);
+      }
       return { ok: true, acknowledged_at_ms: now };
     },
   );
@@ -154,7 +223,24 @@ export async function registerAlertsRoutes(
     '/api/alerts/acknowledge-all',
     async (): Promise<AcknowledgeAllResponse> => {
       const now = Date.now();
+      // Snapshot unacked rows BEFORE the bulk update so we have
+      // their delivery_meta_json (= message_id) for the Telegram
+      // edits. The bulk update itself is one SQL statement against
+      // `acknowledged_at_ms IS NULL`; a row that races in between
+      // the snapshot and the update would simply be skipped by the
+      // update (already acked) and its Telegram message gets
+      // edited to the same text on the next round - benign.
+      const toEdit = await deps.alertsRepo.list({
+        unacknowledged_only: true,
+        limit: 1000,
+      });
       const count = await deps.alertsRepo.markAllAcknowledged(now);
+      const cfg = await deps.configRepo.get();
+      if (cfg) {
+        for (const row of toEdit) {
+          await editTelegramMessageForRow(row, cfg, '✓ acknowledged', now);
+        }
+      }
       return { ok: true, acknowledged_at_ms: now, count };
     },
   );
@@ -176,6 +262,15 @@ export async function registerAlertsRoutes(
       }
       const until = Date.now() + minutes * 60_000;
       await deps.alertsRepo.snooze(id, until);
+      const cfg = await deps.configRepo.get();
+      if (cfg) {
+        await editTelegramMessageForRow(
+          existing,
+          cfg,
+          `⏸ snoozed ${minutes}m`,
+          Date.now(),
+        );
+      }
       return { ok: true, snoozed_until_ms: until };
     },
   );

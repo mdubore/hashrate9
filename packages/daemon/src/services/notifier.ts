@@ -134,6 +134,71 @@ export class TelegramSink implements NotificationSink {
     );
   }
 
+  /**
+   * Edit a previously-sent message. Used to:
+   *  1. Strip the inline keyboard once the operator has acked the
+   *     alert (so they can't double-tap a stale "Mark as seen"
+   *     button) and
+   *  2. Append a small confirmation footer ("✓ acknowledged · …",
+   *     "⏸ snoozed 2h · …") so the operator's chat history shows
+   *     which alerts have been resolved.
+   *
+   * Mirrors `TelegramReceiver.editMessageText` (which fires when the
+   * ack came from inside Telegram). This method covers the
+   * dashboard-side ack/snooze path so both surfaces converge on the
+   * same edited Telegram message. Errors are non-fatal: the row is
+   * already persisted as acknowledged on our side, and a transient
+   * Telegram failure here just leaves the operator's chat slightly
+   * stale until the next round-trip.
+   */
+  async editMessage(messageId: number, htmlText: string): Promise<NotificationDeliveryResult> {
+    if (!this.bot_token || !this.chat_id) {
+      return {
+        ok: false,
+        delivery_meta_json: null,
+        error: 'bot token and chat id are both required',
+      };
+    }
+    const url = `${TELEGRAM_API_BASE}/bot${this.bot_token}/editMessageText`;
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), this.timeoutMs);
+    try {
+      const res = await this.fetchImpl(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: this.chat_id,
+          message_id: messageId,
+          text: htmlText,
+          parse_mode: 'HTML',
+          disable_web_page_preview: true,
+          // No reply_markup → the inline keyboard is removed.
+        }),
+        signal: ctl.signal,
+      });
+      const json = (await res.json().catch(() => null)) as
+        | TelegramSendMessageResponse
+        | null;
+      if (!res.ok || !json?.ok) {
+        const desc = json?.description ?? `HTTP ${res.status}`;
+        return {
+          ok: false,
+          delivery_meta_json: null,
+          error: `Telegram API rejected: ${desc}`,
+        };
+      }
+      return { ok: true, delivery_meta_json: null, error: null };
+    } catch (err) {
+      return {
+        ok: false,
+        delivery_meta_json: null,
+        error: (err as Error).message,
+      };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   private applyInstancePrefix(body: string): string {
     return this.instance_label ? `[${this.instance_label}] ${body}` : body;
   }

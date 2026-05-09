@@ -173,7 +173,10 @@ export async function createHttpServer(deps: HttpServerDeps): Promise<HttpServer
   await registerBip110ScanRoute(app, { configRepo: deps.configRepo, secrets: deps.secrets });
   await registerBitcoindTestRoute(app);
   await registerElectrsTestRoute(app);
-  await registerAlertsRoutes(app, { alertsRepo: deps.alertsRepo });
+  await registerAlertsRoutes(app, {
+    alertsRepo: deps.alertsRepo,
+    configRepo: deps.configRepo,
+  });
   await registerNotificationsTestRoute(app);
   await registerNotificationsTestEventRoute(app, { configRepo: deps.configRepo });
   await registerPayoutsRoute(app, { payoutObserver: deps.payoutObserver });

@@ -14,7 +14,8 @@ import {
   type AlertDeliveryStatus,
   type AlertRow,
 } from '../lib/api';
-import { formatAge } from '../lib/format';
+import { formatAge, formatTimestamp } from '../lib/format';
+import { useLocale } from '../lib/locale';
 
 const SNOOZE_PRESETS: Array<{ minutes: number; label: () => string }> = [
   { minutes: 30, label: () => t`30m` },
@@ -226,7 +227,7 @@ export function Alerts() {
                   onAcknowledge={() => ack.mutate(row.id)}
                   onSnooze={(minutes) => snooze.mutate({ id: row.id, minutes })}
                 />
-              ))}
+              )) /* AlertRow uses useLocale internally for the absolute timestamp formatting. */}
             </tbody>
           </table>
         </div>
@@ -257,10 +258,15 @@ function AlertRow({
   onAcknowledge: () => void;
   onSnooze: (minutes: number) => void;
 }) {
+  // Mirror the Status page's bids-card timestamp pattern: absolute
+  // datetime in the operator's regional format on top, relative age
+  // muted underneath. Operator wanted both visible at a glance.
+  const { intlLocale } = useLocale();
   return (
     <tr className="border-t border-slate-800 align-top">
-      <td className="px-3 py-2 text-xs text-slate-400 whitespace-nowrap">
-        {formatAge(row.created_at)}
+      <td className="px-3 py-2 text-xs whitespace-nowrap">
+        <div className="text-slate-300">{formatTimestamp(row.created_at, intlLocale)}</div>
+        <div className="text-slate-500 text-[10px] mt-0.5">{formatAge(row.created_at)}</div>
       </td>
       <td className="px-3 py-2">
         <div className="text-slate-200">{row.title}</div>

@@ -2,6 +2,14 @@
 
 ## 2026-05-09
 
+### `[Feature]` Dashboard ack/snooze edits the Telegram message too
+
+When the operator clicked "Mark as seen" on the /alerts page (or "mark all as seen", or one of the snooze presets), the dashboard updated the row but the Telegram message that originally fired the alert still had its inline keyboard and no acknowledgement footer. Operator: "can it be that if I do it on the site, that it gets marked in Telegram too?" Yes, Telegram bot API supports it. Added `TelegramSink.editMessage(message_id, html_text)` and wired the three /api/alerts mutate endpoints (single ack, ack-all, snooze) to call it on every row that was delivered to Telegram. Strips the inline keyboard and appends a small italic footer ("✓ acknowledged · 2026-05-09T13:14:15Z" or "⏸ snoozed 30m · ..."). Best-effort: edit failures are logged, never block the HTTP response. The "message is not modified" 400 (which Telegram returns when the new text matches the old, e.g. on a double-ack) is silently swallowed.
+
+### `[UI]` Alerts page: absolute timestamp in the When column
+
+The When column showed only relative ages ("11m ago"). Operator wanted the absolute datetime in their regional format too, mirroring the Status page's bids-card pattern. Each row now renders the locale-formatted timestamp on top, the relative age muted underneath. No DB / API change.
+
 ### `[Fix]` Sustained-paused detector reads live status, not the lingering `last_pause_reason`
 
 The `sustained_paused` detector read `primary.last_pause_reason != null` as the "currently paused" signal. Braiins keeps that field populated as a historical record even after the bid returns to Active — it answers "what was the last reason this bid was ever paused", not "is the bid paused right now". Empirical: operator's bid had an unrelated 24h pause that cleared at 11:44 (recovery fired correctly); 10 minutes later (at 14:44) the sustained_paused detector fired again claiming "Paused for 10m" while Braiins's order history showed the bid had been Active for the entire window. The detector saw `isBad=true` continuously because `last_pause_reason` from the cleared pause still hung on the bid record, and tripped the threshold timer ten minutes after the autopilot booted from clean.
