@@ -2,6 +2,10 @@
 
 ## 2026-05-08
 
+### `[Infra]` `scripts/deploy-systemd.sh` for systemd-managed bare-metal boxes
+
+Variant of `scripts/deploy.sh` that calls `sudo systemctl restart hashrate-autopilot` instead of the PID-file-based `scripts/restart.sh`. Same pull / install / build / test pipeline, drop-in replacement on boxes that auto-start the daemon as a systemd unit (see C.5). Plain `deploy.sh` is the wrong choice on those boxes since it'd either no-op (no PID file) or fight systemd.
+
 ### `[Docs]` Bare-metal: systemd unit template for auto-start on boot
 
 `scripts/hashrate-autopilot.service.example` is a copy-paste systemd unit template, plus a new C.5 section in the README that walks through dropping it into `/etc/systemd/system/`, filling in the user / repo path / pnpm path, and enabling it. Bare-metal operators no longer need to roll their own service file. Existing `scripts/start.sh` flow keeps working untouched - the systemd path is opt-in.

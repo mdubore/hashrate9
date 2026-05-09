@@ -548,7 +548,7 @@ Reboot once to confirm auto-start works. After a fresh reboot the dashboard shou
 - Logs: `journalctl -u hashrate-autopilot -f` (replaces `./scripts/logs.sh` for the systemd-managed instance).
 - Restart: `sudo systemctl restart hashrate-autopilot` (replaces `./scripts/restart.sh`).
 - Stop / start: `sudo systemctl {stop,start} hashrate-autopilot`.
-- Update: `git pull --ff-only && pnpm install && pnpm build && sudo systemctl restart hashrate-autopilot`. The existing `scripts/deploy.sh` still works for the build-and-test half but its `restart` step talks to PID files, not systemd; either edit deploy.sh's last line to call `sudo systemctl restart hashrate-autopilot` instead, or run the four commands manually.
+- Update: `./scripts/deploy-systemd.sh` is the systemd-aware variant of `deploy.sh`. Same pull / build / test pipeline, but the last step calls `sudo systemctl restart hashrate-autopilot` instead of the PID-file-based `restart.sh`. Use it instead of `deploy.sh` on a systemd-managed box. The plain `deploy.sh` would either no-op (PID file empty) or race with systemd, so don't mix them.
 
 **When pnpm / node update via nvm**, the absolute path under `/home/.../node/vXX/bin/pnpm` changes. Update `ExecStart=` in the unit file and `sudo systemctl daemon-reload && sudo systemctl restart hashrate-autopilot`.
 
@@ -677,9 +677,10 @@ for deployment details.
 
 ## Disclaimer
 
-This is an independent, unofficial project. **Not affiliated with, endorsed by, or supported by Braiins Systems s.r.o.**
-"Braiins" and "Braiins Hashpower" are trademarks of their respective owners and are used here only to identify the
-marketplace this tool interacts with.
+This is an independent, unofficial project. **Not affiliated with, endorsed by, or supported by Braiins Systems s.r.o.
+or OCEAN Mining Inc.** "Braiins" and "Braiins Hashpower" are trademarks of Braiins Systems s.r.o.; "Ocean" and the
+DATUM protocol are trademarks of OCEAN Mining Inc. Both are used here only to identify the marketplace and pool
+this tool interacts with.
 
 Using this software to automate real trades involves real money and real counterparties. You are responsible for your
 own funds, your own API keys, and the legal status of hashrate trading in your jurisdiction.
