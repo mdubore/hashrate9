@@ -2,6 +2,14 @@
 
 ## 2026-05-09
 
+### `[Fix]` Wallet-runway recovery title no longer says "below" when above
+
+`runTransition()` reused the firing `title` for the recovery message - so the runway recovery read "✓ Wallet runway 4.5 days (below 3.0 day threshold)" even though the body correctly said "back above threshold". Generic detectors (datum_unreachable, hashrate_below_floor, etc.) carry titles that flip to recovery cleanly with a "✓" prefix; the runway title carries parametric copy and needs a distinct recovery phrasing. Added an optional `titleForRecovery` parameter to `runTransition`; when set, the recovery row uses it verbatim (`✓ <recoveryTitle>`) instead of the prepend-and-replace hack. evaluateWalletRunway now passes "Wallet runway X.X days (above N day threshold)" for the recovery side. Other detectors keep the existing default behaviour, no test changes.
+
+### `[UI]` Notifications: tile help inline below each row, runway tile reads as one phrase
+
+Two operator-driven UX corrections to yesterday's events-grid restructure: (1) the small `(i)` tooltips disappear in favour of a permanent help line under each row, matching the rest of the Config page where help renders below the field rather than on hover. One help line per logical control - the runway tile's checkbox + days-input share a single description because they're one knob. (2) The runway row's wide right-aligned days-input got pulled in next to the label so the row reads as a single phrase: "Wallet runway below [3] days" - input narrowed to ~3 digits, set immediately after the label rather than flushed to the right. NL/ES translations adjusted (label changed from "Wallet runway low" to "Wallet runway below" so the inline phrasing parses correctly).
+
 ### `[UI]` Notifications: events grouped by source system, runway days-input no longer reflows the row
 
 Restructure of the Notifications-tab event-class list. Previously: 2-column grid, runway tile span-2 only when checked, which made the row reflow every time the operator toggled the box (the Ocean-block tile underneath jumped between columns). Now: single-column stack, sectioned under three small uppercase headers (DATUM / BRAIINS MARKETPLACE / OCEAN) that mirror which system the alert reports on. Datum holds `datum_unreachable`; Braiins holds the six marketplace LOUD detectors plus the wallet-runway threshold; Ocean holds the pool-block-credited INFO toggle. Runway row carries the inline days-input permanently - greyed and disabled when the box is unchecked, so toggling never changes the row's height or position. NL/ES translations for the three new section labels.

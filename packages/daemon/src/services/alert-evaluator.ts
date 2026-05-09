@@ -391,6 +391,7 @@ export class AlertEvaluator {
       currentState: this.wallet_runway,
       disabledClasses,
       title: `Wallet runway ${runwayDays.toFixed(1)} days (below ${thresholdDays.toFixed(1)} day threshold)`,
+      titleForRecovery: `Wallet runway ${runwayDays.toFixed(1)} days (above ${thresholdDays.toFixed(1)} day threshold)`,
       bodyForFiring: () =>
         `Total Braiins balance (available + blocked) is ${balanceSat.toLocaleString('en-US')} sat; trailing-3h burn is ${Math.round(burnPerDaySat).toLocaleString('en-US')} sat/day. At that rate the wallet hits zero in ${runwayDays.toFixed(1)} days, below the configured ${thresholdDays}-day threshold. Top up the Braiins wallet or lower the bid; without a top-up, bids will start cancelling for insufficient funds.`,
       bodyForRecovery: () =>
@@ -483,6 +484,14 @@ export class AlertEvaluator {
     thresholdMs: number;
     currentState: EventState;
     title: string;
+    /**
+     * Optional. If set, the recovery message uses this title verbatim
+     * instead of the default "✓ <firing title>" with the Datum
+     * special-case. Detectors whose firing title carries parametric
+     * copy (e.g. "below N days") need this so the recovery title can
+     * say "above N days" instead of contradicting itself.
+     */
+    titleForRecovery?: string;
     bodyForFiring: (durMs: number) => string;
     bodyForRecovery: (durMs: number) => string;
     disabledClasses: ReadonlySet<string>;
@@ -524,9 +533,12 @@ export class AlertEvaluator {
 
     // Recovery: pair an INFO row to the previously-fired alert.
     const wasBadFor = nowMs - (args.currentState.bad_since_ms ?? nowMs);
+    const recoveryTitle = args.titleForRecovery
+      ? `✓ ${args.titleForRecovery}`
+      : args.title.replace(/^/, '✓ ').replace('Datum stratum unreachable', 'Datum reachable');
     await this.alertManager.recordAlert({
       severity: 'INFO',
-      title: args.title.replace(/^/, '✓ ').replace('Datum stratum unreachable', 'Datum reachable'),
+      title: recoveryTitle,
       body: args.bodyForRecovery(wasBadFor),
       event_class: args.event_class + '_recovery',
       paired_alert_id: args.currentState.active_alert_id,

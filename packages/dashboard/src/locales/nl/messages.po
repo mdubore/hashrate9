@@ -1208,10 +1208,6 @@ msgstr "Haalt de BTC/USD spotprijs op van een publieke exchange-API. Schakelt ee
 msgid "fillable"
 msgstr "vulbaar"
 
-#: src/pages/Config.tsx
-msgid "fire below"
-msgstr "vuren onder"
-
 #: src/pages/Setup.tsx
 msgid "First-run setup"
 msgstr "Eerste-keer setup"
@@ -2741,8 +2737,8 @@ msgstr "Wacht op Ocean hashprice - trading is gepauzeerd tot de break-even-refer
 
 #: src/pages/Config.tsx
 #: src/pages/Config.tsx
-msgid "Wallet runway low"
-msgstr "Wallet-runway laag"
+msgid "Wallet runway below"
+msgstr "Wallet-runway onder"
 
 #: src/pages/Setup.tsx
 msgid "What the controller aims for."

@@ -733,7 +733,7 @@ function ConfigTabsAndContent({
     },
     notifications: {
       title: t`Notifications`,
-      labels: [t`Telegram bot token`, t`Chat ID`, t`Instance label (optional)`, t`Mute all Telegram notifications`, t`Retry interval`, t`Wallet runway low`, t`Ocean pool-block credited`],
+      labels: [t`Telegram bot token`, t`Chat ID`, t`Instance label (optional)`, t`Mute all Telegram notifications`, t`Retry interval`, t`Wallet runway below`, t`Ocean pool-block credited`],
     },
   };
 
@@ -1831,7 +1831,11 @@ function EventClassSubscriptions({
     },
     {
       id: 'wallet_runway',
-      label: t`Wallet runway low`,
+      // Label reads as a complete phrase together with the inline
+      // days-input rendered in `extra` immediately after: "Wallet
+      // runway below [N] days". Operator suggestion - a single
+      // self-contained sentence beats a separate "fire below" span.
+      label: t`Wallet runway below`,
       help: t`Total Braiins balance ÷ trailing-3h burn rate has dropped below the configured threshold. Off by default; tick the box and pick a day count to enable.`,
       enabled: runwayOn,
       // Toggling on resets the threshold to 3 days; toggling off
@@ -1845,14 +1849,13 @@ function EventClassSubscriptions({
       extra: (
         <span
           className={
-            'flex items-center gap-1 ml-2 text-xs whitespace-nowrap ' +
-            (runwayOn ? 'text-slate-400' : 'text-slate-600')
+            'flex items-center gap-2 text-sm font-semibold whitespace-nowrap ' +
+            (runwayOn ? 'text-slate-100' : 'text-slate-500')
           }
           // Don't let clicks inside the inline input bubble up to the
           // <label>'s checkbox toggle.
           onClick={(e) => e.preventDefault()}
         >
-          <Trans>fire below</Trans>
           <NumberField
             value={draft.wallet_runway_alert_days}
             onChange={(n) =>
@@ -1865,7 +1868,7 @@ function EventClassSubscriptions({
             locale={locale}
             noGrouping
             disabled={!runwayOn || muted}
-            className="w-16"
+            className="w-14"
           />
           <Trans>days</Trans>
         </span>
@@ -1883,30 +1886,40 @@ function EventClassSubscriptions({
     },
   ];
 
+  // Help text becomes a permanent <p> below each row so the operator
+  // can read it without hovering. Tooltips were the previous design;
+  // replaced because the rest of the Config page surfaces help below
+  // the field, not on hover, and consistency wins. The runway tile's
+  // single help line covers both the checkbox AND the days-input
+  // (one description per logical control, not per DOM node).
   const renderTile = (tile: Tile) => (
-    <label
+    <div
       key={tile.id}
       className={
-        'flex items-center gap-2 p-2 rounded border cursor-pointer transition ' +
-        (muted
-          ? 'border-slate-800 opacity-60'
-          : 'border-slate-800 hover:bg-slate-800/40')
+        'p-2 rounded border transition ' +
+        (muted ? 'border-slate-800 opacity-60' : 'border-slate-800')
       }
-      title={tile.help}
     >
-      <input
-        type="checkbox"
-        checked={tile.enabled}
-        onChange={(e) => tile.setEnabled(e.target.checked)}
-        disabled={muted}
-        className="accent-amber-400 h-4 w-4"
-      />
-      <span className="flex-1 text-sm text-slate-100 font-semibold truncate">
-        {tile.label}
-      </span>
-      {tile.extra}
-      <HelpDot />
-    </label>
+      <label
+        className={
+          'flex items-center gap-2 ' +
+          (muted ? 'cursor-default' : 'cursor-pointer')
+        }
+      >
+        <input
+          type="checkbox"
+          checked={tile.enabled}
+          onChange={(e) => tile.setEnabled(e.target.checked)}
+          disabled={muted}
+          className="accent-amber-400 h-4 w-4"
+        />
+        <span className="text-sm text-slate-100 font-semibold">
+          {tile.label}
+        </span>
+        {tile.extra}
+      </label>
+      <p className="text-xs text-slate-500 mt-1 ml-6">{tile.help}</p>
+    </div>
   );
 
   const sectionHeader = (label: string) => (

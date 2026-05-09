@@ -1208,10 +1208,6 @@ msgstr "Obtiene el precio spot BTC/USD desde una API pública de exchange. Habil
 msgid "fillable"
 msgstr "rellenable"
 
-#: src/pages/Config.tsx
-msgid "fire below"
-msgstr "disparar bajo"
-
 #: src/pages/Setup.tsx
 msgid "First-run setup"
 msgstr "Configuración inicial"
@@ -2741,8 +2737,8 @@ msgstr "Esperando el hashprice de Ocean - el trading está en pausa hasta que la
 
 #: src/pages/Config.tsx
 #: src/pages/Config.tsx
-msgid "Wallet runway low"
-msgstr "Runway de la wallet bajo"
+msgid "Wallet runway below"
+msgstr "Runway de la wallet por debajo de"
 
 #: src/pages/Setup.tsx
 msgid "What the controller aims for."
