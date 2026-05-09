@@ -596,6 +596,10 @@ msgstr "API de Braiins inaccesible - esperando conectividad."
 msgid "Braiins doesn't allow changing a live bid's destination URL. Your config now points at a different host than the bid was created with - miners on this bid keep going to the old destination until you cancel and recreate. Cancel here, the next decision tick will create a fresh bid with the current URL automatically."
 msgstr "Braiins no permite cambiar la URL de destino de una oferta en curso. Tu configuración ahora apunta a un host distinto del que se creó la oferta - los mineros de esta oferta siguen yendo al destino antiguo hasta que canceles y la recrees. Cancela aquí; el siguiente tick creará automáticamente una oferta nueva con la URL actual."
 
+#: src/pages/Config.tsx
+msgid "Braiins marketplace"
+msgstr "Marketplace de Braiins"
+
 #: src/pages/Status.tsx
 msgid "Braiins marketplace API - reachable when the last observe() read market/orderbook/balance without error."
 msgstr "API del marketplace de Braiins - accesible cuando el último observe() leyó market/orderbook/balance sin error."
@@ -902,6 +906,10 @@ msgstr "Contraseña del panel"
 #: src/pages/Login.tsx
 msgid "dashboard sign-in"
 msgstr "iniciar sesión en el panel"
+
+#: src/pages/Config.tsx
+msgid "Datum"
+msgstr "Datum"
 
 #: src/pages/Config.tsx
 msgid "Datum (received)"
@@ -1755,6 +1763,10 @@ msgstr "Observando pagos a <0>(sin dirección configurada)</0>. Edita esto en la
 #: src/pages/Config.tsx
 msgid "Observing payouts to <0>{payoutAddr}</0>. Edit this in the <1>Pool destination</1> section above - the worker identity is auto-derived from it."
 msgstr "Observando pagos a <0>{payoutAddr}</0>. Edita esto en la sección <1>Pool destination</1> de arriba - la identidad del worker se deriva automáticamente."
+
+#: src/pages/Config.tsx
+msgid "Ocean"
+msgstr "Ocean"
 
 #. placeholder {0}: localizedRangeLabel('3h', i18n.locale)
 #: src/pages/Status.tsx

@@ -1719,22 +1719,34 @@ function NotificationsSection({
 }
 
 /**
- * #106: per-event-class opt-out. One tile per known event class.
+ * #106: per-event-class opt-out. One row per known event class,
+ * grouped under a small section header for the originating system.
  *
- * Backing storage is a mix of two stores:
+ * Backing storage is a mix of three stores, bridged by per-tile
+ * getters/setters:
  * - `notification_disabled_event_classes` (string[], the original
  *   #106 design) holds enable/disable for the seven LOUD detectors.
- * - `wallet_runway_alert_days` (number, #116) and
- *   `notify_on_pool_block_credit` (boolean, #117) each have their own
- *   dedicated config field because they pre-existed the unified UI
- *   model. They live in the same grid for operator clarity ("every
- *   notification toggle is in one place"), the per-tile render
- *   bridges between them.
+ * - `wallet_runway_alert_days` (number, #116) where 0 = off and
+ *   any positive integer = on with that day-threshold.
+ * - `notify_on_pool_block_credit` (boolean, #117) for the
+ *   celebratory INFO event.
  *
- * Render: tiles are sorted into the grid in a stable order; the
- * runway tile spans both columns when checked because it carries
- * the inline days-input.
+ * Render: rows are full-width and stacked vertically inside three
+ * sections (Datum / Braiins Marketplace / Ocean) so the grouping
+ * mirrors which underlying system the alert reports on. The runway
+ * row's day-count input is permanently rendered (greyed when the
+ * tile is unchecked) so ticking the checkbox doesn't reflow the
+ * surrounding rows.
  */
+type Tile = {
+  id: string;
+  label: string;
+  help: string;
+  enabled: boolean;
+  setEnabled: (next: boolean) => void;
+  extra?: React.ReactNode;
+};
+
 function EventClassSubscriptions({
   draft,
   onChange,
@@ -1762,22 +1774,9 @@ function EventClassSubscriptions({
   );
 
   const muted = draft.notifications_muted;
+  const runwayOn = draft.wallet_runway_alert_days > 0;
 
-  /**
-   * Each tile carries its own enabled-getter and toggle, so the
-   * three different backing stores (disabled-list, days-number,
-   * boolean-flag) all render uniformly. `extra` injects the inline
-   * days-input on the runway tile when it's enabled.
-   */
-  const tiles: Array<{
-    id: string;
-    label: string;
-    help: string;
-    enabled: boolean;
-    setEnabled: (next: boolean) => void;
-    extra?: React.ReactNode;
-    span2?: boolean;
-  }> = [
+  const datumTiles: Tile[] = [
     {
       id: 'datum_unreachable',
       label: t`Datum stratum unreachable`,
@@ -1785,6 +1784,9 @@ function EventClassSubscriptions({
       enabled: !disabled.has('datum_unreachable'),
       setEnabled: (n) => toggleClass('datum_unreachable', n),
     },
+  ];
+
+  const braiinsTiles: Tile[] = [
     {
       id: 'hashrate_below_floor',
       label: t`Hashrate below floor`,
@@ -1831,31 +1833,47 @@ function EventClassSubscriptions({
       id: 'wallet_runway',
       label: t`Wallet runway low`,
       help: t`Total Braiins balance ÷ trailing-3h burn rate has dropped below the configured threshold. Off by default; tick the box and pick a day count to enable.`,
-      enabled: draft.wallet_runway_alert_days > 0,
+      enabled: runwayOn,
+      // Toggling on resets the threshold to 3 days; toggling off
+      // collapses to 0 (the daemon's "alert disabled" sentinel).
       setEnabled: (n) =>
         onChange('wallet_runway_alert_days', (n ? 3 : 0) as never),
-      span2: draft.wallet_runway_alert_days > 0,
-      extra:
-        draft.wallet_runway_alert_days > 0 ? (
-          <span className="flex items-center gap-1 ml-2 text-xs text-slate-400">
-            <Trans>fire below</Trans>
-            <NumberField
-              value={draft.wallet_runway_alert_days}
-              onChange={(n) =>
-                onChange(
-                  'wallet_runway_alert_days',
-                  (n && n > 0 ? n : 1) as never,
-                )
-              }
-              step="integer"
-              locale={locale}
-              noGrouping
-              className="w-16"
-            />
-            <Trans>days</Trans>
-          </span>
-        ) : null,
+      // Always render the day-input so the row's height never
+      // changes when the operator toggles the checkbox - the input
+      // just becomes editable when the box is ticked, greyed
+      // otherwise. Prevents the surrounding rows from reflowing.
+      extra: (
+        <span
+          className={
+            'flex items-center gap-1 ml-2 text-xs whitespace-nowrap ' +
+            (runwayOn ? 'text-slate-400' : 'text-slate-600')
+          }
+          // Don't let clicks inside the inline input bubble up to the
+          // <label>'s checkbox toggle.
+          onClick={(e) => e.preventDefault()}
+        >
+          <Trans>fire below</Trans>
+          <NumberField
+            value={draft.wallet_runway_alert_days}
+            onChange={(n) =>
+              onChange(
+                'wallet_runway_alert_days',
+                (n && n > 0 ? n : 1) as never,
+              )
+            }
+            step="integer"
+            locale={locale}
+            noGrouping
+            disabled={!runwayOn || muted}
+            className="w-16"
+          />
+          <Trans>days</Trans>
+        </span>
+      ),
     },
+  ];
+
+  const oceanTiles: Tile[] = [
     {
       id: 'pool_block_credited',
       label: t`Ocean pool-block credited`,
@@ -1864,6 +1882,38 @@ function EventClassSubscriptions({
       setEnabled: (n) => onChange('notify_on_pool_block_credit', n as never),
     },
   ];
+
+  const renderTile = (tile: Tile) => (
+    <label
+      key={tile.id}
+      className={
+        'flex items-center gap-2 p-2 rounded border cursor-pointer transition ' +
+        (muted
+          ? 'border-slate-800 opacity-60'
+          : 'border-slate-800 hover:bg-slate-800/40')
+      }
+      title={tile.help}
+    >
+      <input
+        type="checkbox"
+        checked={tile.enabled}
+        onChange={(e) => tile.setEnabled(e.target.checked)}
+        disabled={muted}
+        className="accent-amber-400 h-4 w-4"
+      />
+      <span className="flex-1 text-sm text-slate-100 font-semibold truncate">
+        {tile.label}
+      </span>
+      {tile.extra}
+      <HelpDot />
+    </label>
+  );
+
+  const sectionHeader = (label: string) => (
+    <div className="text-xs text-slate-400 uppercase tracking-wider font-semibold pt-2 pb-1">
+      {label}
+    </div>
+  );
 
   return (
     <fieldset className="pt-3 border-t border-slate-800">
@@ -1890,7 +1940,7 @@ function EventClassSubscriptions({
         <HelpDot />
       </label>
 
-      <p className="text-xs text-slate-500 mb-2">
+      <p className="text-xs text-slate-500 mb-1">
         <Trans>
           Tick any event type you want pushed. Untouched types skip the
           daemon entirely - no Telegram, no /alerts row, no retry ladder.
@@ -1898,33 +1948,13 @@ function EventClassSubscriptions({
         </Trans>
       </p>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-        {tiles.map((tile) => (
-          <label
-            key={tile.id}
-            className={
-              'flex items-center gap-2 p-2 rounded border cursor-pointer transition ' +
-              (muted
-                ? 'border-slate-800 opacity-60'
-                : 'border-slate-800 hover:bg-slate-800/40') +
-              (tile.span2 ? ' sm:col-span-2' : '')
-            }
-            title={tile.help}
-          >
-            <input
-              type="checkbox"
-              checked={tile.enabled}
-              onChange={(e) => tile.setEnabled(e.target.checked)}
-              disabled={muted}
-              className="accent-amber-400 h-4 w-4"
-            />
-            <span className="flex-1 text-sm text-slate-100 font-semibold truncate">
-              {tile.label}
-            </span>
-            {tile.extra}
-            <HelpDot />
-          </label>
-        ))}
+      <div className="flex flex-col gap-1">
+        {sectionHeader(t`Datum`)}
+        {datumTiles.map(renderTile)}
+        {sectionHeader(t`Braiins marketplace`)}
+        {braiinsTiles.map(renderTile)}
+        {sectionHeader(t`Ocean`)}
+        {oceanTiles.map(renderTile)}
       </div>
     </fieldset>
   );

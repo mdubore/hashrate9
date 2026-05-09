@@ -596,6 +596,10 @@ msgstr "Braiins API onbereikbaar - wacht op verbinding."
 msgid "Braiins doesn't allow changing a live bid's destination URL. Your config now points at a different host than the bid was created with - miners on this bid keep going to the old destination until you cancel and recreate. Cancel here, the next decision tick will create a fresh bid with the current URL automatically."
 msgstr "Braiins staat niet toe dat je de destination-URL van een lopende bid wijzigt. Je config wijst nu naar een andere host dan waarmee de bid is aangemaakt - miners op deze bid blijven naar het oude destination gaan tot je annuleert en opnieuw aanmaakt. Annuleer hier; de volgende tick maakt automatisch een nieuwe bid met de huidige URL aan."
 
+#: src/pages/Config.tsx
+msgid "Braiins marketplace"
+msgstr "Braiins marketplace"
+
 #: src/pages/Status.tsx
 msgid "Braiins marketplace API - reachable when the last observe() read market/orderbook/balance without error."
 msgstr "Braiins marketplace API - bereikbaar wanneer de laatste observe() market/orderbook/balance zonder fout heeft gelezen."
@@ -902,6 +906,10 @@ msgstr "Dashboard-wachtwoord"
 #: src/pages/Login.tsx
 msgid "dashboard sign-in"
 msgstr "dashboard aanmelden"
+
+#: src/pages/Config.tsx
+msgid "Datum"
+msgstr "Datum"
 
 #: src/pages/Config.tsx
 msgid "Datum (received)"
@@ -1755,6 +1763,10 @@ msgstr "Uitbetalingen naar <0>(geen adres ingesteld)</0> worden gevolgd. Pas dit
 #: src/pages/Config.tsx
 msgid "Observing payouts to <0>{payoutAddr}</0>. Edit this in the <1>Pool destination</1> section above - the worker identity is auto-derived from it."
 msgstr "Uitbetalingen naar <0>{payoutAddr}</0> worden gevolgd. Pas dit hierboven aan in de sectie <1>Pool-bestemming</1> - de worker-identiteit wordt hier automatisch uit afgeleid."
+
+#: src/pages/Config.tsx
+msgid "Ocean"
+msgstr "Ocean"
 
 #. placeholder {0}: localizedRangeLabel('3h', i18n.locale)
 #: src/pages/Status.tsx
