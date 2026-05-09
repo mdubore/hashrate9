@@ -365,6 +365,14 @@ export const AppConfigSchema = z.object({
   // the Telegram POST.
   notify_on_braiins_deposit: z.boolean().default(false),
 
+  // #131: locale for Telegram message rendering. The dashboard has its
+  // own locale picker (Lingui-driven) for the UI; this is the
+  // separate, daemon-side locale that drives the language of every
+  // Telegram message the alert manager fires. Default 'en'. The
+  // catalog only ships en/nl/es today; values outside that set fall
+  // back to en at render time.
+  notification_locale: z.enum(['en', 'nl', 'es']).default('en'),
+
   // #111: daemon-managed DDNS updater. When ddns_provider is non-empty
   // the daemon pushes the current public IP to the configured DDNS
   // provider every 5 minutes (and forces a heartbeat at least hourly,
@@ -482,6 +490,7 @@ export const APP_CONFIG_DEFAULTS: Omit<
   notification_disabled_event_classes: [],
   notify_on_pool_block_credit: false,
   notify_on_braiins_deposit: false,
+  notification_locale: 'en',
 
   ddns_provider: '',
   ddns_hostname: '',

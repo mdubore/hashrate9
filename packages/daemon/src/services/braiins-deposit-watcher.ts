@@ -39,6 +39,7 @@
 import type { BraiinsClient } from '@braiins-hashrate/braiins-client';
 
 import type { AppConfig } from '../config/schema.js';
+import { getAlertCopy } from '../i18n/alert-copy.js';
 import type {
   BraiinsDepositsRepo,
   DepositNotificationKind,
@@ -208,7 +209,7 @@ export class BraiinsDepositWatcherService {
       return;
     }
 
-    const { title, body } = renderMessage(kind, payload);
+    const { title, body } = renderMessage(kind, payload, this.options.cfgRef.value.notification_locale);
     try {
       await this.options.alertManager.recordAlert({
         severity,
@@ -252,37 +253,30 @@ function shortenTxId(tx_id: string): string {
 function renderMessage(
   kind: DepositNotificationKind,
   payload: { amount_sat: number; address?: string | null; return_tx_id?: string },
+  locale: string | null | undefined,
 ): { title: string; body: string } {
+  const copy = getAlertCopy(locale);
   const amount = formatSat(payload.amount_sat);
   switch (kind) {
     case 'detected': {
-      const where = payload.address ? ` to ${payload.address.slice(0, 12)}...` : '';
+      const address_short = payload.address ? payload.address.slice(0, 12) : null;
       return {
-        title: 'Braiins deposit detected',
-        body:
-          `Braiins detected a deposit of ${amount}${where}. ` +
-          `Awaiting compliance screening (typically 3 confirmations + ` +
-          `up to 48h before the funds become spendable). ` +
-          `tx: ${shortenTxId(payload.return_tx_id ?? 'pending')}`,
+        title: copy.braiins_deposit_detected_title(),
+        body: copy.braiins_deposit_detected_body({ amount, address_short }),
       };
     }
-    case 'available': {
+    case 'available':
       return {
-        title: 'Braiins deposit available',
-        body:
-          `Braiins compliance cleared a deposit of ${amount} - ` +
-          `the funds are now spendable on the Braiins marketplace.`,
+        title: copy.braiins_deposit_available_title(),
+        body: copy.braiins_deposit_available_body({ amount }),
       };
-    }
-    case 'returned': {
-      const ret = payload.return_tx_id ?? 'unknown';
+    case 'returned':
       return {
-        title: 'Braiins deposit returned',
-        body:
-          `Braiins compliance has returned a deposit of ${amount}. ` +
-          `Return tx: ${shortenTxId(ret)}. ` +
-          `Check the Braiins dashboard for the rejection reason.`,
+        title: copy.braiins_deposit_returned_title(),
+        body: copy.braiins_deposit_returned_body({
+          amount,
+          return_tx_short: shortenTxId(payload.return_tx_id ?? 'unknown'),
+        }),
       };
-    }
   }
 }

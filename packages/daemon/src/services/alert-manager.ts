@@ -31,6 +31,7 @@ import type {
   AlertRow,
 } from '../state/repos/alerts.js';
 import type { AlertSeverity } from '../state/types.js';
+import { getAlertCopy } from '../i18n/alert-copy.js';
 
 export interface RecordAlertArgs {
   readonly severity: AlertSeverity;
@@ -55,6 +56,8 @@ export interface AlertManagerOptions {
 export interface AlertManagerConfig {
   readonly notifications_muted: boolean;
   readonly notification_retry_interval_minutes: number;
+  /** #131: locale for the Telegram severity prefix; default 'en'. */
+  readonly notification_locale?: string;
 }
 
 const MAX_TOTAL_ATTEMPTS = 5;
@@ -210,6 +213,7 @@ export class AlertManager {
       args.title,
       args.body,
       args.paired_alert_id != null,
+      this.getConfig().notification_locale,
     );
   }
 
@@ -219,18 +223,21 @@ export class AlertManager {
       row.title,
       row.body,
       row.paired_alert_id != null,
+      this.getConfig().notification_locale,
     );
   }
 
   private givingUpBody(row: AlertRow, _nowMs: number): string {
+    const locale = this.getConfig().notification_locale;
     return formatTelegramBody(
       row.severity,
       row.title,
-      `Still bad after 2h. No further notifications until recovery.`,
+      getAlertCopy(locale).giving_up_body,
       // Giving-up messages are retries of an original firing, never a
       // recovery row themselves - paired_alert_id is null by
       // construction here even if the original alert pointed somewhere.
       false,
+      locale,
     );
   }
 }
@@ -251,14 +258,16 @@ export function formatTelegramBody(
   title: string,
   body: string,
   isRecovery: boolean,
+  locale?: string | null,
 ): string {
+  const copy = getAlertCopy(locale);
   const prefix = isRecovery
-    ? '✅ [RESOLVED]'
+    ? copy.prefix_resolved
     : severity === 'IMPORTANT'
-      ? '🔴 [IMPORTANT]'
+      ? copy.prefix_important
       : severity === 'WARNING'
-        ? '⚠️ [WARNING]'
-        : 'ℹ️ [INFO]';
+        ? copy.prefix_warning
+        : copy.prefix_info;
   return `<b>${prefix} ${escapeHtml(title)}</b>\n\n${escapeHtml(body)}`;
 }
 

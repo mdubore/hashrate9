@@ -196,6 +196,10 @@ const APP_CONFIG_ENV: {
     varName: 'BHA_NOTIFY_ON_BRAIINS_DEPOSIT',
     coerce: asBoolean,
   },
+  notification_locale: {
+    varName: 'BHA_NOTIFICATION_LOCALE',
+    coerce: asString,
+  },
   ddns_provider: { varName: 'BHA_DDNS_PROVIDER', coerce: asString },
   ddns_hostname: { varName: 'BHA_DDNS_HOSTNAME', coerce: asString },
   ddns_username: { varName: 'BHA_DDNS_USERNAME', coerce: asString },

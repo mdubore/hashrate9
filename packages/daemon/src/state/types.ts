@@ -49,6 +49,8 @@ export interface ConfigTable {
   notify_on_pool_block_credit: 0 | 1;
   /** #130: opt-in messages on Braiins deposit lifecycle (Detected / Available / Returned). Off by default. */
   notify_on_braiins_deposit: 0 | 1;
+  /** #131: locale for Telegram message rendering. 'en' (default) | 'nl' | 'es'. */
+  notification_locale: string;
   /** @deprecated Legacy column - kept for NOT NULL; ignored by the app. */
   hibernate_on_expensive_market: 0 | 1;
   electrs_host: string | null;

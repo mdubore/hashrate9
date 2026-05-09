@@ -46,6 +46,7 @@ export class ConfigRepo {
       notifications_muted: rest.notifications_muted === 1,
       notify_on_pool_block_credit: rest.notify_on_pool_block_credit === 1,
       notify_on_braiins_deposit: rest.notify_on_braiins_deposit === 1,
+      notification_locale: rest.notification_locale as AppConfig['notification_locale'],
       // #106: stored as comma-separated TEXT; surface as string[].
       // Empty string -> empty array (no opt-outs).
       notification_disabled_event_classes: rest.notification_disabled_event_classes
@@ -76,6 +77,7 @@ export class ConfigRepo {
       notifications_muted: (validated.notifications_muted ? 1 : 0) as 0 | 1,
       notify_on_pool_block_credit: (validated.notify_on_pool_block_credit ? 1 : 0) as 0 | 1,
       notify_on_braiins_deposit: (validated.notify_on_braiins_deposit ? 1 : 0) as 0 | 1,
+      notification_locale: validated.notification_locale,
       // #106: comma-join the opt-out list back to TEXT.
       notification_disabled_event_classes:
         validated.notification_disabled_event_classes.join(','),

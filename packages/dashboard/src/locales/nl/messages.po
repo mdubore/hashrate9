@@ -1486,8 +1486,13 @@ msgid "language"
 msgstr "taal"
 
 #: src/components/LanguagePicker.tsx
+#: src/pages/Config.tsx
 msgid "Language"
 msgstr "Taal"
+
+#: src/pages/Config.tsx
+msgid "Language for Telegram message titles + bodies + severity prefix. Independent of the dashboard's display language (each browser has its own). Defaults to English."
+msgstr "Taal voor de titels, body en severity-prefix van Telegram-berichten. Onafhankelijk van de weergavetaal van het dashboard (elke browser heeft een eigen instelling). Standaard Engels."
 
 #: src/pages/Config.tsx
 msgid "Last error:"

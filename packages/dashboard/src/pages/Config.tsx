@@ -2061,6 +2061,40 @@ function EventClassSubscriptions({
         </span>
       </label>
 
+      {/* #131: language picker for the actual Telegram message text.
+          Independent from the dashboard's UI locale (which is
+          per-browser via localStorage); the daemon needs its own
+          notion of the operator's language for messages it pushes
+          out without the dashboard being open. */}
+      <label className="flex items-start gap-2 p-2 rounded">
+        <span className="flex-1 mt-0.5">
+          <span className="text-sm text-slate-100 font-semibold">
+            <Trans>Language</Trans>
+          </span>
+          <p className="text-xs text-slate-500 mt-0.5">
+            <Trans>
+              Language for Telegram message titles + bodies + severity prefix. Independent of
+              the dashboard's display language (each browser has its own). Defaults to
+              English.
+            </Trans>
+          </p>
+        </span>
+        <select
+          value={draft.notification_locale ?? 'en'}
+          onChange={(e) =>
+            onChange(
+              'notification_locale',
+              e.target.value as 'en' | 'nl' | 'es' as never,
+            )
+          }
+          className="bg-slate-800 border border-slate-700 rounded px-2 py-1 text-sm"
+        >
+          <option value="en">English</option>
+          <option value="nl">Nederlands</option>
+          <option value="es">Español</option>
+        </select>
+      </label>
+
       <div className="ml-6 pl-3 border-l border-slate-800 mt-1">
         <p className="text-xs text-slate-500 mb-1">
           <Trans>

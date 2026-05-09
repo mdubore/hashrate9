@@ -567,6 +567,7 @@ async function bootOperational(
       notifications_muted: cfgRefHolder.value.notifications_muted,
       notification_retry_interval_minutes:
         cfgRefHolder.value.notification_retry_interval_minutes,
+      notification_locale: cfgRefHolder.value.notification_locale,
     }),
   });
   const alertEvaluator = new AlertEvaluator({

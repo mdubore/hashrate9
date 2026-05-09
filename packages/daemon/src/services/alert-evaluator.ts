@@ -41,6 +41,7 @@ import type { AlertsRepo } from '../state/repos/alerts.js';
 import type { PoolBlocksRepo } from '../state/repos/pool_blocks.js';
 import type { TickMetricsRepo } from '../state/repos/tick_metrics.js';
 import type { State } from '../controller/types.js';
+import { getAlertCopy } from '../i18n/alert-copy.js';
 
 const HOURS_3_MS = 3 * 60 * 60 * 1000;
 // Ocean's on-chain payout threshold per the TIDES + payouts mechanic.
@@ -55,6 +56,16 @@ const OCEAN_PAYOUT_THRESHOLD_SAT = 1_048_576;
 // daemon restarts to still resolve, narrow enough to prefer a recent
 // tick over a stale one.
 const SHARE_LOG_AT_BLOCK_TOLERANCE_MS = 30 * 60 * 1000;
+
+/**
+ * #131: convenience to read the locale-aware alert copy from the
+ * tick's State snapshot. Falls back to English when the operator
+ * has not picked a locale or has set a value outside the supported
+ * set.
+ */
+function copyFor(state: State): ReturnType<typeof getAlertCopy> {
+  return getAlertCopy(state.config.notification_locale);
+}
 
 interface EventState {
   readonly bad_since_ms: number | null;
@@ -195,12 +206,12 @@ export class AlertEvaluator {
       thresholdMs,
       currentState: this.datum_unreachable,
       disabledClasses,
-      title: 'Datum stratum unreachable',
-      titleForRecovery: 'Datum stratum reachable',
+      title: copyFor(state).datum_unreachable_title(),
+      titleForRecovery: copyFor(state).datum_unreachable_title_recovery(),
       bodyForFiring: (durMs) =>
-        `Datum gateway has been unreachable for ${formatDuration(durMs)}. Buyer-side hashrate cannot reach Ocean - shares are not crediting.`,
+        copyFor(state).datum_unreachable_body({ duration: formatDuration(durMs) }),
       bodyForRecovery: (durMs) =>
-        `Datum gateway reachable again - was down ${formatDuration(durMs)}.`,
+        copyFor(state).datum_unreachable_body_recovery({ duration: formatDuration(durMs) }),
     });
   }
 
@@ -214,12 +225,16 @@ export class AlertEvaluator {
       thresholdMs,
       currentState: this.hashrate_below_floor,
       disabledClasses,
-      title: 'Hashrate below floor',
-      titleForRecovery: 'Hashrate above floor',
+      title: copyFor(state).hashrate_below_floor_title(),
+      titleForRecovery: copyFor(state).hashrate_below_floor_title_recovery(),
       bodyForFiring: (durMs) =>
-        `Delivered hashrate has been below the configured floor for ${formatDuration(durMs)}. Current: ${state.actual_hashrate.total_ph.toFixed(2)} PH/s; floor: ${state.config.minimum_floor_hashrate_ph.toFixed(2)} PH/s.`,
+        copyFor(state).hashrate_below_floor_body({
+          duration: formatDuration(durMs),
+          actual_ph: state.actual_hashrate.total_ph.toFixed(2),
+          floor_ph: state.config.minimum_floor_hashrate_ph.toFixed(2),
+        }),
       bodyForRecovery: (durMs) =>
-        `Hashrate back at or above floor - was below for ${formatDuration(durMs)}.`,
+        copyFor(state).hashrate_below_floor_body_recovery({ duration: formatDuration(durMs) }),
     });
   }
 
@@ -234,12 +249,12 @@ export class AlertEvaluator {
       thresholdMs,
       currentState: this.zero_hashrate,
       disabledClasses,
-      title: 'Zero hashrate',
-      titleForRecovery: 'Hashrate flowing again',
+      title: copyFor(state).zero_hashrate_title(),
+      titleForRecovery: copyFor(state).zero_hashrate_title_recovery(),
       bodyForFiring: (durMs) =>
-        `No hashrate delivered for ${formatDuration(durMs)}. Likely the upstream marketplace stopped routing - check the active bid and fee state.`,
+        copyFor(state).zero_hashrate_body({ duration: formatDuration(durMs) }),
       bodyForRecovery: (durMs) =>
-        `Hashrate flowing again - was zero for ${formatDuration(durMs)}.`,
+        copyFor(state).zero_hashrate_body_recovery({ duration: formatDuration(durMs) }),
     });
   }
 
@@ -254,12 +269,12 @@ export class AlertEvaluator {
       thresholdMs,
       currentState: this.api_unreachable,
       disabledClasses,
-      title: 'Braiins API unreachable',
-      titleForRecovery: 'Braiins API reachable',
+      title: copyFor(state).api_unreachable_title(),
+      titleForRecovery: copyFor(state).api_unreachable_title_recovery(),
       bodyForFiring: (durMs) =>
-        `The Braiins marketplace API has been unreachable for ${formatDuration(durMs)}. The autopilot cannot read orderbook / balance / fee data and is making no decisions until it recovers.`,
+        copyFor(state).api_unreachable_body({ duration: formatDuration(durMs) }),
       bodyForRecovery: (durMs) =>
-        `Braiins API reachable again - was down ${formatDuration(durMs)}.`,
+        copyFor(state).api_unreachable_body_recovery({ duration: formatDuration(durMs) }),
     });
   }
 
@@ -274,14 +289,16 @@ export class AlertEvaluator {
       thresholdMs: 0,
       currentState: this.unknown_bid,
       disabledClasses,
-      title: 'Unknown bid detected',
-      titleForRecovery: 'Account clean (no unknown bids)',
+      title: copyFor(state).unknown_bid_title(),
+      titleForRecovery: copyFor(state).unknown_bid_title_recovery(),
       bodyForFiring: () => {
         const ids = state.unknown_bids.map((b) => b.braiins_order_id).join(', ');
-        return `${state.unknown_bids.length} bid(s) in the Braiins account that the autopilot did not create: ${ids}. Daemon auto-paused per the unknown-order rule. Inspect via the Braiins dashboard before resuming LIVE.`;
+        return copyFor(state).unknown_bid_body({
+          count: state.unknown_bids.length,
+          ids,
+        });
       },
-      bodyForRecovery: () =>
-        `Account is clean again - no unknown bids visible. Re-enable LIVE on the dashboard when ready.`,
+      bodyForRecovery: () => copyFor(state).unknown_bid_body_recovery(),
     });
   }
 
@@ -310,12 +327,15 @@ export class AlertEvaluator {
       thresholdMs,
       currentState: this.sustained_paused,
       disabledClasses,
-      title: 'Bid sustained-paused by Braiins',
-      titleForRecovery: 'Bid active again',
+      title: copyFor(state).sustained_paused_title(),
+      titleForRecovery: copyFor(state).sustained_paused_title_recovery(),
       bodyForFiring: (durMs) =>
-        `Primary owned bid has been Paused by Braiins for ${formatDuration(durMs)} (last_pause_reason: ${primary?.last_pause_reason ?? 'unknown'}). Likely the Paused/Active oscillation hazard - check the destination pool / Datum gateway and consider a manual edit.`,
+        copyFor(state).sustained_paused_body({
+          duration: formatDuration(durMs),
+          reason: primary?.last_pause_reason ?? 'unknown',
+        }),
       bodyForRecovery: (durMs) =>
-        `Primary bid no longer flagged Paused - was paused for ${formatDuration(durMs)}. (If the bid flips back to Paused right away, that's the documented Paused/Active oscillation hazard - Braiins toggles the flag while still routing hashrate.)`,
+        copyFor(state).sustained_paused_body_recovery({ duration: formatDuration(durMs) }),
     });
   }
 
@@ -334,14 +354,15 @@ export class AlertEvaluator {
       thresholdMs: 0,
       currentState: this.beta_exit,
       disabledClasses,
-      title: 'Braiins beta-exit fees detected',
-      titleForRecovery: 'Braiins beta-exit fees cleared',
+      title: copyFor(state).beta_exit_title(),
+      titleForRecovery: copyFor(state).beta_exit_title_recovery(),
       bodyForFiring: () => {
         const sample = state.owned_bids.find((b) => (b.fee_rate_pct ?? 0) > 0);
-        return `Braiins is now charging a non-zero fee on at least one active bid (fee_rate_pct: ${sample?.fee_rate_pct ?? 'unknown'}%). The marketplace appears to have exited beta - re-evaluate the cost model and consider the documented beta-exit handling steps.`;
+        return copyFor(state).beta_exit_body({
+          fee_pct: String(sample?.fee_rate_pct ?? 'unknown'),
+        });
       },
-      bodyForRecovery: () =>
-        `Active bids are back to fee_rate_pct = 0. Either Braiins reverted, or all fee-bearing bids settled.`,
+      bodyForRecovery: () => copyFor(state).beta_exit_body_recovery(),
     });
   }
 
@@ -407,12 +428,26 @@ export class AlertEvaluator {
       thresholdMs: 0,
       currentState: this.wallet_runway,
       disabledClasses,
-      title: `Wallet runway ${runwayDays.toFixed(1)} days (below ${thresholdDays.toFixed(1)} day threshold)`,
-      titleForRecovery: `Wallet runway ${runwayDays.toFixed(1)} days (above ${thresholdDays.toFixed(1)} day threshold)`,
+      title: copyFor(state).wallet_runway_title({
+        runway_days: runwayDays.toFixed(1),
+        threshold_days: thresholdDays.toFixed(1),
+      }),
+      titleForRecovery: copyFor(state).wallet_runway_title_recovery({
+        runway_days: runwayDays.toFixed(1),
+        threshold_days: thresholdDays.toFixed(1),
+      }),
       bodyForFiring: () =>
-        `Total Braiins balance (available + blocked) is ${balanceSat.toLocaleString('en-US')} sat; trailing-3h burn is ${Math.round(burnPerDaySat).toLocaleString('en-US')} sat/day. At that rate the wallet hits zero in ${runwayDays.toFixed(1)} days, below the configured ${thresholdDays}-day threshold. Top up the Braiins wallet or lower the bid; without a top-up, bids will start cancelling for insufficient funds.`,
+        copyFor(state).wallet_runway_body({
+          balance_sat: balanceSat.toLocaleString('en-US'),
+          burn_per_day_sat: Math.round(burnPerDaySat).toLocaleString('en-US'),
+          runway_days: runwayDays.toFixed(1),
+          threshold_days: thresholdDays,
+        }),
       bodyForRecovery: () =>
-        `Wallet runway back above threshold: ${runwayDays.toFixed(1)} days (threshold ${thresholdDays}). Likely a top-up landed or the burn rate dropped.`,
+        copyFor(state).wallet_runway_body_recovery({
+          runway_days: runwayDays.toFixed(1),
+          threshold_days: thresholdDays,
+        }),
     });
   }
 
@@ -482,8 +517,14 @@ export class AlertEvaluator {
           : 'unknown';
       await this.alertManager.recordAlert({
         severity: 'INFO',
-        title: `Pool block credited - #${heightStr}`,
-        body: `Ocean found pool block #${heightStr} (reward ${rewardBtc} BTC). Your share: ${sharePctStr} -> ${creditStr}. Unpaid total: ${unpaidStr}.`,
+        title: copyFor(state).pool_block_credited_title({ height: heightStr }),
+        body: copyFor(state).pool_block_credited_body({
+          height: heightStr,
+          reward_btc: rewardBtc,
+          share_pct: sharePctStr,
+          credit: creditStr,
+          unpaid: unpaidStr,
+        }),
         event_class: 'pool_block_credited',
       });
       this.lastNotifiedBlockHeight = blk.height;
