@@ -301,6 +301,7 @@ export interface AppConfig {
   notification_retry_interval_minutes: number;
   notification_disabled_event_classes: string[];
   notify_on_pool_block_credit: boolean;
+  notify_on_braiins_deposit: boolean;
   electrs_host: string | null;
   electrs_port: number | null;
   boot_mode: 'ALWAYS_DRY_RUN' | 'LAST_MODE' | 'ALWAYS_LIVE';

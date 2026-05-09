@@ -354,6 +354,17 @@ export const AppConfigSchema = z.object({
   // even if the operator later un-mutes everything globally.
   notify_on_pool_block_credit: z.boolean().default(false),
 
+  // #130: opt-in Telegram messages on Braiins deposit lifecycle. Off
+  // by default. When on, fires INFO on Detected and Available, and
+  // IMPORTANT on Returned (the bad-case "compliance bounced this back"
+  // path). The Detected/Available/Returned events ride on the
+  // alert-evaluator's standard plumbing including the per-event-class
+  // opt-out (#106), so a global on / per-class off is also possible.
+  // When off, the daemon still tracks deposits internally (so toggling
+  // back on does NOT replay every historical deposit) - it just skips
+  // the Telegram POST.
+  notify_on_braiins_deposit: z.boolean().default(false),
+
   // #111: daemon-managed DDNS updater. When ddns_provider is non-empty
   // the daemon pushes the current public IP to the configured DDNS
   // provider every 5 minutes (and forces a heartbeat at least hourly,
@@ -470,6 +481,7 @@ export const APP_CONFIG_DEFAULTS: Omit<
   notification_retry_interval_minutes: 30,
   notification_disabled_event_classes: [],
   notify_on_pool_block_credit: false,
+  notify_on_braiins_deposit: false,
 
   ddns_provider: '',
   ddns_hostname: '',

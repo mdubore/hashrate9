@@ -2,6 +2,10 @@
 
 ## 2026-05-09
 
+### `[Feature]` Telegram: Braiins deposit lifecycle alerts (#130)
+
+New `notify_on_braiins_deposit` toggle on the Notifications tab (off by default, mirrors #117's pattern). When on, fires three Telegram messages per deposit lifecycle: **Detected** (INFO, the moment Braiins's API first reports the deposit), **Available** (INFO, once compliance has cleared it - typically 3 confs + up to 48 working hours), **Returned** (IMPORTANT - the real-money bad path where Braiins's compliance bounces the deposit back). Detection is via the existing `/v1/account/transaction/on-chain` endpoint - no on-chain monitoring required, no new bitcoind dependency. Returns are detected via a non-null `return_tx_id` (stable across enum-mapping uncertainty); Available uses a deposit_status threshold (assumed `>= 3` for the completed tier; documented as the single point of update if Braiins's enum mapping turns out to differ). Migration 0080 adds a `braiins_deposits` table that idempotency-marks each deposit's notified state, and a `notify_on_braiins_deposit` config column. The watcher polls every 60s and silently absorbs lifecycle transitions when the toggle is off, so toggling-on later does NOT replay every historical deposit. Per-event-class opt-out (#106) still applies under the master toggle for fine-grained tuning.
+
 ### `[UI]` Severity rename ERROR -> IMPORTANT, severity-label badges back on Alerts page (#129)
 
 Top alert tier renamed from ERROR (b0b978b) to IMPORTANT. The earlier rename of LOUD -> ERROR carried the wrong framing - many of the events that fire at this tier (unknown bid detected, sustained pause, deposit returned by Braiins compliance) aren't really errors. IMPORTANT captures "this needs your attention" without the false implication that something is broken. Migration 0079 rewrites existing `severity = 'ERROR'` rows to IMPORTANT in place; idempotent. Daemon types, alert evaluator, alert manager, Telegram body prefix, dashboard API client, tests all updated. Spec §9.1 / §6 brought along.

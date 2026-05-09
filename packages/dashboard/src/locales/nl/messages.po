@@ -616,6 +616,10 @@ msgstr "Braiins API onbereikbaar"
 msgid "Braiins API unreachable - waiting for connectivity."
 msgstr "Braiins API onbereikbaar - wacht op verbinding."
 
+#: src/pages/Config.tsx
+msgid "Braiins deposit lifecycle"
+msgstr "Braiins deposit-levenscyclus"
+
 #: src/components/StaleUrlBanner.tsx
 msgid "Braiins doesn't allow changing a live bid's destination URL. Your config now points at a different host than the bid was created with - miners on this bid keep going to the old destination until you cancel and recreate. Cancel here, the next decision tick will create a fresh bid with the current URL automatically."
 msgstr "Braiins staat niet toe dat je de destination-URL van een lopende bid wijzigt. Je config wijst nu naar een andere host dan waarmee de bid is aangemaakt - miners op deze bid blijven naar het oude destination gaan tot je annuleert en opnieuw aanmaakt. Annuleer hier; de volgende tick maakt automatisch een nieuwe bid met de huidige URL aan."
@@ -1880,6 +1884,10 @@ msgstr "Oceans openstaande verdiensten - wat bij de volgende uitbetaling on-chai
 #: src/pages/Config.tsx
 msgid "Off"
 msgstr "Uit"
+
+#: src/pages/Config.tsx
+msgid "Off by default. When on, sends an INFO message when Braiins detects a deposit and another when it's cleared compliance and is spendable. Sends an IMPORTANT message if Braiins's compliance returns the deposit (real money on the line)."
+msgstr "Standaard uit. Wanneer aan, stuurt een INFO-bericht zodra Braiins een deposit detecteert en nog een wanneer compliance is doorlopen en de funds beschikbaar zijn. Stuurt een IMPORTANT-bericht als Braiins compliance de deposit terugstuurt (echt geld op het spel)."
 
 #: src/pages/Config.tsx
 #: src/pages/Config.tsx

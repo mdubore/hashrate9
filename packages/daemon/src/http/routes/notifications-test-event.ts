@@ -113,6 +113,21 @@ const SAMPLE_BUILDERS: Record<string, () => Sample> = {
       'insufficient funds.',
     is_recovery: false,
   }),
+  // #130: deposit-lifecycle preview. The tile id on the dashboard
+  // (`braiins_deposit`) is a master toggle that gates three real
+  // event classes - the test message previews the typical happy
+  // path's last step (Available), since that's the most common
+  // operator-facing message. Returned would be IMPORTANT; rendering
+  // an IMPORTANT [TEST] alongside a separate INFO [TEST] would be
+  // noisier than the value of testing each variant.
+  braiins_deposit: () => ({
+    severity: 'INFO',
+    title: 'Braiins deposit available',
+    body:
+      '[SAMPLE] Braiins compliance cleared a deposit of 0.01000000 BTC (1,000,000 sat) - ' +
+      'the funds are now spendable on the Braiins marketplace.',
+    is_recovery: false,
+  }),
   pool_block_credited: () => ({
     severity: 'INFO',
     title: 'Pool block credited - #948,512',

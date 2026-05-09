@@ -616,6 +616,10 @@ msgstr "API de Braiins inalcanzable"
 msgid "Braiins API unreachable - waiting for connectivity."
 msgstr "API de Braiins inaccesible - esperando conectividad."
 
+#: src/pages/Config.tsx
+msgid "Braiins deposit lifecycle"
+msgstr "Ciclo de vida de depósito Braiins"
+
 #: src/components/StaleUrlBanner.tsx
 msgid "Braiins doesn't allow changing a live bid's destination URL. Your config now points at a different host than the bid was created with - miners on this bid keep going to the old destination until you cancel and recreate. Cancel here, the next decision tick will create a fresh bid with the current URL automatically."
 msgstr "Braiins no permite cambiar la URL de destino de una oferta en curso. Tu configuración ahora apunta a un host distinto del que se creó la oferta - los mineros de esta oferta siguen yendo al destino antiguo hasta que canceles y la recrees. Cancela aquí; el siguiente tick creará automáticamente una oferta nueva con la URL actual."
@@ -1880,6 +1884,10 @@ msgstr "Ganancias no pagadas de Ocean - lo que llegará on-chain en el próximo 
 #: src/pages/Config.tsx
 msgid "Off"
 msgstr "Apagado"
+
+#: src/pages/Config.tsx
+msgid "Off by default. When on, sends an INFO message when Braiins detects a deposit and another when it's cleared compliance and is spendable. Sends an IMPORTANT message if Braiins's compliance returns the deposit (real money on the line)."
+msgstr "Desactivado por defecto. Cuando está activado, envía un mensaje INFO cuando Braiins detecta un depósito y otro cuando ha pasado el cumplimiento y está disponible para gastar. Envía un mensaje IMPORTANT si el cumplimiento de Braiins devuelve el depósito (dinero real en juego)."
 
 #: src/pages/Config.tsx
 #: src/pages/Config.tsx

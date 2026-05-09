@@ -58,6 +58,10 @@ export type AccountBalances = components['schemas']['GetAccountBalancesResponse'
 export type BidsResponse = components['schemas']['SpotGetBidsResponse'];
 export type TransactionsResponse = components['schemas']['GetTransactionsResponse'];
 export type Transaction = components['schemas']['Transaction'];
+export type OnChainTransactionsResponse = components['schemas']['GetOnChainTransactionsResponse'];
+export type OnChainTransaction = components['schemas']['OnChainTransaction'];
+export type OnChainTransactionType = components['schemas']['OnChainTransactionType'];
+export type DepositStatus = components['schemas']['DepositStatus'];
 export type BidItem = components['schemas']['SpotGetBidsResponseItem'];
 export type BidDetail = components['schemas']['SpotGetBidDetailResponse'];
 export type BidDeliveryHistory = components['schemas']['SpotGetBidDeliveryHistoryResponse'];
@@ -93,6 +97,7 @@ export interface BraiinsClient {
     exclude_active?: boolean;
   }): Promise<BidsResponse>;
   getTransactions(opts?: { limit?: number; offset?: number }): Promise<TransactionsResponse>;
+  getOnChainTransactions(opts?: { limit?: number }): Promise<OnChainTransactionsResponse>;
   getBidDetail(orderId: string): Promise<BidDetail>;
   /**
    * Bid delivery history (#90): per-tick records of shares purchased
@@ -267,6 +272,24 @@ export function createBraiinsClient(config: BraiinsClientConfig = {}): BraiinsCl
           headers: authHeaders('READ_ONLY'),
         });
         return unwrap<TransactionsResponse>('/account/transaction', res);
+      }),
+
+    /**
+     * On-chain account transactions. Same lifecycle the operator sees
+     * in the Braiins dashboard's transactions tab: each row carries a
+     * `tx_id`, `address`, `amount_sat`, `timestamp`, plus a numeric
+     * `deposit_status` enum (0-5) tracking pending / confirming /
+     * under-review / completed / rejected / returned. The autopilot
+     * watches transitions on this endpoint to drive the
+     * deposit-lifecycle Telegram notifications (#130).
+     */
+    getOnChainTransactions: ({ limit = 200 }: { limit?: number } = {}) =>
+      read('/account/transaction/on-chain', async () => {
+        const res = await api.GET('/account/transaction/on-chain', {
+          params: { query: { limit } },
+          headers: authHeaders('READ_ONLY'),
+        });
+        return unwrap<OnChainTransactionsResponse>('/account/transaction/on-chain', res);
       }),
 
     getBidDetail: (orderId: string) =>

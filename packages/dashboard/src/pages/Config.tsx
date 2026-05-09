@@ -1880,6 +1880,18 @@ function EventClassSubscriptions({
       setEnabled: (n) => toggleClass('beta_exit', n),
     },
     {
+      id: 'braiins_deposit',
+      // Single tile gates all three deposit lifecycle events
+      // (Detected / Available / Returned). Operator's framing in
+      // #130's interview - one toggle for "deposit-related events"
+      // rather than three sub-toggles. The per-event-class opt-out
+      // can still silence individual events for fine-grained tuning.
+      label: t`Braiins deposit lifecycle`,
+      help: t`Off by default. When on, sends an INFO message when Braiins detects a deposit and another when it's cleared compliance and is spendable. Sends an IMPORTANT message if Braiins's compliance returns the deposit (real money on the line).`,
+      enabled: draft.notify_on_braiins_deposit,
+      setEnabled: (n) => onChange('notify_on_braiins_deposit', n as never),
+    },
+    {
       id: 'wallet_runway',
       // Label reads as a complete phrase together with the inline
       // days-input rendered in `extra` immediately after: "Wallet

@@ -47,6 +47,8 @@ export interface ConfigTable {
   notification_disabled_event_classes: string;
   /** #117: opt-in INFO message at every Ocean pool-block credit (TIDES). Off by default. */
   notify_on_pool_block_credit: 0 | 1;
+  /** #130: opt-in messages on Braiins deposit lifecycle (Detected / Available / Returned). Off by default. */
+  notify_on_braiins_deposit: 0 | 1;
   /** @deprecated Legacy column - kept for NOT NULL; ignored by the app. */
   hibernate_on_expensive_market: 0 | 1;
   electrs_host: string | null;
@@ -455,6 +457,24 @@ export interface PoolBlocksTable {
   observed_at_ms: number;
 }
 
+/**
+ * #130: Braiins on-chain deposit watcher state. One row per deposit
+ * tx ever observed; idempotency flags prevent re-firing the same
+ * lifecycle alert on every poll.
+ */
+export interface BraiinsDepositsTable {
+  tx_id: string;
+  amount_sat: number;
+  address: string | null;
+  last_seen_status: number;
+  last_seen_return_tx_id: string | null;
+  first_seen_at_ms: number;
+  updated_at_ms: number;
+  notified_detected: 0 | 1;
+  notified_available: 0 | 1;
+  notified_returned: 0 | 1;
+}
+
 export interface Database {
   config: ConfigTable;
   pool_blocks: PoolBlocksTable;
@@ -472,6 +492,7 @@ export interface Database {
   closed_bids_cache: ClosedBidsCacheTable;
   secrets: SecretsTable;
   block_version_cache: BlockVersionCacheTable;
+  braiins_deposits: BraiinsDepositsTable;
   _migrations: MigrationsTable;
 }
 

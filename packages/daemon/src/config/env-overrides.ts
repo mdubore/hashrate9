@@ -192,6 +192,10 @@ const APP_CONFIG_ENV: {
     varName: 'BHA_NOTIFY_ON_POOL_BLOCK_CREDIT',
     coerce: asBoolean,
   },
+  notify_on_braiins_deposit: {
+    varName: 'BHA_NOTIFY_ON_BRAIINS_DEPOSIT',
+    coerce: asBoolean,
+  },
   ddns_provider: { varName: 'BHA_DDNS_PROVIDER', coerce: asString },
   ddns_hostname: { varName: 'BHA_DDNS_HOSTNAME', coerce: asString },
   ddns_username: { varName: 'BHA_DDNS_USERNAME', coerce: asString },
