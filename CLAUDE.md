@@ -1,5 +1,21 @@
 # Project conventions for Claude sessions
 
+## Diagnostic credentials
+
+`data/diagnostics.json` (gitignored) carries read-only credentials
+for live probes - Braiins read-only API token, bitcoind RPC, Telegram
+bot token. Check it first before asking the operator to paste a
+token; the file exists specifically to avoid re-asking every session
+and to cut "I had to ship blind because I couldn't verify" releases.
+
+The Braiins owner token is **deliberately omitted** from this file -
+mutation probes (creating/cancelling bids, editing config) need an
+explicit operator green-light each time. Don't ask for the owner
+token to be added.
+
+Empty values mean "operator hasn't filled this in yet" - degrade
+gracefully (ask the operator, or skip the probe), don't error.
+
 ## Issue lifecycle
 
 **Never close GitHub issues.** Operator closes them manually after
