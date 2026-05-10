@@ -73,7 +73,7 @@ releaseNotes: |
   - Sticky upgrade banner: the "new version available" prompt now stays pinned at the top of the viewport on scroll.
   - Chart markers: cap on max bid-event markers rendered; over the cap, EDIT_PRICE markers drop out first.
 
-  Restart Umbrel app after upgrade. First watcher poll silently absorbs already-credited historical deposits, so no Telegram flood - only future deposits produce events.
+  First watcher poll silently absorbs already-credited historical deposits, so no Telegram flood - only future deposits produce events.
 
   v1.5.4 - the actual electrs-only fix.
 
