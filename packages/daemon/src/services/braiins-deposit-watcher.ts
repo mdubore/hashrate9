@@ -1,32 +1,39 @@
 /**
- * Braiins on-chain deposit lifecycle watcher (#141, restoration of
- * #130 - retired in #132 on the empirically-falsified assumption
- * that `total_deposited_sat` and "available" were the same moment).
+ * Braiins on-chain deposit lifecycle watcher (#143).
  *
- * Polls `/v1/account/transaction/on-chain` on its own cadence,
- * upserts each deposit into `braiins_deposits`, and fires three
- * lifecycle Telegram notifications:
+ * Polls `/v1/account/transaction/on-chain` every 60s. Empirically the
+ * endpoint only exposes deposits that have already reached the
+ * `DEPOSIT_STATUS_CREDITED` state -- the earlier pending / confirming
+ * stages are not surfaced. So this watcher fires:
  *
- *   - **Detected**  - first time a tx_id appears in the API. INFO.
- *   - **Available** - status crosses the "completed" threshold AND
- *     `return_tx_id` is null. INFO.
- *   - **Returned**  - `return_tx_id` is non-null. IMPORTANT (real
- *     money on the line; Braiins compliance bounced it back).
+ *   - **Available** (INFO) -- first time a tx_id appears in the
+ *     response with `return_tx_id` empty. Maps to "Braiins compliance
+ *     cleared the deposit; funds spendable now."
+ *   - **Returned**  (IMPORTANT) -- `return_tx_id` is non-empty.
+ *     Compliance bounced it back; real money on the line.
  *
- * Per-row `notified_*` flags ensure every event fires exactly once,
- * even if the deposit sits in a state for hours across many polls.
+ * The `_detected` event (firing when the deposit first lands but
+ * hasn't yet been credited) lives in `AlertEvaluator.evaluateBraiinsDeposit`
+ * driven by `state.braiins_total_deposited_sat` deltas. That signal
+ * ticks 6-12 min earlier than this endpoint exposes the row, so the
+ * two detectors are coordinated by signal source, not by lifecycle
+ * flag.
+ *
+ * Per-row `notified_available` / `notified_returned` flags ensure
+ * each event fires exactly once. The `notified_detected` flag on
+ * the same row is set unconditionally to 1 on first upsert (legacy
+ * from #130; this watcher does NOT fire `_detected`, so the flag is
+ * just future-proofing).
  *
  * Disabled paths (master toggle off, per-class disabled in #106):
  * still poll, still upsert, still flip `notified_*` flags so a
  * future toggle-on does NOT replay backlog.
  *
- * Locale-aware: messages pull from `getAlertCopy(notification_locale)`
- * the same way the AlertEvaluator detectors do.
- *
- * DepositStatus enum (Braiins): undocumented in the OpenAPI. Empirical
- * mapping pending; #141 starts with `>= 3 = available` (the original
- * #130 guess) and a one-line log on every status transition so the
- * operator can confirm or correct against real behaviour.
+ * API shape note (#143): the OpenAPI generator declared `tx_type` and
+ * `deposit_status` as integer enums, but the live response carries
+ * the string names (`ONCHAIN_TRANSACTION_TYPE_DEPOSIT`,
+ * `DEPOSIT_STATUS_CREDITED`, ...). The watcher coerces to String at
+ * the call site rather than fighting the generated types.
  */
 
 import type { BraiinsClient } from '@braiins-hashrate/braiins-client';
@@ -41,19 +48,15 @@ import type { AlertManager } from './alert-manager.js';
 
 const DEFAULT_INTERVAL_MS = 60_000;
 const FETCH_LIMIT = 100;
-/**
- * #141 placeholder: Braiins's `DepositStatus` enum is 0..5 with no
- * published mapping. The original #130 used `>= 3` as the "completed"
- * threshold. After the watcher is live we log every observed status
- * transition so the operator can confirm/correct the threshold against
- * real Braiins behaviour. Single point of update.
- */
-const AVAILABLE_STATUS_MIN = 3;
 
 const SAT_PER_BTC = 100_000_000;
 
-/** OnChainTransactionType: 0 = deposit per the assumed enum order. */
-const TX_TYPE_DEPOSIT = 0;
+/**
+ * Live response carries the string name, not the OpenAPI-declared
+ * integer enum. See module JSDoc note (#143).
+ */
+const TX_TYPE_DEPOSIT = 'ONCHAIN_TRANSACTION_TYPE_DEPOSIT';
+const DEPOSIT_STATUS_CREDITED = 'DEPOSIT_STATUS_CREDITED';
 
 export interface BraiinsDepositWatcherOptions {
   readonly cfgRef: { value: AppConfig };
@@ -138,50 +141,41 @@ export class BraiinsDepositWatcherService {
 
     let depositsSeen = 0;
     for (const tx of transactions) {
-      if (tx.tx_type !== TX_TYPE_DEPOSIT) continue;
+      // OpenAPI declares tx_type as an int enum but the live response
+      // is a string. See module JSDoc.
+      const tx_type = String(tx.tx_type ?? '');
+      if (tx_type !== TX_TYPE_DEPOSIT) continue;
       const tx_id = typeof tx.tx_id === 'string' ? tx.tx_id : '';
       if (!tx_id) continue;
       depositsSeen++;
 
       const amount_sat = Number(tx.amount_sat ?? 0);
-      const status = Number(tx.deposit_status ?? 0);
+      const deposit_status = String(tx.deposit_status ?? '');
       const return_tx_id =
         typeof tx.return_tx_id === 'string' && tx.return_tx_id.length > 0
           ? tx.return_tx_id
           : null;
       const address = typeof tx.address === 'string' ? tx.address : null;
 
-      const prev = await this.options.depositsRepo.findByTxId(tx_id);
-      const prevStatus = prev?.last_seen_status ?? null;
-
+      // status field is now a string. The legacy `last_seen_status`
+      // column in braiins_deposits is INTEGER (from #130); we store
+      // a sentinel 0/1 derived from the live status so the column
+      // stays useful without a schema migration. 1 = CREDITED.
+      const statusSentinel = deposit_status === DEPOSIT_STATUS_CREDITED ? 1 : 0;
       const observed = await this.options.depositsRepo.upsertSeen({
         tx_id,
         amount_sat,
         address,
-        status,
+        status: statusSentinel,
         return_tx_id,
         observed_at_ms: this.now(),
       });
 
-      // #141: surface every status transition for empirical mapping.
-      if (prevStatus === null) {
-        this.options.log?.(
-          `[deposits] ${shortenTxId(tx_id)} first-seen: status=${status} amount=${amount_sat.toLocaleString('en-US')} sat return_tx_id=${return_tx_id ?? 'null'}`,
-        );
-      } else if (prevStatus !== status) {
-        this.options.log?.(
-          `[deposits] ${shortenTxId(tx_id)} status ${prevStatus} -> ${status}`,
-        );
-      }
-
+      // The watcher does not fire `_detected` (that signal comes from
+      // the balance-delta path in AlertEvaluator). Flip the flag to 1
+      // on the first upsert so the legacy column stays coherent.
       if (!observed.notified_detected) {
-        await this.handleEvent({
-          kind: 'detected',
-          notifyOn,
-          tx_id,
-          payload: { amount_sat, address },
-          severity: 'INFO',
-        });
+        await this.options.depositsRepo.markNotified(tx_id, 'detected');
       }
 
       if (return_tx_id !== null && !observed.notified_returned) {
@@ -201,7 +195,7 @@ export class BraiinsDepositWatcherService {
 
       if (
         return_tx_id === null &&
-        status >= AVAILABLE_STATUS_MIN &&
+        deposit_status === DEPOSIT_STATUS_CREDITED &&
         !observed.notified_available
       ) {
         await this.handleEvent({
