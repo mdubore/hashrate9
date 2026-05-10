@@ -107,19 +107,31 @@ function useSections(): Section[] {
         fields: [
           { key: 'target_hashrate_ph', label: t`Target hashrate`, kind: 'decimal', unit: 'PH/s' },
           { key: 'minimum_floor_hashrate_ph', label: t`Minimum floor`, kind: 'decimal', unit: 'PH/s' },
+        ],
+      },
+      {
+        // #136: cheap-mode lifted into its own section with an
+        // explicit enable checkbox. Was previously three fields
+        // mixed into Hashrate Targets, with "set the threshold to 0
+        // to disable" as the implicit on/off knob - operator found
+        // that confusing.
+        id: 'cheap-mode',
+        title: t`Cheap mode`,
+        description: t`When the spot market drops below the break-even hashprice from Ocean, scale the bid up to a higher target so we capture more hashrate while it's cheap. Tick "Enable cheap mode" to edit the fields below.`,
+        fields: [
           {
             key: 'cheap_target_hashrate_ph',
             label: t`Cheap-mode target`,
             kind: 'decimal',
             unit: 'PH/s',
-            help: t`When the market is cheap (below the hashprice threshold), scale up to this target instead of the normal one. Set to 0 to disable.`,
+            help: t`When the market is cheap (below the hashprice threshold), scale up to this target instead of the normal one.`,
           },
           {
             key: 'cheap_threshold_pct',
             label: t`Cheap threshold`,
             kind: 'integer',
             unit: '%',
-            help: t`0 = disabled. Example: 95 = activate cheap mode when the best ask on the orderbook is below 95% of the break-even hashprice from Ocean. Braiins matches pay-your-bid (the bid IS the price we pay), and the autopilot tracks the fillable ask plus a small overpay - so a cheap best ask reliably translates into a cheap bid.`,
+            help: t`Example: 95 = activate cheap mode when the best ask on the orderbook is below 95% of the break-even hashprice from Ocean. Braiins matches pay-your-bid (the bid IS the price we pay), and the autopilot tracks the fillable ask plus a small overpay - so a cheap best ask reliably translates into a cheap bid.`,
           },
           {
             key: 'cheap_sustained_window_minutes',
@@ -702,7 +714,7 @@ const TAB_ORDER: TabId[] = ['strategy', 'pool', 'notifications', 'display'];
  * IDs but get their own switch arm during rendering.
  */
 const TAB_SECTIONS: Record<TabId, readonly string[]> = {
-  strategy: ['hashrate-targets', 'pricing', 'budget', 'daemon-startup'],
+  strategy: ['hashrate-targets', 'cheap-mode', 'pricing', 'budget', 'daemon-startup'],
   pool: ['pool-destination', 'ddns', 'payout-source', 'profit-and-loss', 'btc-price-oracle'],
   notifications: ['notifications', 'block-found-sound'],
   display: ['block-explorer', 'chart-smoothing', 'chart-markers', 'log-retention'],
@@ -1116,26 +1128,106 @@ function SectionCard({
           <LogRetentionTotalHint draft={draft} locale={locale} />
         )}
       </header>
-      <div className={gridCls}>
-        {section.fields.map((f) => (
-          <div
-            key={f.key as string}
-            className={
-              !section.sideBySide && f.fullWidth
-                ? cols === 3
-                  ? 'sm:col-span-3'
-                  : 'sm:col-span-2'
-                : ''
-            }
-          >
-            <Field spec={f} draft={draft} locale={locale} onChange={onChange} />
-          </div>
-        ))}
-      </div>
+      {section.id === 'cheap-mode' ? (
+        <CheapModeBody
+          section={section}
+          draft={draft}
+          locale={locale}
+          onChange={onChange}
+          gridCls={gridCls}
+        />
+      ) : (
+        <div className={gridCls}>
+          {section.fields.map((f) => (
+            <div
+              key={f.key as string}
+              className={
+                !section.sideBySide && f.fullWidth
+                  ? cols === 3
+                    ? 'sm:col-span-3'
+                    : 'sm:col-span-2'
+                  : ''
+              }
+            >
+              <Field spec={f} draft={draft} locale={locale} onChange={onChange} />
+            </div>
+          ))}
+        </div>
+      )}
       {section.id === 'block-found-sound' && (
         <BlockFoundSoundExtras draft={draft} onChange={onChange} />
       )}
     </section>
+  );
+}
+
+/**
+ * #136: bespoke body for the Cheap-mode section. Adds an explicit
+ * "Enable cheap mode" checkbox at the top, then renders the three
+ * cheap-mode fields underneath - greyed + non-interactive when the
+ * checkbox is off, fully editable when it's on.
+ *
+ * Storage stays on `cheap_threshold_pct`: 0 = off, > 0 = on. Toggle
+ * derives `enabled = cheap_threshold_pct > 0` so we don't need a
+ * new column or migration. Toggling on writes 95 (the long-standing
+ * default the operator's been using); toggling off writes 0. The
+ * tile pattern wallet_runway already established this approach.
+ *
+ * Greying uses `opacity-50 pointer-events-none` on the wrapper so
+ * the inputs visibly read as disabled and clicks/keys can't reach
+ * them — the existing `Field` component doesn't take a disabled
+ * prop, and adding one would touch every field type. The wrapper
+ * approach is one line and reverts cleanly when the operator
+ * toggles back on.
+ */
+function CheapModeBody({
+  section,
+  draft,
+  locale,
+  onChange,
+  gridCls,
+}: {
+  section: Section;
+  draft: AppConfig;
+  locale: string | undefined;
+  onChange: <K extends keyof AppConfig>(k: K, v: AppConfig[K]) => void;
+  gridCls: string;
+}) {
+  const enabled = draft.cheap_threshold_pct > 0;
+  const toggle = (next: boolean) => {
+    // On: write a sensible default. The operator's prior config
+    // value was probably 95 (or whatever they last set); we don't
+    // remember it across the off->on flip in the simple-derive
+    // approach, so just write 95 every toggle-on. Operators who
+    // ran a different threshold tweak it back manually.
+    onChange('cheap_threshold_pct', (next ? 95 : 0) as never);
+  };
+  return (
+    <div className="space-y-3">
+      <label className="flex items-center gap-2 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={enabled}
+          onChange={(e) => toggle(e.target.checked)}
+          className="accent-amber-400 h-4 w-4"
+        />
+        <span className="text-sm text-slate-100 font-semibold">
+          <Trans>Enable cheap mode</Trans>
+        </span>
+      </label>
+      <div
+        className={
+          (enabled ? '' : 'opacity-50 pointer-events-none ') + gridCls
+        }
+        aria-disabled={!enabled}
+      >
+        {section.fields.map((f) => (
+          <div key={f.key as string}>
+            <Field spec={f} draft={draft} locale={locale} onChange={onChange} />
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 

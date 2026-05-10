@@ -198,10 +198,6 @@ msgid "⚠ No period found. Ocean TIDES requires \"<BTC address>.<label>\". With
 msgstr "⚠ No period found. Ocean TIDES requires \"<BTC address>.<label>\". Without the address prefix, shares go uncredited."
 
 #: src/pages/Config.tsx
-msgid "0 = disabled. Example: 95 = activate cheap mode when the best ask on the orderbook is below 95% of the break-even hashprice from Ocean. Braiins matches pay-your-bid (the bid IS the price we pay), and the autopilot tracks the fillable ask plus a small overpay - so a cheap best ask reliably translates into a cheap bid."
-msgstr "0 = disabled. Example: 95 = activate cheap mode when the best ask on the orderbook is below 95% of the break-even hashprice from Ocean. Braiins matches pay-your-bid (the bid IS the price we pay), and the autopilot tracks the fillable ask plus a small overpay - so a cheap best ask reliably translates into a cheap bid."
-
-#: src/pages/Config.tsx
 msgid "0 = use the full available wallet balance each CREATE (clamped to 1 BTC - the Braiins per-bid hard cap). Any positive value pins every new bid to that exact amount regardless of balance."
 msgstr "0 = use the full available wallet balance each CREATE (clamped to 1 BTC - the Braiins per-bid hard cap). Any positive value pins every new bid to that exact amount regardless of balance."
 
@@ -730,6 +726,10 @@ msgid "Chat ID"
 msgstr "Chat ID"
 
 #: src/pages/Config.tsx
+msgid "Cheap mode"
+msgstr "Cheap mode"
+
+#: src/pages/Config.tsx
 msgid "Cheap threshold"
 msgstr "Cheap threshold"
 
@@ -1182,6 +1182,10 @@ msgstr "Electrs (recommended)"
 msgid "Electrs host"
 msgstr "Electrs host"
 
+#: src/pages/Config.tsx
+msgid "Enable cheap mode"
+msgstr "Enable cheap mode"
+
 #: src/pages/Status.tsx
 msgid "Escalation in"
 msgstr "Escalation in"
@@ -1197,6 +1201,10 @@ msgstr "Estimated cap at current settings: ~ {totalStr} (logs only, indexes excl
 #: src/pages/Config.tsx
 msgid "Every restart resets to DRY_RUN. You explicitly flip to LIVE from the dashboard."
 msgstr "Every restart resets to DRY_RUN. You explicitly flip to LIVE from the dashboard."
+
+#: src/pages/Config.tsx
+msgid "Example: 95 = activate cheap mode when the best ask on the orderbook is below 95% of the break-even hashprice from Ocean. Braiins matches pay-your-bid (the bid IS the price we pay), and the autopilot tracks the fillable ask plus a small overpay - so a cheap best ask reliably translates into a cheap bid."
+msgstr "Example: 95 = activate cheap mode when the best ask on the orderbook is below 95% of the break-even hashprice from Ocean. Braiins matches pay-your-bid (the bid IS the price we pay), and the autopilot tracks the fillable ask plus a small overpay - so a cheap best ask reliably translates into a cheap bid."
 
 #: src/pages/Setup.tsx
 msgid "Existing config detected - fields are pre-filled. Update what changed and click through."
@@ -2914,8 +2922,12 @@ msgid "When more than this many markers would render on the price chart, the das
 msgstr "When more than this many markers would render on the price chart, the dashboard hides EDIT_PRICE markers first (CREATE / EDIT_SPEED / CANCEL stay because they're rare and diagnostic). If even after hiding EDIT_PRICE the count still exceeds the cap, all markers are hidden. 0 = no count-based filter (all markers render subject to the existing per-range rule). Useful at low-overpay settings where EDIT_PRICE fires every couple of minutes and clutters the chart."
 
 #: src/pages/Config.tsx
-msgid "When the market is cheap (below the hashprice threshold), scale up to this target instead of the normal one. Set to 0 to disable."
-msgstr "When the market is cheap (below the hashprice threshold), scale up to this target instead of the normal one. Set to 0 to disable."
+msgid "When the market is cheap (below the hashprice threshold), scale up to this target instead of the normal one."
+msgstr "When the market is cheap (below the hashprice threshold), scale up to this target instead of the normal one."
+
+#: src/pages/Config.tsx
+msgid "When the spot market drops below the break-even hashprice from Ocean, scale the bid up to a higher target so we capture more hashrate while it's cheap. Tick \"Enable cheap mode\" to edit the fields below."
+msgstr "When the spot market drops below the break-even hashprice from Ocean, scale the bid up to a higher target so we capture more hashrate while it's cheap. Tick \"Enable cheap mode\" to edit the fields below."
 
 #: src/pages/Config.tsx
 msgid "Where rented hashrate lands. Change only if your pool endpoint moves. The BTC payout address sits here too - the worker identity below is auto-derived from it whenever you edit the address, same as the first-run wizard."
