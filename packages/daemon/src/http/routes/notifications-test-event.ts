@@ -200,7 +200,7 @@ export async function registerNotificationsTestEventRoute(
         return {
           ok: false,
           error:
-            'Telegram bot token and chat id must be saved on Config -> Notifications before a test message can be sent.',
+            'Telegram bot token and chat id must be saved on Config → Notifications before a test message can be sent.',
         };
       }
 

@@ -179,7 +179,7 @@ const EN: AlertCopy = {
 
   pool_block_credited_title: ({ height }) => `Pool block credited - #${height}`,
   pool_block_credited_body: ({ height, reward_btc, share_pct, credit, unpaid }) =>
-    `Ocean found pool block #${height} (reward ${reward_btc} BTC). Your share: ${share_pct} -> ${credit}. Unpaid total: ${unpaid}.`,
+    `Ocean found pool block #${height} (reward ${reward_btc} BTC). Your share: ${share_pct} → ${credit}. Unpaid total: ${unpaid}.`,
 
   braiins_deposit_detected_title: () => 'Braiins deposit detected',
   braiins_deposit_detected_body: ({ amount, address_short }) =>
@@ -260,7 +260,7 @@ const NL: AlertCopy = {
 
   pool_block_credited_title: ({ height }) => `Pool block bijgeschreven - #${height}`,
   pool_block_credited_body: ({ height, reward_btc, share_pct, credit, unpaid }) =>
-    `Ocean vond pool block #${height} (reward ${reward_btc} BTC). Jouw aandeel: ${share_pct} -> ${credit}. Unpaid totaal: ${unpaid}.`,
+    `Ocean vond pool block #${height} (reward ${reward_btc} BTC). Jouw aandeel: ${share_pct} → ${credit}. Unpaid totaal: ${unpaid}.`,
 
   braiins_deposit_detected_title: () => 'Braiins deposit gedetecteerd',
   braiins_deposit_detected_body: ({ amount, address_short }) =>
@@ -341,7 +341,7 @@ const ES: AlertCopy = {
 
   pool_block_credited_title: ({ height }) => `Bloque de pool acreditado - #${height}`,
   pool_block_credited_body: ({ height, reward_btc, share_pct, credit, unpaid }) =>
-    `Ocean encontró el bloque de pool #${height} (recompensa ${reward_btc} BTC). Tu parte: ${share_pct} -> ${credit}. Total no pagado: ${unpaid}.`,
+    `Ocean encontró el bloque de pool #${height} (recompensa ${reward_btc} BTC). Tu parte: ${share_pct} → ${credit}. Total no pagado: ${unpaid}.`,
 
   braiins_deposit_detected_title: () => 'Depósito en Braiins detectado',
   braiins_deposit_detected_body: ({ amount, address_short }) =>

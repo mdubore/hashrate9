@@ -2,6 +2,10 @@
 
 ## 2026-05-10
 
+### `[Fix]` Telegram messages use Unicode `→` instead of ASCII `->` (#137)
+
+The pool-block-credited body and one admin-error string used `->` where the rest of the formatting (bold, emoji, italics) is rich Unicode. Operator caught the visual mismatch in NL: `Jouw aandeel: 0.0133% -> ~41,482 sat`. Fixed in all three locale catalogs (EN / NL / ES) plus the "saved on Config → Notifications" admin error. Daemon log lines (`[ddns] noip push: ${status} ${ip} -> ${hostname}`, `[public-ip] IP changed: ...`) deliberately keep the ASCII arrow for grep-friendliness — they don't reach Telegram.
+
 ### `[Feature]` Split datum_unreachable + sustained_paused alert thresholds out from pool_outage_blip_tolerance_seconds × 5 (#135)
 
 The `datum_unreachable` and `sustained_paused` detectors used to derive their alert threshold from `pool_outage_blip_tolerance_seconds × 5` - one shared knob for two unrelated decisions (dashboard reachability-pill blip tolerance vs Telegram alert threshold). Migration 0082 adds dedicated `datum_unreachable_alert_after_minutes` + `sustained_paused_alert_after_minutes` config columns; defaults derived per-row from each operator's existing blip tolerance × 5 / 60 (rounded to int minutes), so post-upgrade behaviour is unchanged. AlertEvaluator's two detectors now read the new fields directly. Notifications-tab tiles for both events get the inline-minute-input treatment that the other timer-driven tiles already have, so the operator can tune them independently. `pool_outage_blip_tolerance_seconds` keeps its unchanged meaning (dashboard pill) and is no longer multiplied anywhere. NL / ES translations included.
