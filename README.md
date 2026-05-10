@@ -155,11 +155,15 @@ Full design: [`docs/spec.md`](docs/spec.md) · [`docs/architecture.md`](docs/arc
   on each new pool block. The OCEAN panel shows the same number as a "X.XX× expected" annotation next to
   `pool blocks 24h / 7d` so chart and panel always agree. Tooltips compute Ocean's live network-hashrate
   share and the implied expected block count for the current window.
-- **BIP 110 detection** - pool blocks whose header signals support for BIP 110 (Reduced Data soft fork)
-  render with a 👑 crown icon on the chart instead of the standard cube; tooltip names the BIP. Detection
-  happens daemon-side via your bitcoind RPC (`getblockheader`) or Electrs (`blockchain.block.header`) - no
-  third-party API. A separate **BIP 110 scan card** on the Status page lets you scan the last N blocks
-  (configurable up to 2016) and see every signaling block with timestamp, version bits, and explorer link.
+- **Pool-block marker shapes** - the cubes on the Hashrate chart's pool-block row carry a precedence-ordered
+  vocabulary so the rare events stand out. **Own block** (Ocean credited the coinbase to your payout
+  address - the lottery-win case) renders as a **gold crown** 👑. **BIP 110-signalling pool block**
+  (header version bit 4 set; Reduced Data soft fork) renders as a **yellow cube**. **Default pool block**
+  renders as a **blue cube**. Tooltip header label and colour follow the same precedence (own > BIP 110 >
+  default). Detection happens daemon-side via your bitcoind RPC (`getblockheader`) or Electrs
+  (`blockchain.block.header`) - no third-party API. A separate **BIP 110 scan card** on the Status page
+  lets you scan the last N blocks (configurable up to 2016) and see every signaling block with timestamp,
+  version bits, and explorer link.
 - **Telegram notifications** - three severity tiers across ten event classes. **IMPORTANT** (red, with a
   retry ladder and paired recovery messages): Datum stratum unreachable, hashrate below floor, zero
   hashrate, Braiins API unreachable, unknown bid detected, bid sustained-paused, wallet runway below

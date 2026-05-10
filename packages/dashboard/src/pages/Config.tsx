@@ -2445,13 +2445,14 @@ function PayoutSourceSection({
 
         {/* Bitcoin Core RPC fields - always shown, not gated on the
             balance-check radio. These creds drive THREE features and
-            only one of them is on-chain payouts: the BIP 110 crown
-            marker on the Hashrate chart (#94) and the BIP 110 scan
-            card on Status (#95) both call bitcoind even when Electrs
-            is the selected payout backend. Hiding the fields when
-            payout != bitcoind made the operator think BIP 110 was
-            broken because the values that the scanner used were the
-            saved (potentially stale) ones, with no UI to type fresh
+            only one of them is on-chain payouts: the BIP 110 yellow-
+            cube marker on the Hashrate chart (#94 / #115) and the
+            BIP 110 scan card on Status (#95) both call bitcoind even
+            when Electrs is the selected payout backend. Hiding the
+            fields when payout != bitcoind made the operator think
+            BIP 110 was broken because the values that the scanner
+            used were the saved (potentially stale) ones, with no UI
+            to type fresh
             values into. */}
         <BitcoindRpcFields draft={draft} onChange={onChange} />
       </div>
@@ -2643,10 +2644,10 @@ function BitcoindRpcFields({
             >
               BIP 110
             </a>{' '}
-            crown marker on the Hashrate chart and the BIP 110 scan card on Status
-            - those last two call bitcoind regardless of which payout backend is
-            selected. The Test button below validates the values currently in the
-            form, before saving.
+            yellow-cube marker on the Hashrate chart and the BIP 110 scan card on
+            Status - those last two call bitcoind regardless of which payout backend
+            is selected. The Test button below validates the values currently in
+            the form, before saving.
           </Trans>
         </p>
       </header>

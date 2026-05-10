@@ -481,8 +481,10 @@ concern (not by order; the file names are authoritative):
   pool-block counts + trailing hashrate average + gap-based pool luck
   (0055-0057, #92 - `pool_blocks_24h_count`, `pool_blocks_7d_count`,
   `pool_hashrate_ph_avg_24h/7d`, `pool_luck_24h/7d`); block-header version
-  cache for the BIP 110 crown marker (0058, #94 - separate
-  `block_version_cache` table keyed on `block_hash`).
+  cache for the BIP 110 yellow-cube marker (0058, #94 / #115 - separate
+  `block_version_cache` table keyed on `block_hash`; #115 reassigned the
+  shape so the gold crown is reserved for own-blocks and BIP 110 reads
+  as a softer yellow cube).
 
 ## 6. External integrations
 

@@ -2,6 +2,10 @@
 
 ## 2026-05-10 · v1.6.0
 
+### `[Docs]` BIP 110 marker shape catch-up: yellow cube, not crown (#146)
+
+#115 reassigned the Hashrate chart's pool-block marker shapes (own block -> gold crown, BIP 110-signalling -> yellow cube, default -> blue cube) but the docs lagged. README claimed BIP 110-signalling pool blocks "render with a 👑 crown icon" - flat wrong since #115. Updated README to describe the precedence-ordered shape vocabulary correctly. docs/architecture.md migration-0058 reference renamed "BIP 110 crown marker" -> "BIP 110 yellow-cube marker" and credits #115 for the swap. Config.tsx Bitcoin Core RPC section's `<Trans>` help text changed "BIP 110 crown marker" -> "BIP 110 yellow-cube marker" with NL ("gele-kubus marker") and ES ("marcador de cubo amarillo BIP 110") translations. Bip110ScanCard dev comments brought along too. The implementation comments in HashrateChart.tsx were already correct from #115.
+
 ### `[Fix]` Config page header no longer overlaps the global nav (#145)
 
 The Config page's section header (Configuration title + auto-save controls + Strategy / Pool & Payout / Notifications / Display & Logging tab row + search box) used `sticky top-0 z-30`, the same positioning as Layout's own global nav cluster. Two stickies sharing top:0 and z-30 collide; DOM order won, so the page-level header rendered ON TOP of the nav, occluding "Hashrate Autopilot / Status / Alerts / Config" at the top of the screen. Dropped the sticky from Config; it now scrolls normally under the global nav, matching Status / Alerts behaviour. The tab-strip-sticky affordance is gone for now - if it's wanted back, we'll rebuild it inside the global sticky cluster so stacking has a single source.

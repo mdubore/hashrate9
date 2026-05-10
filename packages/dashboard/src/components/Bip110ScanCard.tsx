@@ -3,12 +3,12 @@
  * `/api/bip110/scan` endpoint and renders the deployment header +
  * signaling block list.
  *
- * Goal (#95): give the operator a way to verify the crown marker
- * (#94) renders correctly against known signaling blocks, since
- * Ocean's recent-blocks window may not contain any signaling
- * blocks at all in early adoption (well under 1% block-rate).
+ * Goal (#95): give the operator a way to verify the BIP 110 yellow-
+ * cube marker (#94 / #115) renders correctly against known signaling
+ * blocks, since Ocean's recent-blocks window may not contain any
+ * signaling blocks at all in early adoption (well under 1% block-rate).
  *
- * Once the operator is satisfied that the crown UI works, this card
+ * Once the operator is satisfied that the marker UI works, this card
  * can be removed without touching the rest of Status.
  */
 
@@ -61,7 +61,7 @@ export function Bip110ScanCard(): JSX.Element {
 
   const data: Bip110ScanResponse | undefined = scan.data;
   // Newest blocks first - the tip-most signal is the most relevant for
-  // verifying the crown marker behaviour against current network state.
+  // verifying the yellow-cube marker behaviour against current network state.
   const sortedBlocks = data
     ? [...data.signaling_blocks].sort((a, b) => b.height - a.height)
     : [];
