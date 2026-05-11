@@ -2,6 +2,10 @@
 
 ## 2026-05-11 · v1.6.0
 
+### `[Fix]` Solo-mining: integer-tick mode for the device-count right-axis series (#149 follow-up)
+
+Operator picked `solo device count` on 3h, all three devices were healthy (count = 3 every tick), the Y-axis rendered as `3 / 3 / 3 / 3` stacked four times. On 24h the same chart correctly showed 0/1/2/3/4 because a brief dropout introduced variation. Root cause: `niceYTicks` for a constant series degenerated into a tight band (2.97-3.03) with seven 0.01-step ticks; `formatTick: v => v.toFixed(0)` then rounded all of them to "3". Added a `tickHint: 'integer'` field to the right-axis spec; when set, the tick generator builds integer-only ticks from 0 up to `max(observed + 1, 3)` so the band always has at least a 0-1-2-3 frame. Applied to `solo_device_count`. The non-integer solo series (hashrate, max temp, power) stay on the existing nice-tick path.
+
 ### `[Fix]` Solo-mining: sticky right-axis + alphabetic device-table sort + pre-existing effective_rate stickiness bug (#149 follow-up)
 
 Two operator-reported nits, one commit. **Right-axis stickiness**: picked `solo hashrate` on the Hashrate chart, hit refresh, dropdown reset to `none`. Same on the Price chart with `solo power (W)`. Root cause: `readStoredHashrateRightAxis` and `readStoredPriceRightAxis` hard-code an allow-list of valid persisted values and fall back to the default when the stored string doesn't match. The four new `solo_*` values (and, pre-existing for years apparently, `effective_rate`) weren't on the allow-lists, so localStorage held the right value but the validator rejected it on load. Added the four solo options + drive-by-fixed the missing `effective_rate`. **Solo-miner table order**: rows on the Status card now sort alphabetically by label (case-insensitive) with IP as the tiebreaker (octet-aware compare so `192.168.1.9` sorts before `192.168.1.10`). Was sort_order from the daemon (= creation order), which surfaced operator's `BitAxe3, BitAxe2, BitAxe1` upside-down.

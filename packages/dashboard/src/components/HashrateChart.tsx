@@ -230,6 +230,15 @@ interface RightAxisSpec {
   axisLabel: string;
   /** Stroke colour for the line. */
   stroke: string;
+  /**
+   * Optional tick-generation hint. `'integer'` forces step ≥ 1 and
+   * pins the band to whole numbers so a constant integer series
+   * (e.g. device count = 3 every tick on a short range) doesn't
+   * produce seven fractional ticks that all toFixed-format to the
+   * same label. Use for any series whose `formatTick` rounds to an
+   * integer.
+   */
+  tickHint?: 'integer';
 }
 
 export const HashrateChart = memo(function HashrateChart({
@@ -559,6 +568,10 @@ export const HashrateChart = memo(function HashrateChart({
             formatTick: (v) => v.toFixed(0),
             axisLabel: 'solo devices',
             stroke: '#c084fc',
+            // Whole-device counts only - prevents the degenerate
+            // "constant value over a tight range" case where every
+            // tick would round-format to the same integer.
+            tickHint: 'integer',
           };
         }
         case 'solo_max_temp': {
@@ -657,15 +670,28 @@ export const HashrateChart = memo(function HashrateChart({
       );
       const slMin = Math.min(...validShareLogs);
       const slMax = Math.max(...validShareLogs);
-      // 5% breathing room above + below so the line never sits on the
-      // top/bottom rule. Falls back to a [0, slMax] band when slMin
-      // approaches zero so the axis still makes sense.
-      const span = Math.max(slMax - slMin, slMax * 0.1, 1e-6);
-      shareLogYTicks = niceYTicks(
-        Math.max(0, slMin - span * 0.1),
-        slMax + span * 0.1,
-        5,
-      );
+      if (rightAxis?.tickHint === 'integer') {
+        // Integer-tick path: build the band on integer boundaries so
+        // a constant series (e.g. device_count = 3) doesn't collapse
+        // into seven 0.01-step ticks that all toFixed-render to "3".
+        // Anchor low at 0 (an "of N total" frame the operator actually
+        // wants for a count series), high at max(observed) + 1 with a
+        // minimum span of 3 so the line never sits on the top rule.
+        const lo = 0;
+        const hi = Math.max(Math.ceil(slMax) + 1, 3);
+        shareLogYTicks = [];
+        for (let v = lo; v <= hi; v++) shareLogYTicks.push(v);
+      } else {
+        // 5% breathing room above + below so the line never sits on the
+        // top/bottom rule. Falls back to a [0, slMax] band when slMin
+        // approaches zero so the axis still makes sense.
+        const span = Math.max(slMax - slMin, slMax * 0.1, 1e-6);
+        shareLogYTicks = niceYTicks(
+          Math.max(0, slMin - span * 0.1),
+          slMax + span * 0.1,
+          5,
+        );
+      }
       shareLogYMin = shareLogYTicks[0] ?? 0;
       shareLogYMax = shareLogYTicks[shareLogYTicks.length - 1] ?? 1;
     }
