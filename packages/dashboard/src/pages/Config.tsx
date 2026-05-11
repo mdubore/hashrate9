@@ -957,14 +957,14 @@ function ConfigTabsAndContent({
 
   return (
     <div className="space-y-4">
-      {/* Tab bar + search on a single row. Tabs scroll horizontally on
-          narrow viewports (scrollbar hidden so wide screens don't show
-          an empty track); the search input sits at the right end and
-          shrinks down on small screens via max-w. The bottom border
-          spans the full row so the active-tab underline still anchors
-          to it. */}
-      <div className="flex items-center gap-3 border-b border-slate-700">
-        <div className="flex gap-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {/* Tab bar + search. On `sm+` they sit side-by-side on one row;
+          on mobile the search drops below the tab strip at full width
+          so the tabs get their own scrollable lane without competing
+          for width with a 160px-wide search box. The bottom border
+          spans the tab strip only (search is its own row on mobile)
+          so the active-tab underline still anchors to it. */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+        <div className="flex gap-0 overflow-x-auto border-b border-slate-700 [scrollbar-width:thin] sm:[scrollbar-width:none] sm:[&::-webkit-scrollbar]:hidden">
           {TAB_ORDER.map((id) => (
             <button
               key={id}
@@ -980,7 +980,7 @@ function ConfigTabsAndContent({
             </button>
           ))}
         </div>
-        <div className="relative ml-auto pb-1 w-full max-w-[10rem] sm:max-w-[12rem]">
+        <div className="relative sm:ml-auto sm:pb-1 w-full sm:max-w-[12rem]">
           <input
             type="search"
             placeholder={t`Search settings...`}

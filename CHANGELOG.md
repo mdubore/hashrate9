@@ -2,6 +2,10 @@
 
 ## 2026-05-11 · v1.6.0
 
+### `[UI]` Mobile responsiveness pass 1: Status Solo-miners card + Config tab strip (#155)
+
+First pass on the dashboard's mobile layout after the operator surfaced multiple breakages on phone-sized viewports. **Solo miners card**: the 9-column table couldn't shrink below ~450 px without truncating values, so on iPhone-class 375 px widths the right side fell off the screen. Now renders one card per device with stacked key/value pairs under 640 px (`sm`), and switches to the existing table layout at `sm+`. The fleet-summary row gets its own card on mobile too. Wrapper changed from `overflow-hidden` to `overflow-x-auto` for the table-mode case so even at the breakpoint boundary nothing gets clipped. **Config tab strip**: was one row of `[tabs ............ search]` with the search at `max-w-[10rem]` competing for width; the tab strip's horizontal scrollbar was suppressed which left mobile operators with no visual cue that there are tabs past the visible two. Now stacks `flex-col sm:flex-row` so the tabs get their own scrollable lane with the scrollbar visible on touch devices (`scrollbar-width: thin`), and the search drops below at full width. More mobile fixes likely needed after operator screenshots; this is the first structural pass.
+
 ### `[UI]` Solo-miners device row: re-laid-out columns + trash icon (#155)
 
 Reordered the per-device row in Config → Display & Logging → Solo miners. New column order: **On** (checkbox, leftmost, narrow) → **Label** (widest, the most editable field) → **IP / host** (medium, fixed-width) → trash icon (right-aligned, no whitespace gap). Replaces the text "remove" button with a single-glyph trash icon; the destructive confirm() dialog is preserved. The checkbox + trash icon now both carry tooltips spelling out the distinction operator hit in conversation: checkbox = pause polling without losing the row, trash = delete permanently. The functional pause-vs-delete semantics are unchanged - just made discoverable from the UI. NL ("Aan" / "Apparaat verwijderen") and ES ("Activo" / "Eliminar dispositivo") translations included.

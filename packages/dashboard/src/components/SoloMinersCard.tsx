@@ -75,7 +75,20 @@ export function SoloMinersCard() {
       <h3 className="text-xs uppercase tracking-wider text-slate-100 mb-2">
         <Trans>Solo miners</Trans>
       </h3>
-      <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
+
+      {/* Mobile-only stacked card layout: one card per device with
+          key/value rows. The 9-column table below is hidden under
+          640px because squeezing it forced text-[10px] tick labels
+          and still pushed past the right margin on iPhone-class
+          widths. */}
+      <div className="sm:hidden space-y-2">
+        {entries.map((e) => (
+          <DeviceMobileCard key={e.device.id} entry={e} fmt={fmt} />
+        ))}
+        <FleetMobileSummary fleet={fleet} entries={entries} />
+      </div>
+
+      <div className="hidden sm:block bg-slate-900 border border-slate-800 rounded-lg overflow-x-auto">
         <table className="w-full text-xs">
           <thead className="text-slate-500 uppercase tracking-wider bg-slate-950/40">
             <tr>
@@ -371,4 +384,145 @@ function computeRejectionPct(
   const total = accepted + rejected;
   if (total <= 0) return null;
   return (rejected / total) * 100;
+}
+
+// ---------------------------------------------------------------------
+// Mobile (< sm): card-per-device layout. The desktop table at 9 columns
+// can't shrink below ~450px without truncating values; on iPhone-class
+// 375px widths the only legible representation is stacking each device
+// into its own card with key/value pairs.
+// ---------------------------------------------------------------------
+
+function DeviceMobileCard({
+  entry,
+  fmt,
+}: {
+  entry: SoloMinerSnapshotEntry;
+  fmt: ReturnType<typeof useFormatters>;
+}) {
+  const rejectionPct = computeRejectionPct(entry.shares_accepted, entry.shares_rejected);
+  const liveGhs = liveHashrateGhs(entry);
+  return (
+    <div className="bg-slate-900 border border-slate-800 rounded-lg p-3 text-xs">
+      <div className="flex items-baseline justify-between mb-2">
+        <div className="min-w-0 flex-1 pr-2">
+          <div className="text-slate-200 truncate">{entry.device.label}</div>
+          <div className="text-[10px] text-slate-500 font-mono truncate">
+            {entry.device.ip}
+            {entry.asic_model && <span className="ml-2">{entry.asic_model}</span>}
+          </div>
+        </div>
+        <div className="text-[10px] text-slate-500 font-mono whitespace-nowrap">
+          {fmt.timestamp(entry.last_polled_at)}
+        </div>
+      </div>
+      {!entry.reachable ? (
+        <div className="text-red-300 text-[11px] italic">
+          {entry.error ? t`unreachable: ${entry.error}` : t`unreachable`}
+        </div>
+      ) : (
+        <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+          <MobileStat
+            label={t`Hashrate`}
+            value={liveGhs !== null ? formatGhs(liveGhs) : '-'}
+          />
+          <MobileStat
+            label={t`Best diff`}
+            value={entry.best_diff_text ?? '-'}
+          />
+          <MobileStat
+            label={t`Temp`}
+            value={entry.temp_c !== null ? `${entry.temp_c.toFixed(1)} °C` : '-'}
+            valueClass={tempClass(entry.temp_c)}
+          />
+          <MobileStat
+            label={t`VR temp`}
+            value={
+              entry.vr_temp_c !== null && entry.vr_temp_c !== 0
+                ? `${entry.vr_temp_c.toFixed(1)} °C`
+                : '-'
+            }
+            valueClass={tempClass(entry.vr_temp_c)}
+          />
+          <MobileStat
+            label={t`Power`}
+            value={entry.power_w !== null ? `${entry.power_w.toFixed(1)} W` : '-'}
+          />
+          <MobileStat
+            label={t`Rejected`}
+            value={rejectionPct !== null ? `${rejectionPct.toFixed(2)} %` : '-'}
+            valueClass={rejectionClass(rejectionPct)}
+          />
+          <MobileStat
+            label={t`Uptime`}
+            value={entry.uptime_seconds !== null ? formatUptime(entry.uptime_seconds) : '-'}
+          />
+        </dl>
+      )}
+    </div>
+  );
+}
+
+function MobileStat({
+  label,
+  value,
+  valueClass,
+}: {
+  label: string;
+  value: string;
+  valueClass?: string;
+}) {
+  return (
+    <div className="flex items-baseline justify-between gap-2 min-w-0">
+      <dt className="text-slate-500 uppercase tracking-wider text-[10px]">{label}</dt>
+      <dd
+        className={`font-mono truncate ${valueClass ?? 'text-slate-200'}`}
+      >
+        {value}
+      </dd>
+    </div>
+  );
+}
+
+function FleetMobileSummary({
+  fleet,
+  entries,
+}: {
+  fleet: FleetTotals;
+  entries: ReadonlyArray<SoloMinerSnapshotEntry>;
+}) {
+  return (
+    <div className="bg-slate-950/40 border border-slate-700 rounded-lg p-3 text-xs">
+      <div className="text-slate-300 font-semibold mb-2">
+        <Trans>Fleet</Trans>{' '}
+        <span className="text-slate-500 text-[10px] font-normal">
+          ({fleet.active_count}/{entries.length} <Trans>active</Trans>)
+        </span>
+      </div>
+      <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+        <MobileStat
+          label={t`Hashrate`}
+          value={
+            fleet.total_hashrate_ghs !== null ? formatGhs(fleet.total_hashrate_ghs) : '-'
+          }
+        />
+        <MobileStat
+          label={t`Best diff`}
+          value={fleet.best_diff_text ?? '-'}
+        />
+        <MobileStat
+          label={t`Power`}
+          value={fleet.total_power_w !== null ? `${fleet.total_power_w.toFixed(1)} W` : '-'}
+        />
+        <MobileStat
+          label={t`Efficiency`}
+          value={
+            fleet.efficiency_j_per_th !== null
+              ? `${fleet.efficiency_j_per_th.toFixed(1)} J/TH`
+              : '-'
+          }
+        />
+      </dl>
+    </div>
+  );
 }
