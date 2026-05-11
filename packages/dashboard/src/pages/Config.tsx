@@ -964,7 +964,14 @@ function ConfigTabsAndContent({
           spans the tab strip only (search is its own row on mobile)
           so the active-tab underline still anchors to it. */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-        <div className="flex gap-0 overflow-x-auto border-b border-slate-700 [scrollbar-width:thin] sm:[scrollbar-width:none] sm:[&::-webkit-scrollbar]:hidden">
+        {/* On mobile we wrap the tabs (so all four are visible at once
+            as a 2x2 grid - the operator couldn't tell there was a
+            fourth tab when the strip was a horizontally-scrolling lane).
+            On sm+ we revert to single-row + horizontal scroll. The
+            touch-action: pan-x on the scrolling variant kills the
+            vertical-drag bug where the strip bounced under finger
+            scroll on iOS. */}
+        <div className="flex flex-wrap sm:flex-nowrap gap-0 border-b border-slate-700 sm:overflow-x-auto sm:[scrollbar-width:none] sm:[&::-webkit-scrollbar]:hidden sm:[touch-action:pan-x]">
           {TAB_ORDER.map((id) => (
             <button
               key={id}
@@ -1444,7 +1451,7 @@ function BlockFoundSoundExtras({
         <span className="block text-sm text-slate-300 mb-1">
           <Trans>Sound</Trans>
         </span>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <select
             value={choice}
             onChange={(e) =>
@@ -1453,7 +1460,7 @@ function BlockFoundSoundExtras({
                 e.target.value as AppConfig['block_found_sound'],
               )
             }
-            className="flex-1 bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm"
+            className="flex-1 min-w-[12rem] bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm"
           >
             {SOUND_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -1907,8 +1914,12 @@ function SoloMinersSection({
               </h4>
               <ScanLocalNetworkButton />
             </div>
-            <div className="flex flex-wrap gap-2 items-end">
-              <label className="block flex-1 min-w-[12rem]">
+            {/* Mobile: stack the three children vertically so both
+                inputs get full width (was: asymmetric wrap with Label
+                clipped to ~192px and IP at ~280px, plus the Add
+                button on a third row). sm+: side-by-side row. */}
+            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:items-end">
+              <label className="block w-full sm:flex-1 sm:min-w-[12rem]">
                 <span className="block text-[11px] text-slate-500 mb-0.5">
                   <Trans>Label</Trans>
                 </span>
@@ -1920,7 +1931,7 @@ function SoloMinersSection({
                   className="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1 text-sm"
                 />
               </label>
-              <label className="block flex-1 min-w-[12rem]">
+              <label className="block w-full sm:flex-1 sm:min-w-[12rem]">
                 <span className="block text-[11px] text-slate-500 mb-0.5">
                   <Trans>IP / host</Trans>
                 </span>
@@ -1936,7 +1947,7 @@ function SoloMinersSection({
                 type="button"
                 onClick={() => createMutation.mutate()}
                 disabled={createMutation.isPending || !newLabel.trim() || !newIp.trim()}
-                className="px-3 py-1 text-sm bg-amber-500/20 border border-amber-500 text-amber-200 rounded hover:bg-amber-500/30 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="px-3 py-1 text-sm bg-amber-500/20 border border-amber-500 text-amber-200 rounded hover:bg-amber-500/30 disabled:opacity-40 disabled:cursor-not-allowed self-stretch sm:self-auto"
               >
                 {createMutation.isPending ? <Trans>adding…</Trans> : <Trans>Add</Trans>}
               </button>
@@ -2417,13 +2428,13 @@ function NotificationsSection({
           <span className="block text-sm text-slate-300 mb-1">
             <Trans>Chat ID</Trans>
           </span>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <input
               type="text"
               value={draft.telegram_chat_id ?? ''}
               onChange={(e) => onChange('telegram_chat_id', e.target.value as never)}
               placeholder="123456789"
-              className="flex-1 bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm font-mono"
+              className="flex-1 min-w-[12rem] bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm font-mono"
             />
             <button
               type="button"
@@ -2861,10 +2872,16 @@ function EventClassSubscriptions({
           (muted ? 'border-slate-800 opacity-60' : 'border-slate-800')
         }
       >
-        <div className="flex items-center gap-2">
+        {/* flex-wrap: on narrow viewports the severity pill + Test
+            button drop to a second row underneath the checkbox+label,
+            instead of squeezing the label or overflowing the right
+            margin. `flex-1` on the label still claims remaining space
+            so labels with inline minute inputs (e.g. wallet runway)
+            don't shrink unnecessarily on wide screens. */}
+        <div className="flex flex-wrap items-center gap-2">
           <label
             className={
-              'flex items-center gap-2 flex-1 ' +
+              'flex items-center gap-2 flex-1 min-w-0 ' +
               (muted ? 'cursor-default' : 'cursor-pointer')
             }
           >
@@ -2873,7 +2890,7 @@ function EventClassSubscriptions({
               checked={tile.enabled}
               onChange={(e) => tile.setEnabled(e.target.checked)}
               disabled={muted}
-              className="accent-amber-400 h-4 w-4"
+              className="accent-amber-400 h-4 w-4 flex-shrink-0"
             />
             <span className="text-sm text-slate-100 font-semibold">
               {tile.label}
@@ -3378,12 +3395,12 @@ function BitcoindRpcFields({
           <span className="block text-sm text-slate-300 mb-1">
             <Trans>Bitcoin Core RPC URL</Trans>
           </span>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <input
               type="text"
               value={draft.bitcoind_rpc_url ?? ''}
               onChange={(e) => onChange('bitcoind_rpc_url', e.target.value as never)}
-              className="flex-1 bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm font-mono"
+              className="flex-1 min-w-[12rem] bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm font-mono"
             />
             <button
               type="button"
@@ -4000,14 +4017,14 @@ function DdnsCredentialFields({
         <span className="block text-sm text-slate-300 mb-1">
           <Trans>Hostname</Trans>
         </span>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <input
             type="text"
             value={draft.ddns_hostname}
             onChange={(e) => onChange('ddns_hostname', e.target.value as never)}
             placeholder="myhomerig.duckdns.org"
             autoComplete="off"
-            className="flex-1 bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm font-mono"
+            className="flex-1 min-w-[12rem] bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm font-mono"
           />
           <button
             type="button"
