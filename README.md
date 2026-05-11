@@ -176,6 +176,19 @@ Full design: [`docs/spec.md`](docs/spec.md) · [`docs/architecture.md`](docs/arc
   walkthrough at [`docs/setup-telegram.md`](docs/setup-telegram.md). The notifier is structured around a
   `NotificationSink` interface so a future Nostr / ntfy / email backend can slot in without touching the
   event detectors. Audit trail at the dedicated `/alerts` page.
+- **Solo-mining monitoring (Bitaxe / AxeOS)** - optional fleet monitor for home Bitaxe / Nerdaxe / ESP-Miner
+  units alongside the autopilot's rented Braiins hashrate. When enabled, the daemon polls each registered
+  device's `/api/system/info` every tick (2 s per-device timeout, parallel poll so one unreachable unit
+  doesn't block the rest). Per-device readings on the Status page: hashrate, ASIC + VR temperature, power
+  draw, share-rejection rate, best-ever-difficulty, uptime. Fleet footer aggregates total hashrate, total
+  watts, J/TH efficiency, and active-device count. Four Telegram event classes (all IMPORTANT, independently
+  opt-out-able): **overheating** (per-ASIC-model thermal ceiling - BM1370 / BM1368 / BM1366 / BM1397
+  defaults built in, with a global override), **zero hashrate / unreachable**, **share-rejection
+  high** (rolling-window threshold), and **stratum URL drift** (firmware silently re-pointed at a
+  different pool). Device management lives in Config -> Display & Logging -> Solo miners; a
+  "Scan local network" button probes the daemon's /24 subnet and returns AxeOS-shaped responders so
+  adding a fleet doesn't require typing every IP. Master `solo_mining_enabled` toggle defaults off and
+  hides the Status card + alerts when disabled.
 - **Block-found audible cue** - optional sound when Ocean credits your address with a new pool block. Four
   bundled cues (cowbell, glass-drop-and-roll, two metallic clanks) plus custom MP3 / OGG / WAV / WebM
   upload up to 200 KB. Plays once per new block; the dashboard tab needs to be open.
@@ -199,12 +212,13 @@ trail at `/alerts`.
 
 ![Alerts page - audit trail of every notification](docs/images/alerts.jpg)
 
-Events render as collapsible cards grouped into three buckets: **OPEN** (firing, not yet seen),
-**ACKNOWLEDGED** (you've clicked seen but the bad state hasn't cleared, or it's an INFO one-shot
-like pool-block-credited that has no recovery), and **RESOLVED** (recovery message has paired in).
-Open cards render expanded by default; the other two collapse to a header. A free-text search box
-filters across titles + bodies with hit-highlighting. Filter "unacknowledged only" is sticky across
-reloads, "mark all as seen" clears the OPEN bucket with a single click. Each Telegram firing carries
+Events render as collapsible cards grouped into two sections: **OPEN** (firing, not yet seen) and
+**Acknowledged and resolved** (one chronological bucket for both acked-not-recovered events and
+recovery-paired events, sorted newest-first by firing time). The per-card right-side pill keeps the
+state distinction visible per row: emerald `RESOLVED` vs slate `ACKNOWLEDGED · {age}`. Open cards
+render expanded by default; the merged bucket collapses to a header. A free-text search box filters
+across titles + bodies with hit-highlighting. Filter "unacknowledged only" is sticky across reloads,
+"mark all as seen" clears the OPEN bucket with a single click. Each Telegram firing carries
 an inline **Mark as seen** button; tapping it on your phone routes back through the bot's
 `getUpdates` long-poll and updates the row server-side, so the dashboard badge clears even without
 opening the page. The badge on the nav tab counts only unacknowledged IMPORTANT/WARNING firings;

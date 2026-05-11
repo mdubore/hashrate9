@@ -293,6 +293,18 @@ all three series on the same cadence.
 - `chart_max_markers` - cap on bid-event markers rendered on the Price chart (#123). Over the cap, `EDIT_PRICE` markers drop first since they're the high-frequency, low-information class. Default 0 = no cap.
 - `spent_scope` - `'autopilot'` | `'account'` (default). Drives the P&L panel's "spent" figure: autopilot-tagged bids only, vs the whole Braiins account ledger. Live-editable from the Pool & Payout tab.
 
+**Solo-mining monitoring (optional, #149):**
+
+- `solo_mining_enabled` - master toggle. Default `false`. When off, the AxeOS poller doesn't run, the Status card is hidden, and the four solo-mining alert classes never fire. The device list in the `solo_miners` table is preserved across toggles so re-enabling later doesn't require re-entering IPs.
+- `solo_overheating_global_ceiling_c` - global thermal ceiling override (°C). Default 0 = use per-ASIC-model lookup (BM1370 68 °C, BM1368 / BM1366 70 °C, BM1397 75 °C, fallback 70 °C). Any non-zero value here overrides every per-model default.
+- `solo_overheating_alert_after_seconds` - how long temperature must exceed the ceiling before the alert fires. Default 90.
+- `solo_zero_hashrate_alert_after_minutes` - how many consecutive zero-hashrate (or unreachable) minutes trigger the alert. Default 5.
+- `solo_share_rejection_threshold_pct` - rolling-window rejection-rate threshold. Default 10.
+- `solo_share_rejection_window_minutes` - rolling-window length for the rejection-rate computation. Default 60.
+- `solo_stratum_drift_alert_enabled` - boolean; when true, fires when a device's `stratumURL` changes from the previously-observed value. Baselined silently on first poll so adding a device doesn't fire a spurious drift alert. Default `true`.
+
+Per-device fields (`solo_miners` table, not on `config`): `id`, `label`, `ip` (IPv4 or hostname), `enabled` (per-device pause without losing the row), per-ASIC ceiling override (rarely set), creation timestamp. Add / remove / pause through Config -> Display & Logging -> Solo miners; a "Scan local network" button there probes the daemon's /24 subnet and returns AxeOS-shaped responders so adding a fleet doesn't require typing every IP.
+
 **Integrations:**
 
 - `btc_payout_address`
@@ -413,9 +425,16 @@ IMPORTANT severity (9) - hard outages that need a phone alarm:
 7. **Bid sustained-paused by Braiins** for `sustained_paused_alert_after_minutes` (#135 - was `pool_outage_blip_tolerance_seconds × 5`; now an independent knob).
 8. **Braiins deposit returned** - compliance bounced a deposit back (`return_tx_id` non-null on the on-chain endpoint). Real money on the line.
 
+IMPORTANT severity (solo-mining, active only when `solo_mining_enabled = true` and the device is `enabled`) (#149):
+
+9. **Solo overheating** - ASIC or VR temp >= the configured ceiling (per-ASIC-model defaults: BM1370 68 °C, BM1368 / BM1366 70 °C, BM1397 75 °C, fallback 70 °C; overridable by a global non-zero value in `solo_overheating_global_ceiling_c`) for `solo_overheating_alert_after_seconds`. Paired recovery when both temps fall back below the ceiling.
+10. **Solo zero hashrate** - device unreachable OR hashrate = 0 for `solo_zero_hashrate_alert_after_minutes` consecutive minutes. Paired recovery.
+11. **Solo share-rejection** - rolling-window rejection rate >= `solo_share_rejection_threshold_pct` over `solo_share_rejection_window_minutes`. Re-arms once per window length; no recovery row.
+12. **Solo stratum URL drift** - device's reported `stratumURL` changed from the previously-observed value. Baselined silently on first poll so adding a device doesn't fire a spurious drift alert. No recovery row (new URL becomes the new baseline).
+
 WARNING severity - soft warnings that can wait for the next dashboard glance:
 
-9. **Beta-exit detected** - any active owned bid reports `fee_rate_pct > 0`.
+13. **Beta-exit detected** - any active owned bid reports `fee_rate_pct > 0`.
 
 INFO severity (opt-in, good news + lifecycle):
 
@@ -446,7 +465,7 @@ Total: at most 5 alert messages per outage event + 1 recovery message.
 
 **Mute and ack:**
 
-- **Global mute** (`notifications_muted` config flag): silences all Telegram POSTs; alerts table still records every row with `delivery_status = 'muted'` for the audit trail.
+- **Global mute** (`notifications_muted` config flag): silences all Telegram POSTs; alerts table still records every row with `delivery_status = 'muted'` for the audit trail. **End-to-end**: also stops the `TelegramReceiver`'s `getUpdates` long-poll (#152) - the receiver re-checks credentials each loop iteration so the toggle takes effect within ~15 s, no restart needed. Matters when multiple daemon instances share the same bot/chat: `getUpdates` is single-consumer per bot, so a muted instance left polling would race-consume ack callbacks meant for the live instance.
 - **Per-event-class opt-out** (`notification_disabled_event_classes`, #106): operator picks specific event classes to silence (Datum unreachable, hashrate below floor, beta-exit, ...) from the Notifications tab on the Config page. New event classes default to enabled - no migration required when adding one.
 - **Inline ack on the Telegram message** (#109): every IMPORTANT / WARNING firing carries a `Mark as seen` inline-keyboard button. Tapping on the operator's phone sets `acknowledged_at_ms` server-side via the bot's long-polled `getUpdates` (no webhook, works behind home NAT), edits the message in place to confirm, and removes the keyboard. Single-operator security: callbacks from any chat that isn't the configured `chat_id` are rejected.
 - **Per-instance label prefix** (`telegram_instance_label`): when set, the Telegram sink prefixes every message with `[<label>] ` so an operator running multiple daemons against the same bot/chat can tell them apart at a glance.
@@ -582,13 +601,13 @@ Reorganised in v1.5.0 (#107) from a single long-scroll form into **four tabs** w
 | **Strategy** | Hashrate targets, Pricing (fillable-tracking overpay + two safety ceilings + cheap-mode), Budget, Daemon startup |
 | **Pool & Payout** | Pool destination + Test connection button, Datum stats API + Test connection button, Dynamic DNS (provider + hostname + credentials + Test connection button + diagnostic IPs - daemon's public IP, hostname resolves to, match/mismatch note), Payout source (none / electrs / bitcoind + Test connection buttons), Profit & Loss scope, BTC price oracle |
 | **Notifications** | Telegram bot token + chat ID + Test connection button, instance label, mute toggle, retry interval, wallet-runway threshold, per-event-class opt-out checklist, pool-block-credit toggle, block-found sound (off / bundled / custom upload) |
-| **Display & Logging** | Block explorer URL template + transaction URL template, chart smoothing (Braiins / Datum / Braiins price), log retention (tick metrics / decisions uneventful / decisions eventful) |
+| **Display & Logging** | Number format (separators) + Date layout (independent dropdowns; month names always follow the UI language picker - #147), block explorer URL template + transaction URL template, chart smoothing (Braiins / Datum / Braiins price), chart-markers cap, log retention (tick metrics / decisions uneventful / decisions eventful / alerts), Solo miners device list + alert thresholds (when `solo_mining_enabled = true`) |
 
 Saves go through the Zod `AppConfigInvariantsSchema` and take effect on the next tick - no daemon restart needed. PUT `/api/config` snapshots the previous config before upsert and fires `onConfigSaved` callbacks; main.ts wires that to refresh the live `cfgRefHolder.value` immediately AND, when any DDNS-relevant field changed, kick the DDNS updater once so a Pool URL / hostname / credential edit pushes within seconds rather than waiting on the next periodic poll.
 
 ### 12.3 Alerts page
 
-Dedicated `/alerts` page (#100 / #109 / #134 / #139): event-grouped audit trail of every alert the daemon evaluated. Events render as collapsible cards grouped into three buckets: **OPEN** (firing, not yet seen by the operator), **ACKNOWLEDGED** (operator clicked seen but the bad state hasn't cleared, or it's an INFO one-shot like pool-block-credited with no recovery semantics), and **RESOLVED** (recovery message has paired in via `paired_alert_id` FK). Open cards render expanded by default; the other two collapse to a header. A free-text search box filters across titles + bodies with hit-highlighting (#134). Sticky **Unacknowledged only** filter (persists per browser via localStorage). A **Mark all as seen (N)** bulk button next to the filter clears every unacked row in one click - server-side via `POST /api/alerts/acknowledge-all`. Telegram messages can also be acked in-place from the operator's phone via the inline-keyboard button (#109). A bottom-right **toast** appears in the dashboard the moment a new alert lands (#142), severity-coloured (red / amber / slate / emerald-for-resolved), with a 5 s auto-dismiss for INFO/recoveries and 15 s for the louder ones; clicking navigates to `/alerts`.
+Dedicated `/alerts` page (#100 / #109 / #134 / #139 / #153): event-grouped audit trail of every alert the daemon evaluated. Events render as collapsible cards grouped into two sections: **OPEN** (firing, not yet seen by the operator - drives the nav badge count) and **Acknowledged and resolved** (one chronological bucket for both acked-not-recovered rows and recovery-paired rows, sorted newest-first by firing time; the merge prevents the bucket boundary from breaking chronological order when a recent IMPORTANT recovery lands after an older INFO ack). The per-card right-side pill keeps the state distinction visible per row: emerald `RESOLVED` vs slate `ACKNOWLEDGED · {age}`. Open cards render expanded by default; the merged bucket collapses to a header. A free-text search box filters across titles + bodies with hit-highlighting (#134). Sticky **Unacknowledged only** filter (persists per browser via localStorage). A **Mark all as seen (N)** bulk button next to the filter clears every unacked row in one click - server-side via `POST /api/alerts/acknowledge-all`. Telegram messages can also be acked in-place from the operator's phone via the inline-keyboard button (#109). A bottom-right **toast** appears in the dashboard the moment a new alert lands (#142), severity-coloured (red / amber / slate / emerald-for-resolved), with a 5 s auto-dismiss for INFO/recoveries and 15 s for the louder ones; clicking navigates to `/alerts`.
 
 ### 12.4 Things the v1 spec listed but the current build does not ship
 

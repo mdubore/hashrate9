@@ -99,7 +99,11 @@ hashrate-autopilot/
 │   │   │   ├── notifier.ts         (#100 - NotificationSink interface + TelegramSink)
 │   │   │   ├── alert-manager.ts    (#100 - alerts table writer; retry ladder; recovery pairing)
 │   │   │   ├── alert-evaluator.ts  (#100 - per-tick state-diff that detects transitions)
-│   │   │   └── retention.ts        (hourly pruner for tick_metrics + decisions)
+│   │   │   ├── braiins-deposit-watcher.ts (#143 - on-chain endpoint poller; _available + _returned)
+│   │   │   ├── axeos.ts            (#149 - AxeOS REST client types + per-device fetch)
+│   │   │   ├── axeos-poller.ts     (#149 - per-tick fleet poll; Promise.allSettled; 2 s per-device timeout)
+│   │   │   ├── axeos-scanner.ts    (#149 - /24 subnet sweep for the "Scan local network" button)
+│   │   │   └── retention.ts        (hourly pruner for tick_metrics + decisions + alerts)
 │   │   ├── src/controller/
 │   │   │   ├── loop.ts             (tick driver)
 │   │   │   ├── tick.ts
@@ -487,6 +491,31 @@ concern (not by order; the file names are authoritative):
   `block_version_cache` table keyed on `block_hash`; #115 reassigned the
   shape so the gold crown is reserved for own-blocks and BIP 110 reads
   as a softer yellow cube).
+
+- **Telegram notifications, deposit lifecycle, and dead-column drops
+  (0062-0084):** the alerts table (0062, #100) with subsequent
+  per-event-class opt-out (0064), Telegram bot/chat config columns
+  (0063, 0070), DDNS (0067-0068), tx URL template (0071),
+  notify-on-pool-block-credit toggle (0073), alerts retention (0076),
+  chart-marker cap (0078), severity rename ERROR -> IMPORTANT (0079,
+  #129), `braiins_deposits` per-tx idempotency table (0080, #130 /
+  #143), notification_locale (0081, #131), split outage thresholds
+  (0082, #135), and the cleanup migrations that retired dead columns:
+  0083 drops `runtime_state.operator_available` (#148 - dead since
+  spec v1.1's action-mode-state-machine retirement), 0084 drops
+  `alerts.snoozed_until_ms` (#148 - snooze ripped in cc62951).
+
+- **Solo-mining monitoring (0085-0087, #149):** 0085 adds the
+  `solo_miners` device registry (label, IP/host, enabled flag,
+  per-ASIC overheating-ceiling override) and the `solo_miner_samples`
+  ring buffer (per-tick per-device hashrate, ASIC + VR temps, power,
+  share counters, stratum URL) plus the seven `config` columns
+  spec.md §8 covers (`solo_mining_enabled` and the six alert-tuning
+  knobs). 0086 adds `best_diff` / `best_session_diff` TEXT to
+  `solo_miner_samples` for the lifetime / session best-share-difficulty
+  surfaces. 0087 adds `hashrate_instant_ghs` to `solo_miner_samples`
+  for firmware variants that expose only the bare `hashRate` field
+  rather than the windowed `hashRate_10m` / `hashRate_1h` averages.
 
 ## 6. External integrations
 
