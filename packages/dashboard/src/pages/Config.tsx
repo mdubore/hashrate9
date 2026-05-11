@@ -1889,14 +1889,19 @@ function SoloMinersSection({
                         the destructive guardrail. */}
                     {/* Column widths: On checkbox (w-8) | Label
                         (uncapped flex with min-w-32) | IP / host
-                        (w-44, just enough for a 13-char IPv4 like
-                        "192.168.1.127" in monospace at text-xs - was
-                        w-36 which truncated the last octet on mobile)
-                        | trash (w-8). Label's min-width keeps it from
-                        being squeezed below 128px on narrow viewports. */}
+                        (w-52, comfortable margin for a 13-char IPv4
+                        like "192.168.1.127" in mono at text-xs - the
+                        iOS Safari mono renders chars ~12px each, so
+                        w-44 was still ~half-a-char short on mobile;
+                        w-52 = 208px usable ≈ 14-15 chars) | trash
+                        (w-8). Label keeps its min-w-[8rem] floor so
+                        the IP-column bump doesn't squeeze Label on
+                        narrow viewports - the table will scroll
+                        horizontally below ~440px viewport width
+                        which is acceptable vs permanent truncation. */}
                     <th className="text-left font-normal py-1 pr-3 w-8"><Trans>On</Trans></th>
                     <th className="text-left font-normal py-1 pr-3 min-w-[8rem]"><Trans>Label</Trans></th>
-                    <th className="text-left font-normal py-1 pr-3 w-44"><Trans>IP / host</Trans></th>
+                    <th className="text-left font-normal py-1 pr-3 w-52"><Trans>IP / host</Trans></th>
                     <th className="w-8"></th>
                   </tr>
                 </thead>

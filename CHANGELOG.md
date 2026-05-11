@@ -2,6 +2,10 @@
 
 ## 2026-05-11 · v1.6.0
 
+### `[UI]` Solo-miners IP/host column widened again from w-44 to w-52 (#156 follow-up)
+
+Operator's iOS Safari screenshot showed `192.168.1.127` still cutting off mid-character at w-44 (176px) - mobile mono renders chars wider than I'd estimated. Bumped to w-52 (208px) which gives ~14-15 chars of mono space, comfortable margin for the standard IPv4 lengths. Below ~440px viewport width the table now scrolls horizontally rather than truncating a valid IP - acceptable trade for an edit-only column.
+
 ### `[Docs]` Hero "delivered" tooltip + IP/host column widened to fit an IPv4 (#156)
 
 Two related polish items. (1) Hero `DELIVERED` number wrapped in a Tooltip explaining that it shows Braiins's `state_estimate.avg_speed_ph` (reacts to CREATE/EDIT_SPEED within ~3 min) while the Hashrate-chart orange line plots a different signal derived from the consumed-sat counter (Δconsumed / (bid × Δt)) - real billing, but lags because matched shares have to accumulate. The two read different numbers right after a capacity bump and that's working as intended (#52 chose the counter signal so the chart goes to zero correctly during a Datum outage). NL and ES translations included. (2) Solo-miners device-row IP/host column was at `w-36` (144px) which truncated `192.168.1.127` mid-octet on mobile. Bumped to `w-44` (176px) - one extra character of mono space. Label still has its `min-w-[8rem]` floor so the bump doesn't squeeze Label on narrow viewports.
