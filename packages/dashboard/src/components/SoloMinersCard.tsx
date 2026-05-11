@@ -71,6 +71,7 @@ export function SoloMinersCard() {
             <tr>
               <th className="text-left font-normal py-1.5 px-3"><Trans>Device</Trans></th>
               <th className="text-right font-normal py-1.5 px-3"><Trans>Hashrate</Trans></th>
+              <th className="text-right font-normal py-1.5 px-3"><Trans>Best diff</Trans></th>
               <th className="text-right font-normal py-1.5 px-3"><Trans>Temp</Trans></th>
               <th className="text-right font-normal py-1.5 px-3"><Trans>VR temp</Trans></th>
               <th className="text-right font-normal py-1.5 px-3"><Trans>Power</Trans></th>
@@ -95,6 +96,9 @@ export function SoloMinersCard() {
                   ? `${formatGhs(fleet.total_hashrate_ghs)}`
                   : '-'}
               </td>
+              <td className="py-1.5 px-3 text-right font-mono">
+                {fleet.best_diff_text ?? '-'}
+              </td>
               <td colSpan={2} className="py-1.5 px-3 text-right text-slate-500 text-[10px]">
                 {fleet.efficiency_j_per_th !== null
                   ? `${fleet.efficiency_j_per_th.toFixed(1)} J/TH`
@@ -117,6 +121,25 @@ interface FleetTotals {
   readonly total_power_w: number | null;
   readonly efficiency_j_per_th: number | null;
   readonly active_count: number;
+  readonly best_diff_text: string | null;
+}
+
+/**
+ * Pick the most useful hashrate reading from an entry. Prefer the
+ * smoothed 10m window when present, then 1m, then 1h, then the bare
+ * instantaneous reading. Older AxeOS firmware (and some current
+ * firmware on certain ASIC families) only populates the bare field;
+ * without this fallback the Status card renders "-" for reachable
+ * devices that are clearly mining (the operator caught this with
+ * three healthy units reporting null hashrate).
+ */
+export function liveHashrateGhs(entry: SoloMinerSnapshotEntry): number | null {
+  if (entry.hashrate_10m_ghs !== null && entry.hashrate_10m_ghs > 0) return entry.hashrate_10m_ghs;
+  if (entry.hashrate_1m_ghs !== null && entry.hashrate_1m_ghs > 0) return entry.hashrate_1m_ghs;
+  if (entry.hashrate_1h_ghs !== null && entry.hashrate_1h_ghs > 0) return entry.hashrate_1h_ghs;
+  if (entry.hashrate_instant_ghs !== null && entry.hashrate_instant_ghs > 0)
+    return entry.hashrate_instant_ghs;
+  return null;
 }
 
 function aggregateFleet(entries: ReadonlyArray<SoloMinerSnapshotEntry>): FleetTotals {
@@ -125,16 +148,26 @@ function aggregateFleet(entries: ReadonlyArray<SoloMinerSnapshotEntry>): FleetTo
   let active = 0;
   let hashSeen = false;
   let powerSeen = false;
+  let bestDiffNum = -Infinity;
+  let bestDiffText: string | null = null;
   for (const e of entries) {
     if (!e.reachable) continue;
-    if (e.hashrate_10m_ghs !== null && e.hashrate_10m_ghs > 0) {
-      hashSum += e.hashrate_10m_ghs;
+    const live = liveHashrateGhs(e);
+    if (live !== null && live > 0) {
+      hashSum += live;
       hashSeen = true;
       active += 1;
     }
     if (e.power_w !== null) {
       powerSum += e.power_w;
       powerSeen = true;
+    }
+    if (e.best_diff_text !== null) {
+      const parsed = parseMagnitudeSuffixed(e.best_diff_text);
+      if (parsed !== null && parsed > bestDiffNum) {
+        bestDiffNum = parsed;
+        bestDiffText = e.best_diff_text;
+      }
     }
   }
   const total_hashrate_ghs = hashSeen ? hashSum : null;
@@ -144,7 +177,37 @@ function aggregateFleet(entries: ReadonlyArray<SoloMinerSnapshotEntry>): FleetTo
     total_hashrate_ghs !== null && total_hashrate_ghs > 0 && total_power_w !== null
       ? total_power_w / (total_hashrate_ghs / 1000)
       : null;
-  return { total_hashrate_ghs, total_power_w, efficiency_j_per_th, active_count: active };
+  return {
+    total_hashrate_ghs,
+    total_power_w,
+    efficiency_j_per_th,
+    active_count: active,
+    best_diff_text: bestDiffText,
+  };
+}
+
+/**
+ * Parse an AxeOS magnitude-suffixed difficulty string like
+ * "149.53G", "225.68M", "1.77M" into a comparable number. Suffixes
+ * are SI-style ratios (K = 1e3 ... E = 1e18). Returns null for
+ * malformed inputs so the caller can decide whether to surface
+ * "-" or skip the device.
+ */
+function parseMagnitudeSuffixed(s: string): number | null {
+  const m = s.match(/^([\d.]+)([KMGTPE]?)$/i);
+  if (!m) return null;
+  const n = Number(m[1]);
+  if (!Number.isFinite(n)) return null;
+  const suffix = (m[2] ?? '').toUpperCase();
+  const mult =
+    suffix === 'K' ? 1e3
+    : suffix === 'M' ? 1e6
+    : suffix === 'G' ? 1e9
+    : suffix === 'T' ? 1e12
+    : suffix === 'P' ? 1e15
+    : suffix === 'E' ? 1e18
+    : 1;
+  return n * mult;
 }
 
 function DeviceRow({
@@ -161,7 +224,7 @@ function DeviceRow({
           <span className="text-slate-200">{entry.device.label}</span>{' '}
           <span className="text-slate-500 font-mono text-[10px]">{entry.device.ip}</span>
         </td>
-        <td colSpan={6} className="py-1.5 px-3 text-red-300 text-[11px] italic">
+        <td colSpan={7} className="py-1.5 px-3 text-red-300 text-[11px] italic">
           {entry.error
             ? t`unreachable: ${entry.error}`
             : t`unreachable`}
@@ -185,7 +248,20 @@ function DeviceRow({
         </div>
       </td>
       <td className="py-1.5 px-3 text-right font-mono">
-        {entry.hashrate_10m_ghs !== null ? formatGhs(entry.hashrate_10m_ghs) : '-'}
+        {(() => {
+          const v = liveHashrateGhs(entry);
+          return v !== null ? formatGhs(v) : '-';
+        })()}
+      </td>
+      <td
+        className="py-1.5 px-3 text-right font-mono"
+        title={
+          entry.best_session_diff_text
+            ? `session: ${entry.best_session_diff_text}`
+            : undefined
+        }
+      >
+        {entry.best_diff_text ?? '-'}
       </td>
       <td className={`py-1.5 px-3 text-right font-mono ${tempClass(entry.temp_c)}`}>
         {entry.temp_c !== null ? `${entry.temp_c.toFixed(1)} °C` : '-'}

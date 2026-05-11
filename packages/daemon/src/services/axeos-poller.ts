@@ -22,6 +22,8 @@ export interface SoloMinerSnapshotEntry {
   readonly device: SoloMinerRow;
   readonly last_polled_at: number;
   readonly reachable: boolean;
+  /** AxeOS `hashRate` (instantaneous). Fallback when windowed fields are null. */
+  readonly hashrate_instant_ghs: number | null;
   readonly hashrate_1m_ghs: number | null;
   readonly hashrate_10m_ghs: number | null;
   readonly hashrate_1h_ghs: number | null;
@@ -39,6 +41,10 @@ export interface SoloMinerSnapshotEntry {
   readonly stratum_url: string | null;
   readonly stratum_port: number | null;
   readonly stratum_user: string | null;
+  /** Lifetime best share difficulty (e.g. "149.53G"). */
+  readonly best_diff_text: string | null;
+  /** Since-current-boot best share difficulty. */
+  readonly best_session_diff_text: string | null;
   readonly error: string | null;
 }
 
@@ -116,6 +122,7 @@ export class AxeOSPoller {
         device,
         last_polled_at: tickAt,
         reachable: fetched.reachable,
+        hashrate_instant_ghs: info?.hashRate ?? null,
         hashrate_1m_ghs: info?.hashRate_1m ?? null,
         hashrate_10m_ghs: info?.hashRate_10m ?? null,
         hashrate_1h_ghs: info?.hashRate_1h ?? null,
@@ -133,6 +140,8 @@ export class AxeOSPoller {
         stratum_url: info?.stratumURL ?? null,
         stratum_port: info?.stratumPort ?? null,
         stratum_user: info?.stratumUser ?? null,
+        best_diff_text: info?.bestDiff ?? null,
+        best_session_diff_text: info?.bestSessionDiff ?? null,
         error: fetched.error,
       };
       entries.push(entry);
@@ -140,6 +149,7 @@ export class AxeOSPoller {
         device_id: device.id,
         tick_at: tickAt,
         reachable: entry.reachable,
+        hashrate_instant_ghs: entry.hashrate_instant_ghs,
         hashrate_1m_ghs: entry.hashrate_1m_ghs,
         hashrate_10m_ghs: entry.hashrate_10m_ghs,
         hashrate_1h_ghs: entry.hashrate_1h_ghs,
@@ -157,6 +167,8 @@ export class AxeOSPoller {
         stratum_url: entry.stratum_url,
         stratum_port: entry.stratum_port,
         stratum_user: entry.stratum_user,
+        best_diff_text: entry.best_diff_text,
+        best_session_diff_text: entry.best_session_diff_text,
       });
     }
 

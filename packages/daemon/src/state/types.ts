@@ -514,6 +514,8 @@ export interface SoloMinerSamplesTable {
   tick_at: number;
   /** 1 = HTTP succeeded; 0 = timeout / refused / non-2xx. All other columns may be null when 0. */
   reachable: 0 | 1;
+  /** AxeOS `hashRate` (instantaneous, no window). Fallback when the windowed fields are absent on older firmware. */
+  hashrate_instant_ghs: number | null;
   hashrate_1m_ghs: number | null;
   hashrate_10m_ghs: number | null;
   hashrate_1h_ghs: number | null;
@@ -531,6 +533,10 @@ export interface SoloMinerSamplesTable {
   stratum_url: string | null;
   stratum_port: number | null;
   stratum_user: string | null;
+  /** AxeOS `bestDiff` - lifetime best share difficulty for this device (magnitude-suffixed string e.g. "149.53G"). */
+  best_diff_text: string | null;
+  /** AxeOS `bestSessionDiff` - best share difficulty since current boot. */
+  best_session_diff_text: string | null;
 }
 
 export interface Database {

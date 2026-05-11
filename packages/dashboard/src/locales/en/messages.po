@@ -284,10 +284,16 @@ msgstr "Actual sat consumed over the last 3 h, scaled to a 24h rate. Uses Braiin
 msgid "Add"
 msgstr "Add"
 
+#. placeholder {0}: candidates.filter((c) => c.pick && !c.already_added).length
+#: src/pages/Config.tsx
+msgid "Add {0} selected"
+msgstr "Add {0} selected"
+
 #: src/pages/Config.tsx
 msgid "Add device"
 msgstr "Add device"
 
+#: src/pages/Config.tsx
 #: src/pages/Config.tsx
 msgid "adding…"
 msgstr "adding…"
@@ -313,6 +319,10 @@ msgstr "Alerts"
 #: src/components/PriceChart.tsx
 msgid "All markers were hidden because the count exceeded the configured chart-marker cap even after dropping EDIT_PRICE. Adjust the cap on Config → Display & Logging."
 msgstr "All markers were hidden because the count exceeded the configured chart-marker cap even after dropping EDIT_PRICE. Adjust the cap on Config → Display & Logging."
+
+#: src/pages/Config.tsx
+msgid "already added"
+msgstr "already added"
 
 #: src/pages/Config.tsx
 msgid "Always dry-run (safest)"
@@ -345,6 +355,10 @@ msgstr "API reachable"
 #: src/pages/Status.tsx
 msgid "API unreachable ({0})"
 msgstr "API unreachable ({0})"
+
+#: src/pages/Config.tsx
+msgid "ASIC"
+msgstr "ASIC"
 
 #: src/pages/Status.tsx
 msgid "At effective cap - desired fillable + overpay exceeds the ceiling."
@@ -463,6 +477,10 @@ msgstr "best ask"
 #: src/pages/Status.tsx
 msgid "best bid"
 msgstr "best bid"
+
+#: src/components/SoloMinersCard.tsx
+msgid "Best diff"
+msgstr "Best diff"
 
 #: src/pages/Config.tsx
 msgid "Beta-exit detected"
@@ -702,6 +720,10 @@ msgstr "calculating…"
 #: src/components/PriceChart.tsx
 msgid "cancel"
 msgstr "cancel"
+
+#: src/pages/Config.tsx
+msgid "Cancel"
+msgstr "Cancel"
 
 #: src/components/PriceChart.tsx
 msgid "CANCEL"
@@ -1416,6 +1438,7 @@ msgstr "hashprice + max overpay"
 #: src/components/HashrateChart.tsx
 #: src/components/HashrateChart.tsx
 #: src/components/SoloMinersCard.tsx
+#: src/pages/Config.tsx
 msgid "Hashrate"
 msgstr "Hashrate"
 
@@ -1545,6 +1568,10 @@ msgid "insufficient history"
 msgstr "insufficient history"
 
 #: src/pages/Config.tsx
+msgid "IP"
+msgstr "IP"
+
+#: src/pages/Config.tsx
 #: src/pages/Config.tsx
 msgid "IP / host"
 msgstr "IP / host"
@@ -1565,6 +1592,7 @@ msgstr "Keep the Pool URL's hostname pointed at this box's current public IP. Re
 msgid "Keep whatever run mode was active before the restart. PAUSED is demoted to DRY_RUN."
 msgstr "Keep whatever run mode was active before the restart. PAUSED is demoted to DRY_RUN."
 
+#: src/pages/Config.tsx
 #: src/pages/Config.tsx
 #: src/pages/Config.tsx
 msgid "Label"
@@ -1846,6 +1874,10 @@ msgstr "no alerts matching the filter."
 #: src/pages/Config.tsx
 msgid "No auto-prune; growing ~ {dailyStr}/day"
 msgstr "No auto-prune; growing ~ {dailyStr}/day"
+
+#: src/pages/Config.tsx
+msgid "No AxeOS devices found on the local subnet."
+msgstr "No AxeOS devices found on the local subnet."
 
 #: src/pages/Status.tsx
 msgid "no bids on this account"
@@ -2603,13 +2635,25 @@ msgstr "Scan"
 msgid "Scan failed:"
 msgstr "Scan failed:"
 
+#: src/pages/Config.tsx
+msgid "Scan local network"
+msgstr "Scan local network"
+
 #: src/components/Bip110ScanCard.tsx
 msgid "Scan recent blocks for <0>BIP 110</0> (Reduced Data Temporary Softfork) signaling."
 msgstr "Scan recent blocks for <0>BIP 110</0> (Reduced Data Temporary Softfork) signaling."
 
+#: src/pages/Config.tsx
+msgid "Scan results"
+msgstr "Scan results"
+
 #: src/components/Bip110ScanCard.tsx
 msgid "scanned"
 msgstr "scanned"
+
+#: src/pages/Config.tsx
+msgid "scanning…"
+msgstr "scanning…"
 
 #: src/components/Bip110ScanCard.tsx
 msgid "Scanning…"

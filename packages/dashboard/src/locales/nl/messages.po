@@ -284,10 +284,16 @@ msgstr "Werkelijk verbruikte sat over de laatste 3 u, geschaald naar een 24u-tem
 msgid "Add"
 msgstr "Toevoegen"
 
+#. placeholder {0}: candidates.filter((c) => c.pick && !c.already_added).length
+#: src/pages/Config.tsx
+msgid "Add {0} selected"
+msgstr "{0} geselecteerde toevoegen"
+
 #: src/pages/Config.tsx
 msgid "Add device"
 msgstr "Apparaat toevoegen"
 
+#: src/pages/Config.tsx
 #: src/pages/Config.tsx
 msgid "adding…"
 msgstr "bezig met toevoegen…"
@@ -313,6 +319,10 @@ msgstr "Meldingen"
 #: src/components/PriceChart.tsx
 msgid "All markers were hidden because the count exceeded the configured chart-marker cap even after dropping EDIT_PRICE. Adjust the cap on Config → Display & Logging."
 msgstr "Alle markers zijn verborgen omdat het aantal zelfs na het weglaten van EDIT_PRICE de ingestelde grafiek-markerlimiet overschreed. Pas de limiet aan op Config → Display & Logging."
+
+#: src/pages/Config.tsx
+msgid "already added"
+msgstr "al toegevoegd"
 
 #: src/pages/Config.tsx
 msgid "Always dry-run (safest)"
@@ -345,6 +355,10 @@ msgstr "API bereikbaar"
 #: src/pages/Status.tsx
 msgid "API unreachable ({0})"
 msgstr "API onbereikbaar ({0})"
+
+#: src/pages/Config.tsx
+msgid "ASIC"
+msgstr "ASIC"
 
 #: src/pages/Status.tsx
 msgid "At effective cap - desired fillable + overpay exceeds the ceiling."
@@ -463,6 +477,10 @@ msgstr "beste vraagprijs"
 #: src/pages/Status.tsx
 msgid "best bid"
 msgstr "beste bod"
+
+#: src/components/SoloMinersCard.tsx
+msgid "Best diff"
+msgstr "Beste diff"
 
 #: src/pages/Config.tsx
 msgid "Beta-exit detected"
@@ -702,6 +720,10 @@ msgstr "berekenen…"
 #: src/components/PriceChart.tsx
 msgid "cancel"
 msgstr "annuleren"
+
+#: src/pages/Config.tsx
+msgid "Cancel"
+msgstr "Annuleren"
 
 #: src/components/PriceChart.tsx
 msgid "CANCEL"
@@ -1416,6 +1438,7 @@ msgstr "hashprice + max toeslag"
 #: src/components/HashrateChart.tsx
 #: src/components/HashrateChart.tsx
 #: src/components/SoloMinersCard.tsx
+#: src/pages/Config.tsx
 msgid "Hashrate"
 msgstr "Hashrate"
 
@@ -1545,6 +1568,10 @@ msgid "insufficient history"
 msgstr "onvoldoende geschiedenis"
 
 #: src/pages/Config.tsx
+msgid "IP"
+msgstr "IP"
+
+#: src/pages/Config.tsx
 #: src/pages/Config.tsx
 msgid "IP / host"
 msgstr "IP / host"
@@ -1565,6 +1592,7 @@ msgstr "Houd de hostnaam in de Pool URL verwezen naar het huidige publieke IP va
 msgid "Keep whatever run mode was active before the restart. PAUSED is demoted to DRY_RUN."
 msgstr "Behoud de run-modus die actief was vóór de herstart. PAUSED wordt teruggezet naar DRY_RUN."
 
+#: src/pages/Config.tsx
 #: src/pages/Config.tsx
 #: src/pages/Config.tsx
 msgid "Label"
@@ -1846,6 +1874,10 @@ msgstr "geen meldingen die aan het filter voldoen."
 #: src/pages/Config.tsx
 msgid "No auto-prune; growing ~ {dailyStr}/day"
 msgstr "Geen automatische opruiming; groeit ~ {dailyStr}/dag"
+
+#: src/pages/Config.tsx
+msgid "No AxeOS devices found on the local subnet."
+msgstr "Geen AxeOS-apparaten gevonden op het lokale subnet."
 
 #: src/pages/Status.tsx
 msgid "no bids on this account"
@@ -2603,13 +2635,25 @@ msgstr "Scannen"
 msgid "Scan failed:"
 msgstr "Scan mislukt:"
 
+#: src/pages/Config.tsx
+msgid "Scan local network"
+msgstr "Lokaal netwerk scannen"
+
 #: src/components/Bip110ScanCard.tsx
 msgid "Scan recent blocks for <0>BIP 110</0> (Reduced Data Temporary Softfork) signaling."
 msgstr "Scan recente blokken op <0>BIP 110</0> (Reduced Data Temporary Softfork) signalering."
 
+#: src/pages/Config.tsx
+msgid "Scan results"
+msgstr "Scanresultaten"
+
 #: src/components/Bip110ScanCard.tsx
 msgid "scanned"
 msgstr "gescand"
+
+#: src/pages/Config.tsx
+msgid "scanning…"
+msgstr "scannen…"
 
 #: src/components/Bip110ScanCard.tsx
 msgid "Scanning…"

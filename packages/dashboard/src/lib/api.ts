@@ -378,6 +378,7 @@ export interface SoloMinerSnapshotEntry {
   device: SoloMinerDevice;
   last_polled_at: number;
   reachable: boolean;
+  hashrate_instant_ghs: number | null;
   hashrate_1m_ghs: number | null;
   hashrate_10m_ghs: number | null;
   hashrate_1h_ghs: number | null;
@@ -395,6 +396,22 @@ export interface SoloMinerSnapshotEntry {
   stratum_url: string | null;
   stratum_port: number | null;
   stratum_user: string | null;
+  best_diff_text: string | null;
+  best_session_diff_text: string | null;
+  error: string | null;
+}
+
+export interface SoloScanCandidate {
+  ip: string;
+  asic_model: string | null;
+  version: string | null;
+  hashrate_ghs: number | null;
+  already_added: boolean;
+}
+
+export interface SoloScanResponse {
+  cidr: string;
+  candidates: SoloScanCandidate[];
   error: string | null;
 }
 
@@ -637,6 +654,8 @@ export const api = {
     }),
   deleteSoloMiner: (id: number) =>
     request<{ ok: boolean }>(`/api/solo-miners/${id}`, { method: 'DELETE' }),
+  scanSoloMiners: () =>
+    request<SoloScanResponse>('/api/solo-miners/scan', { method: 'POST' }),
   staleUrls: () => request<StaleUrlsResponse>('/api/stale-urls'),
   cancelStaleUrlBid: (bidId: string) =>
     request<{ ok: boolean; error?: string }>('/api/stale-urls/cancel', {

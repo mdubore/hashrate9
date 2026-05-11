@@ -18,6 +18,7 @@
 import type { FastifyInstance } from 'fastify';
 
 import type { AxeOSPoller, SoloMinerSnapshot } from '../../services/axeos-poller.js';
+import { AxeOSScanner } from '../../services/axeos-scanner.js';
 import type { SoloMinerRow, SoloMinersRepo } from '../../state/repos/solo_miners.js';
 
 export interface SoloMinersDeps {
@@ -137,5 +138,18 @@ export async function registerSoloMinersRoute(
     }
     await deps.soloMinersRepo.delete(id);
     return { ok: true };
+  });
+
+  // POST /api/solo-miners/scan - one-shot scan of the daemon's local
+  // /24 for AxeOS-shaped responses. Returns a candidate list with
+  // ASIC + version + hashrate readings; the dashboard renders a
+  // confirmation dialog and POSTs the selected candidates back as
+  // individual create calls. Scan-then-save (not scan-and-save) so
+  // operators stay in control of what gets persisted - matches the
+  // mutation-gate philosophy.
+  const scanner = new AxeOSScanner({ repo: deps.soloMinersRepo });
+  app.post('/api/solo-miners/scan', async () => {
+    const result = await scanner.scan();
+    return result;
   });
 }

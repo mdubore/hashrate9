@@ -1848,9 +1848,12 @@ function SoloMinersSection({
           </div>
 
           <div className="border-t border-slate-800 pt-3 space-y-2">
-            <h4 className="text-xs uppercase tracking-wider text-slate-400">
-              <Trans>Add device</Trans>
-            </h4>
+            <div className="flex items-baseline justify-between">
+              <h4 className="text-xs uppercase tracking-wider text-slate-400">
+                <Trans>Add device</Trans>
+              </h4>
+              <ScanLocalNetworkButton />
+            </div>
             <div className="flex flex-wrap gap-2 items-end">
               <label className="block flex-1 min-w-[12rem]">
                 <span className="block text-[11px] text-slate-500 mb-0.5">
@@ -2030,6 +2033,229 @@ function SoloThresholdInputs({
       </div>
     </div>
   );
+}
+
+/**
+ * Scan-local-network helper. Triggers a daemon-side /24 sweep,
+ * shows a modal dialog with discovered AxeOS hosts, and lets the
+ * operator confirm which ones to persist. Already-saved IPs are
+ * rendered greyed-out + non-selectable so a repeat scan after
+ * adding two units doesn't tempt the operator to dupe-insert.
+ */
+function ScanLocalNetworkButton() {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [candidates, setCandidates] = useState<
+    Array<{
+      ip: string;
+      asic_model: string | null;
+      version: string | null;
+      hashrate_ghs: number | null;
+      already_added: boolean;
+      label: string;
+      pick: boolean;
+    }>
+  >([]);
+  const [cidr, setCidr] = useState<string>('');
+
+  const scanMutation = useMutation({
+    mutationFn: () => api.scanSoloMiners(),
+    onSuccess: (resp) => {
+      if (resp.error) {
+        setScanError(resp.error);
+        setCandidates([]);
+        setOpen(true);
+        return;
+      }
+      setScanError(null);
+      setCidr(resp.cidr);
+      setCandidates(
+        resp.candidates.map((c) => ({
+          ...c,
+          label: defaultLabelFor(c),
+          pick: !c.already_added,
+        })),
+      );
+      setOpen(true);
+    },
+    onError: (e) => {
+      setScanError(e instanceof Error ? e.message : String(e));
+      setCandidates([]);
+      setOpen(true);
+    },
+  });
+
+  const confirmMutation = useMutation({
+    mutationFn: async () => {
+      const picked = candidates.filter((c) => c.pick && !c.already_added);
+      for (const c of picked) {
+        await api.createSoloMiner({ label: c.label.trim() || c.ip, ip: c.ip });
+      }
+    },
+    onSuccess: () => {
+      setOpen(false);
+      qc.invalidateQueries({ queryKey: ['solo-miners'] });
+    },
+  });
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => scanMutation.mutate()}
+        disabled={scanMutation.isPending}
+        className="text-[11px] text-amber-300 border border-amber-700 rounded px-2 py-0.5 hover:bg-amber-500/10 disabled:opacity-40"
+      >
+        {scanMutation.isPending ? <Trans>scanning…</Trans> : <Trans>Scan local network</Trans>}
+      </button>
+
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="bg-slate-900 border border-slate-700 rounded-lg p-4 w-full max-w-2xl max-h-[80vh] overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-baseline justify-between mb-3">
+              <h3 className="text-sm text-slate-100">
+                <Trans>Scan results</Trans>{' '}
+                {cidr && (
+                  <span className="text-[11px] text-slate-500 font-mono ml-1">{cidr}</span>
+                )}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="text-slate-400 hover:text-slate-200 text-xs"
+              >
+                ✕
+              </button>
+            </div>
+            {scanError && (
+              <div className="text-xs text-red-400 mb-2">{scanError}</div>
+            )}
+            {!scanError && candidates.length === 0 && (
+              <div className="text-xs text-slate-500 italic">
+                <Trans>No AxeOS devices found on the local subnet.</Trans>
+              </div>
+            )}
+            {candidates.length > 0 && (
+              <>
+                <table className="w-full text-xs mb-3">
+                  <thead className="text-slate-500 uppercase tracking-wider">
+                    <tr>
+                      <th className="text-left font-normal py-1 pr-2"></th>
+                      <th className="text-left font-normal py-1 pr-2"><Trans>IP</Trans></th>
+                      <th className="text-left font-normal py-1 pr-2"><Trans>ASIC</Trans></th>
+                      <th className="text-right font-normal py-1 pr-2"><Trans>Hashrate</Trans></th>
+                      <th className="text-left font-normal py-1 pr-2"><Trans>Label</Trans></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {candidates.map((c, idx) => (
+                      <tr
+                        key={c.ip}
+                        className={
+                          c.already_added
+                            ? 'border-t border-slate-800 opacity-50'
+                            : 'border-t border-slate-800'
+                        }
+                      >
+                        <td className="py-1 pr-2 text-center">
+                          <input
+                            type="checkbox"
+                            checked={c.pick}
+                            disabled={c.already_added}
+                            onChange={(e) => {
+                              const v = e.target.checked;
+                              setCandidates((prev) =>
+                                prev.map((p, i) => (i === idx ? { ...p, pick: v } : p)),
+                              );
+                            }}
+                            className="accent-amber-400 h-3.5 w-3.5"
+                          />
+                        </td>
+                        <td className="py-1 pr-2 font-mono">
+                          {c.ip}
+                          {c.already_added && (
+                            <span className="ml-2 text-[10px] text-slate-500">
+                              (<Trans>already added</Trans>)
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-1 pr-2 text-slate-400">{c.asic_model ?? '-'}</td>
+                        <td className="py-1 pr-2 text-right font-mono text-slate-400">
+                          {c.hashrate_ghs !== null
+                            ? c.hashrate_ghs >= 1000
+                              ? `${(c.hashrate_ghs / 1000).toFixed(2)} TH/s`
+                              : `${c.hashrate_ghs.toFixed(0)} GH/s`
+                            : '-'}
+                        </td>
+                        <td className="py-1 pr-2">
+                          <input
+                            type="text"
+                            value={c.label}
+                            disabled={c.already_added}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setCandidates((prev) =>
+                                prev.map((p, i) => (i === idx ? { ...p, label: v } : p)),
+                              );
+                            }}
+                            className="w-full bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-xs disabled:opacity-50"
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setOpen(false)}
+                    className="px-3 py-1 text-xs text-slate-400 border border-slate-700 rounded hover:bg-slate-800"
+                  >
+                    <Trans>Cancel</Trans>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => confirmMutation.mutate()}
+                    disabled={
+                      confirmMutation.isPending ||
+                      candidates.every((c) => !c.pick || c.already_added)
+                    }
+                    className="px-3 py-1 text-xs bg-amber-500/20 border border-amber-500 text-amber-200 rounded hover:bg-amber-500/30 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {confirmMutation.isPending ? (
+                      <Trans>adding…</Trans>
+                    ) : (
+                      <Trans>
+                        Add {candidates.filter((c) => c.pick && !c.already_added).length} selected
+                      </Trans>
+                    )}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function defaultLabelFor(c: {
+  ip: string;
+  asic_model: string | null;
+}): string {
+  // "192.168.1.127 (BM1370)" is more informative than just the IP
+  // and a reasonable starting point the operator can edit before
+  // confirming. Falls back to bare IP when ASIC is unknown.
+  if (c.asic_model) return `${c.ip} (${c.asic_model})`;
+  return c.ip;
 }
 
 function SoloThresholdField({

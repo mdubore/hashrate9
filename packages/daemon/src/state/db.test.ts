@@ -111,6 +111,8 @@ describe('openDatabase - migrations', () => {
       '0083_drop_operator_available.sql',
       '0084_drop_snooze.sql',
       '0085_solo_miners.sql',
+      '0086_solo_miner_best_diff.sql',
+      '0087_solo_miner_hashrate_instant.sql',
     ]);
     expect(handle.migrations.skipped).toEqual([]);
   });

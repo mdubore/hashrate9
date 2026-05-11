@@ -41,6 +41,7 @@ export interface SoloMinerSampleRow {
   readonly device_id: number;
   readonly tick_at: number;
   readonly reachable: boolean;
+  readonly hashrate_instant_ghs: number | null;
   readonly hashrate_1m_ghs: number | null;
   readonly hashrate_10m_ghs: number | null;
   readonly hashrate_1h_ghs: number | null;
@@ -58,12 +59,15 @@ export interface SoloMinerSampleRow {
   readonly stratum_url: string | null;
   readonly stratum_port: number | null;
   readonly stratum_user: string | null;
+  readonly best_diff_text: string | null;
+  readonly best_session_diff_text: string | null;
 }
 
 export interface InsertSampleArgs {
   readonly device_id: number;
   readonly tick_at: number;
   readonly reachable: boolean;
+  readonly hashrate_instant_ghs?: number | null;
   readonly hashrate_1m_ghs?: number | null;
   readonly hashrate_10m_ghs?: number | null;
   readonly hashrate_1h_ghs?: number | null;
@@ -81,6 +85,8 @@ export interface InsertSampleArgs {
   readonly stratum_url?: string | null;
   readonly stratum_port?: number | null;
   readonly stratum_user?: string | null;
+  readonly best_diff_text?: string | null;
+  readonly best_session_diff_text?: string | null;
 }
 
 export class SoloMinersRepo {
@@ -164,6 +170,7 @@ export class SoloMinersRepo {
       device_id: s.device_id,
       tick_at: s.tick_at,
       reachable: (s.reachable ? 1 : 0) as 0 | 1,
+      hashrate_instant_ghs: s.hashrate_instant_ghs ?? null,
       hashrate_1m_ghs: s.hashrate_1m_ghs ?? null,
       hashrate_10m_ghs: s.hashrate_10m_ghs ?? null,
       hashrate_1h_ghs: s.hashrate_1h_ghs ?? null,
@@ -181,6 +188,8 @@ export class SoloMinersRepo {
       stratum_url: s.stratum_url ?? null,
       stratum_port: s.stratum_port ?? null,
       stratum_user: s.stratum_user ?? null,
+      best_diff_text: s.best_diff_text ?? null,
+      best_session_diff_text: s.best_session_diff_text ?? null,
     }));
     await this.db.insertInto('solo_miner_samples').values(values).execute();
   }
@@ -260,6 +269,7 @@ function toSampleRow(row: {
   device_id: number;
   tick_at: number;
   reachable: number;
+  hashrate_instant_ghs: number | null;
   hashrate_1m_ghs: number | null;
   hashrate_10m_ghs: number | null;
   hashrate_1h_ghs: number | null;
@@ -277,6 +287,8 @@ function toSampleRow(row: {
   stratum_url: string | null;
   stratum_port: number | null;
   stratum_user: string | null;
+  best_diff_text: string | null;
+  best_session_diff_text: string | null;
 }): SoloMinerSampleRow {
   return { ...row, reachable: row.reachable === 1 };
 }
