@@ -109,6 +109,34 @@ export interface AlertCopy {
   braiins_deposit_available_body(args: { amount: string }): string;
   braiins_deposit_returned_title(): string;
   braiins_deposit_returned_body(args: { amount: string; return_tx_short: string }): string;
+
+  // #149 - solo-mining (Bitaxe / AxeOS) per-device alerts.
+  solo_overheating_title(args: { label: string; temp_c: string; ceiling_c: string }): string;
+  solo_overheating_title_recovery(args: { label: string }): string;
+  solo_overheating_body(args: {
+    label: string;
+    temp_c: string;
+    ceiling_c: string;
+    duration: string;
+  }): string;
+  solo_overheating_body_recovery(args: { label: string; duration: string }): string;
+
+  solo_zero_hashrate_title(args: { label: string }): string;
+  solo_zero_hashrate_title_recovery(args: { label: string }): string;
+  solo_zero_hashrate_body(args: { label: string; reason: string; duration: string }): string;
+  solo_zero_hashrate_body_recovery(args: { label: string; duration: string }): string;
+
+  solo_share_rejection_title(args: { label: string }): string;
+  solo_share_rejection_body(args: {
+    label: string;
+    rate_pct: string;
+    rejected: string;
+    total: string;
+    window_min: string;
+  }): string;
+
+  solo_stratum_drift_title(args: { label: string }): string;
+  solo_stratum_drift_body(args: { label: string; old_url: string; new_url: string }): string;
 }
 
 const EN: AlertCopy = {
@@ -190,6 +218,29 @@ const EN: AlertCopy = {
   braiins_deposit_returned_title: () => 'Braiins deposit returned',
   braiins_deposit_returned_body: ({ amount, return_tx_short }) =>
     `Braiins compliance has returned a deposit of ${amount}. Return tx: ${return_tx_short}. Check the Braiins dashboard for the rejection reason.`,
+
+  solo_overheating_title: ({ label, temp_c, ceiling_c }) =>
+    `Solo miner overheating: ${label} (${temp_c} °C ≥ ${ceiling_c} °C)`,
+  solo_overheating_title_recovery: ({ label }) => `Solo miner cooled: ${label}`,
+  solo_overheating_body: ({ label, temp_c, ceiling_c, duration }) =>
+    `${label} has been at or above ${ceiling_c} °C (current ${temp_c} °C) for ${duration}. Check airflow / ambient temperature; the ASIC will throttle or shut down if it climbs further.`,
+  solo_overheating_body_recovery: ({ label, duration }) =>
+    `${label} back below the thermal ceiling - was overheating for ${duration}.`,
+
+  solo_zero_hashrate_title: ({ label }) => `Solo miner offline: ${label}`,
+  solo_zero_hashrate_title_recovery: ({ label }) => `Solo miner online: ${label}`,
+  solo_zero_hashrate_body: ({ label, reason, duration }) =>
+    `${label} has been ${reason} for ${duration}. Check the power supply / WiFi / pool config.`,
+  solo_zero_hashrate_body_recovery: ({ label, duration }) =>
+    `${label} reporting hashrate again - was offline for ${duration}.`,
+
+  solo_share_rejection_title: ({ label }) => `Solo miner share-rejection high: ${label}`,
+  solo_share_rejection_body: ({ label, rate_pct, rejected, total, window_min }) =>
+    `${label} rejected ${rejected} of ${total} shares (${rate_pct} %) over the last ${window_min} min. Likely a stratum / freq / voltage misconfiguration.`,
+
+  solo_stratum_drift_title: ({ label }) => `Solo miner stratum changed: ${label}`,
+  solo_stratum_drift_body: ({ label, old_url, new_url }) =>
+    `${label}'s stratum URL changed from ${old_url} to ${new_url}. If this wasn't you, someone re-pointed the device.`,
 };
 
 const NL: AlertCopy = {
@@ -271,6 +322,30 @@ const NL: AlertCopy = {
   braiins_deposit_returned_title: () => 'Braiins deposit teruggestuurd',
   braiins_deposit_returned_body: ({ amount, return_tx_short }) =>
     `Braiins compliance heeft een deposit van ${amount} teruggestuurd. Return tx: ${return_tx_short}. Bekijk het Braiins dashboard voor de afwijsreden.`,
+
+  solo_overheating_title: ({ label, temp_c, ceiling_c }) =>
+    `Solo-miner oververhit: ${label} (${temp_c} °C ≥ ${ceiling_c} °C)`,
+  solo_overheating_title_recovery: ({ label }) => `Solo-miner afgekoeld: ${label}`,
+  solo_overheating_body: ({ label, temp_c, ceiling_c, duration }) =>
+    `${label} zit al ${duration} op of boven ${ceiling_c} °C (nu ${temp_c} °C). Controleer luchtstroom en omgevingstemperatuur; de ASIC throttlet of valt uit als het verder oploopt.`,
+  solo_overheating_body_recovery: ({ label, duration }) =>
+    `${label} weer onder de thermische grens - was ${duration} oververhit.`,
+
+  solo_zero_hashrate_title: ({ label }) => `Solo-miner offline: ${label}`,
+  solo_zero_hashrate_title_recovery: ({ label }) => `Solo-miner online: ${label}`,
+  solo_zero_hashrate_body: ({ label, reason, duration }) =>
+    `${label} is al ${duration} ${reason}. Controleer voeding / WiFi / pool-config.`,
+  solo_zero_hashrate_body_recovery: ({ label, duration }) =>
+    `${label} rapporteert weer hashrate - was ${duration} offline.`,
+
+  solo_share_rejection_title: ({ label }) =>
+    `Solo-miner share-verwerping hoog: ${label}`,
+  solo_share_rejection_body: ({ label, rate_pct, rejected, total, window_min }) =>
+    `${label} heeft ${rejected} van ${total} shares (${rate_pct} %) afgewezen in de laatste ${window_min} min. Waarschijnlijk een stratum-/freq-/voltage-misconfiguratie.`,
+
+  solo_stratum_drift_title: ({ label }) => `Solo-miner stratum gewijzigd: ${label}`,
+  solo_stratum_drift_body: ({ label, old_url, new_url }) =>
+    `Stratum-URL van ${label} is gewijzigd van ${old_url} naar ${new_url}. Als jij dit niet deed heeft iemand het apparaat omgezet.`,
 };
 
 const ES: AlertCopy = {
@@ -352,6 +427,30 @@ const ES: AlertCopy = {
   braiins_deposit_returned_title: () => 'Depósito en Braiins devuelto',
   braiins_deposit_returned_body: ({ amount, return_tx_short }) =>
     `El cumplimiento de Braiins ha devuelto un depósito de ${amount}. Tx de devolución: ${return_tx_short}. Revisa el dashboard de Braiins para el motivo del rechazo.`,
+
+  solo_overheating_title: ({ label, temp_c, ceiling_c }) =>
+    `Minero solo sobrecalentado: ${label} (${temp_c} °C ≥ ${ceiling_c} °C)`,
+  solo_overheating_title_recovery: ({ label }) => `Minero solo enfriado: ${label}`,
+  solo_overheating_body: ({ label, temp_c, ceiling_c, duration }) =>
+    `${label} lleva ${duration} en o por encima de ${ceiling_c} °C (actual ${temp_c} °C). Revisa flujo de aire y temperatura ambiente; el ASIC bajará rendimiento o se apagará si sigue subiendo.`,
+  solo_overheating_body_recovery: ({ label, duration }) =>
+    `${label} de nuevo por debajo del límite térmico - estuvo sobrecalentado ${duration}.`,
+
+  solo_zero_hashrate_title: ({ label }) => `Minero solo offline: ${label}`,
+  solo_zero_hashrate_title_recovery: ({ label }) => `Minero solo en línea: ${label}`,
+  solo_zero_hashrate_body: ({ label, reason, duration }) =>
+    `${label} lleva ${duration} ${reason}. Revisa alimentación / WiFi / configuración de pool.`,
+  solo_zero_hashrate_body_recovery: ({ label, duration }) =>
+    `${label} vuelve a reportar hashrate - estuvo offline ${duration}.`,
+
+  solo_share_rejection_title: ({ label }) =>
+    `Tasa de rechazo de shares alta: ${label}`,
+  solo_share_rejection_body: ({ label, rate_pct, rejected, total, window_min }) =>
+    `${label} rechazó ${rejected} de ${total} shares (${rate_pct} %) en los últimos ${window_min} min. Probable mala configuración de stratum / frecuencia / voltaje.`,
+
+  solo_stratum_drift_title: ({ label }) => `Stratum del minero solo cambió: ${label}`,
+  solo_stratum_drift_body: ({ label, old_url, new_url }) =>
+    `La URL stratum de ${label} cambió de ${old_url} a ${new_url}. Si no fuiste tú, alguien reapuntó el dispositivo.`,
 };
 
 const CATALOGS: Record<AlertLocale, AlertCopy> = { en: EN, nl: NL, es: ES };

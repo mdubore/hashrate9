@@ -1338,6 +1338,22 @@ msgstr "rellenable"
 msgid "fired"
 msgstr "activado"
 
+#: src/pages/Config.tsx
+msgid "Fires once whenever a device's stratum URL changes from the previously-observed value. Baselined silently on first poll so adding a device doesn't fire a spurious \"drift detected\" alert."
+msgstr "Se dispara una vez cuando la URL stratum de un dispositivo cambia respecto al valor observado previamente. Se establece silenciosamente en el primer sondeo para que anadir un dispositivo no genere una alerta espuria de \"deriva detectada\"."
+
+#: src/pages/Config.tsx
+msgid "Fires when a device is unreachable OR reports 0 H/s for the configured number of consecutive minutes. Recovery paired."
+msgstr "Se dispara cuando un dispositivo es inalcanzable O reporta 0 H/s durante el numero configurado de minutos consecutivos. Mensaje de recuperacion emparejado."
+
+#: src/pages/Config.tsx
+msgid "Fires when an ASIC or VR temp crosses the per-ASIC-model ceiling (or the global override on Display & Logging → Solo miners) for ~90 s. Recovery paired."
+msgstr "Se dispara cuando la temperatura del ASIC o del VR cruza el limite por modelo de ASIC (o el ajuste global en Visualizacion y registro → Mineros en solitario) durante ~90 s. Mensaje de recuperacion emparejado."
+
+#: src/pages/Config.tsx
+msgid "Fires when share rejection rate over the rolling window exceeds the configured threshold. Re-armed once per window so a sustained bad period only fires periodically."
+msgstr "Se dispara cuando la tasa de rechazo de shares en la ventana movil supera el umbral configurado. Se rearma una vez por ventana, de modo que un periodo malo sostenido solo se dispara periodicamente."
+
 #: src/pages/Setup.tsx
 msgid "First-run setup"
 msgstr "Configuración inicial"
@@ -2751,11 +2767,28 @@ msgstr "Señaliza BIP 110 (soft fork de Reduced Data)"
 msgid "signing in…"
 msgstr "iniciando sesión…"
 
+#: src/pages/Config.tsx
+msgid "Solo miner offline / zero hashrate"
+msgstr "Minero solo offline / hashrate cero"
+
+#: src/pages/Config.tsx
+msgid "Solo miner overheating"
+msgstr "Minero solo sobrecalentado"
+
+#: src/pages/Config.tsx
+msgid "Solo miner share-rejection high"
+msgstr "Rechazo de shares alto en minero solo"
+
+#: src/pages/Config.tsx
+msgid "Solo miner stratum URL drift"
+msgstr "Deriva de URL stratum en minero solo"
+
 #: src/components/SoloMinersCard.tsx
 #: src/components/SoloMinersCard.tsx
 msgid "Solo miners"
 msgstr "Mineros en solitario"
 
+#: src/pages/Config.tsx
 #: src/pages/Config.tsx
 msgid "Solo miners (Bitaxe / AxeOS)"
 msgstr "Mineros en solitario (Bitaxe / AxeOS)"

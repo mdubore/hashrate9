@@ -1,6 +1,10 @@
 # Changelog
 
-## 2026-05-10 · v1.6.0
+## 2026-05-11 · v1.6.0
+
+### `[Feature]` Solo-mining alerts: 4 Telegram event classes + per-class opt-out + EN/NL/ES copy (#149, part 3/N)
+
+Wires the solo-mining feature into the Telegram alert pipeline. Four new event classes, all per-device, all opt-out via the existing `notification_disabled_event_classes` plumbing: **solo_overheating** (ASIC OR VR temp ≥ per-ASIC-model ceiling or operator override for ~90 s, paired recovery when both temps fall back below), **solo_zero_hashrate** (device unreachable OR hashrate = 0 for the configured consecutive minutes, paired recovery, uses the same 10m → 1m → 1h → instant hashrate fallback chain the dashboard does), **solo_share_rejection** (Δrejected / Δtotal over the rolling window > threshold, in-memory deque per device so no extra SQLite query per tick, re-armed once per window length to avoid firing every tick during a sustained bad period, no recovery — it's an attention-now signal), **solo_stratum_drift** (stratumURL changed from previously-observed value, baselined silently on first poll, no recovery — the new URL becomes the new baseline). Per-tick evaluator dispatch runs after the main detectors, no-op when the master toggle is off. Per-device alert state is in-memory only — daemon restart during an ongoing outage rearms the timer rather than hydrating from the alerts table; acceptable trade-off since the alerts table's `event_class` column is scalar. Four new tiles on Config → Notifications → "Solo miners (Bitaxe / AxeOS)" section (only rendered when the master toggle is on so operators without solo mining see no extra clutter) including Test buttons that fire sample messages through the configured Telegram bot. EN/NL/ES translations for both the daemon alert copy AND the dashboard tile labels/help text.
 
 ### `[Feature]` Solo-mining follow-up: Best Diff column + scan-local-network helper + hashrate fallback (#149, part 2/N)
 

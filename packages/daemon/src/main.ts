@@ -572,8 +572,18 @@ async function bootOperational(
       notification_locale: cfgRefHolder.value.notification_locale,
     }),
   });
+  // #149: solo-mining poller is constructed *before* AlertEvaluator
+  // so the evaluator can read its snapshot for the four per-device
+  // alert classes. Polling is no-op until `solo_mining_enabled`.
+  const soloMinersRepo = new SoloMinersRepo(handle.db);
+  const axeOSPoller = new AxeOSPoller({
+    cfgRef: cfgRefHolder,
+    repo: soloMinersRepo,
+    log: (m) => log(m),
+  });
   const alertEvaluator = new AlertEvaluator({
     alertManager,
+    axeOSPoller,
     tickMetricsRepo,
     poolBlocksRepo,
     log: (m) => log(m),
@@ -596,19 +606,6 @@ async function bootOperational(
     log: (m) => log(m),
   });
   telegramReceiver.start();
-
-  // #149: solo-mining monitoring (Bitaxe / AxeOS). Gated by the
-  // master toggle `solo_mining_enabled` (default false); the poller
-  // idles entirely when off so operators with no Bitaxes pay no
-  // per-tick cost. Driven from the main loop's tick below rather than
-  // its own setInterval - same cadence + per-tick ordering as the
-  // rest of the metric pipeline.
-  const soloMinersRepo = new SoloMinersRepo(handle.db);
-  const axeOSPoller = new AxeOSPoller({
-    cfgRef: cfgRefHolder,
-    repo: soloMinersRepo,
-    log: (m) => log(m),
-  });
 
   const loop = new TickLoop({
     controller,

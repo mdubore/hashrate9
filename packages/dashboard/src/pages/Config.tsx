@@ -2737,6 +2737,48 @@ function EventClassSubscriptions({
     },
   ];
 
+  // #149: solo-mining tiles. Only rendered when the master toggle is
+  // on (per the operator's "with the toggle off these options should
+  // not be visible" rule). The four event classes are individually
+  // opt-out via the existing notification_disabled_event_classes
+  // plumbing.
+  const soloTiles: Tile[] = draft.solo_mining_enabled
+    ? [
+        {
+          id: 'solo_overheating',
+          label: t`Solo miner overheating`,
+          help: t`Fires when an ASIC or VR temp crosses the per-ASIC-model ceiling (or the global override on Display & Logging → Solo miners) for ~90 s. Recovery paired.`,
+          enabled: !disabled.has('solo_overheating'),
+          setEnabled: (n) => toggleClass('solo_overheating', n),
+          severity: 'IMPORTANT',
+        },
+        {
+          id: 'solo_zero_hashrate',
+          label: t`Solo miner offline / zero hashrate`,
+          help: t`Fires when a device is unreachable OR reports 0 H/s for the configured number of consecutive minutes. Recovery paired.`,
+          enabled: !disabled.has('solo_zero_hashrate'),
+          setEnabled: (n) => toggleClass('solo_zero_hashrate', n),
+          severity: 'IMPORTANT',
+        },
+        {
+          id: 'solo_share_rejection',
+          label: t`Solo miner share-rejection high`,
+          help: t`Fires when share rejection rate over the rolling window exceeds the configured threshold. Re-armed once per window so a sustained bad period only fires periodically.`,
+          enabled: !disabled.has('solo_share_rejection'),
+          setEnabled: (n) => toggleClass('solo_share_rejection', n),
+          severity: 'IMPORTANT',
+        },
+        {
+          id: 'solo_stratum_drift',
+          label: t`Solo miner stratum URL drift`,
+          help: t`Fires once whenever a device's stratum URL changes from the previously-observed value. Baselined silently on first poll so adding a device doesn't fire a spurious "drift detected" alert.`,
+          enabled: !disabled.has('solo_stratum_drift'),
+          setEnabled: (n) => toggleClass('solo_stratum_drift', n),
+          severity: 'IMPORTANT',
+        },
+      ]
+    : [];
+
   // Help text becomes a permanent <p> below each row so the operator
   // can read it without hovering. Tooltips were the previous design;
   // replaced because the rest of the Config page surfaces help below
@@ -2893,6 +2935,12 @@ function EventClassSubscriptions({
           {braiinsTiles.map(renderTile)}
           {sectionHeader(t`Ocean`)}
           {oceanTiles.map(renderTile)}
+          {soloTiles.length > 0 && (
+            <>
+              {sectionHeader(t`Solo miners (Bitaxe / AxeOS)`)}
+              {soloTiles.map(renderTile)}
+            </>
+          )}
         </div>
       </div>
     </fieldset>

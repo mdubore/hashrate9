@@ -195,6 +195,68 @@ const SAMPLE_BUILDERS: Record<string, (locale: string | null | undefined) => Sam
       is_recovery: false,
     };
   },
+  // #149: solo-mining event classes. Each preview uses a plausible
+  // synthetic device label + readings so the operator can see
+  // exactly what a real alert will look like in chat history.
+  solo_overheating: (locale) => {
+    const c = getAlertCopy(locale);
+    return {
+      severity: 'IMPORTANT',
+      title: c.solo_overheating_title({
+        label: 'Bedroom Gamma',
+        temp_c: '72.5',
+        ceiling_c: '68',
+      }),
+      body: c.solo_overheating_body({
+        label: 'Bedroom Gamma',
+        temp_c: '72.5',
+        ceiling_c: '68',
+        duration: '2m',
+      }),
+      is_recovery: false,
+    };
+  },
+  solo_zero_hashrate: (locale) => {
+    const c = getAlertCopy(locale);
+    return {
+      severity: 'IMPORTANT',
+      title: c.solo_zero_hashrate_title({ label: 'Bedroom Gamma' }),
+      body: c.solo_zero_hashrate_body({
+        label: 'Bedroom Gamma',
+        reason: 'unreachable',
+        duration: '6m',
+      }),
+      is_recovery: false,
+    };
+  },
+  solo_share_rejection: (locale) => {
+    const c = getAlertCopy(locale);
+    return {
+      severity: 'IMPORTANT',
+      title: c.solo_share_rejection_title({ label: 'Bedroom Gamma' }),
+      body: c.solo_share_rejection_body({
+        label: 'Bedroom Gamma',
+        rate_pct: '12.40',
+        rejected: '124',
+        total: '1,000',
+        window_min: '60',
+      }),
+      is_recovery: false,
+    };
+  },
+  solo_stratum_drift: (locale) => {
+    const c = getAlertCopy(locale);
+    return {
+      severity: 'IMPORTANT',
+      title: c.solo_stratum_drift_title({ label: 'Bedroom Gamma' }),
+      body: c.solo_stratum_drift_body({
+        label: 'Bedroom Gamma',
+        old_url: 'stratum+tcp://pool.example:3333',
+        new_url: 'stratum+tcp://other-pool.example:3334',
+      }),
+      is_recovery: false,
+    };
+  },
 };
 
 export interface TestEventDeps {

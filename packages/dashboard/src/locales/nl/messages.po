@@ -1338,6 +1338,22 @@ msgstr "vulbaar"
 msgid "fired"
 msgstr "geactiveerd"
 
+#: src/pages/Config.tsx
+msgid "Fires once whenever a device's stratum URL changes from the previously-observed value. Baselined silently on first poll so adding a device doesn't fire a spurious \"drift detected\" alert."
+msgstr "Vuurt eenmalig wanneer de stratum-URL van een apparaat verandert ten opzichte van de eerder waargenomen waarde. Stil gebaseerd op de eerste poll zodat het toevoegen van een apparaat geen valse \"drift-melding\" oplevert."
+
+#: src/pages/Config.tsx
+msgid "Fires when a device is unreachable OR reports 0 H/s for the configured number of consecutive minutes. Recovery paired."
+msgstr "Vuurt wanneer een apparaat onbereikbaar is OF 0 H/s rapporteert gedurende het ingestelde aantal aaneengesloten minuten. Hersteldmelding gekoppeld."
+
+#: src/pages/Config.tsx
+msgid "Fires when an ASIC or VR temp crosses the per-ASIC-model ceiling (or the global override on Display & Logging → Solo miners) for ~90 s. Recovery paired."
+msgstr "Vuurt wanneer de ASIC- of VR-temperatuur de drempel per ASIC-model overschrijdt (of de globale override op Weergave & logboek → Solo-miners) gedurende ~90 s. Hersteldmelding gekoppeld."
+
+#: src/pages/Config.tsx
+msgid "Fires when share rejection rate over the rolling window exceeds the configured threshold. Re-armed once per window so a sustained bad period only fires periodically."
+msgstr "Vuurt wanneer het share-verwerpingspercentage over het rollende venster boven de ingestelde drempel uitkomt. Wordt eenmaal per venster opnieuw bewapend, zodat een aanhoudende slechte periode slechts periodiek vuurt."
+
 #: src/pages/Setup.tsx
 msgid "First-run setup"
 msgstr "Eerste-keer setup"
@@ -2751,11 +2767,28 @@ msgstr "Signaleert BIP 110 (Reduced Data softfork)"
 msgid "signing in…"
 msgstr "bezig met aanmelden…"
 
+#: src/pages/Config.tsx
+msgid "Solo miner offline / zero hashrate"
+msgstr "Solo-miner offline / nul hashrate"
+
+#: src/pages/Config.tsx
+msgid "Solo miner overheating"
+msgstr "Solo-miner oververhit"
+
+#: src/pages/Config.tsx
+msgid "Solo miner share-rejection high"
+msgstr "Solo-miner share-verwerping hoog"
+
+#: src/pages/Config.tsx
+msgid "Solo miner stratum URL drift"
+msgstr "Solo-miner stratum-URL afwijking"
+
 #: src/components/SoloMinersCard.tsx
 #: src/components/SoloMinersCard.tsx
 msgid "Solo miners"
 msgstr "Solo-miners"
 
+#: src/pages/Config.tsx
 #: src/pages/Config.tsx
 msgid "Solo miners (Bitaxe / AxeOS)"
 msgstr "Solo-miners (Bitaxe / AxeOS)"

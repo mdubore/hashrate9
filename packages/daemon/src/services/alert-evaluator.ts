@@ -35,6 +35,8 @@
  */
 
 import type { AlertManager } from './alert-manager.js';
+import type { AxeOSPoller, SoloMinerSnapshotEntry } from './axeos-poller.js';
+import { overheatingCeilingForAsic } from './axeos.js';
 import type { AlertsRepo } from '../state/repos/alerts.js';
 import type { PoolBlocksRepo } from '../state/repos/pool_blocks.js';
 import type { TickMetricsRepo } from '../state/repos/tick_metrics.js';
@@ -89,6 +91,8 @@ const INITIAL: EventState = { bad_since_ms: null, active_alert_id: null };
 
 export interface AlertEvaluatorOptions {
   readonly alertManager: AlertManager;
+  /** #149: optional AxeOS poller; when set the four solo-mining detectors run after the main detectors each tick. */
+  readonly axeOSPoller?: AxeOSPoller;
   /**
    * Optional. When provided, the wallet_runway detector queries it
    * for the trailing-3h actual-spend total to compute runway days,
@@ -144,7 +148,42 @@ export class AlertEvaluator {
    */
   private lastNotifiedTotalDepositedSat: number | null = null;
 
+  /**
+   * #149: per-device alert state for the four solo-mining event
+   * classes. Keys are `solo_miners.id`. Maps stay in-memory only -
+   * hydrate intentionally skipped because the alerts table uses a
+   * scalar `event_class` string and we'd need a separate
+   * `event_class_subject` column to disambiguate per-device rows.
+   * Trade-off: a daemon restart during an ongoing solo outage
+   * re-arms the timer from zero and may fire a fresh Telegram
+   * after the threshold elapses again. Acceptable v1 cost.
+   */
+  private readonly soloOverheating = new Map<number, EventState>();
+  private readonly soloZeroHashrate = new Map<number, EventState>();
+  /** Baseline `stratumURL` per device. Populated silently on first observation. */
+  private readonly soloStratumBaseline = new Map<number, string>();
+  /**
+   * Per-device share-rate history: ring buffer of (tick_at, accepted,
+   * rejected) tuples, pruned to the operator-configured rolling
+   * window. Head = window-old baseline, tail = current. Used to
+   * compute `Δrejected / (Δrejected + Δaccepted)` over the rolling
+   * window without an extra SQLite query per tick.
+   */
+  private readonly soloShareHistory = new Map<
+    number,
+    Array<{ tick_at: number; accepted: number; rejected: number }>
+  >();
+  /**
+   * Per-device "we recently fired solo_share_rejection" debounce so a
+   * sustained-bad window doesn't fire on every tick. Stores the
+   * tick_at of the last firing; we re-arm only when the next firing
+   * would be ≥ window-minutes later (matches the rolling-window
+   * cadence the rate is computed against).
+   */
+  private readonly soloShareRejectionLastFiredAt = new Map<number, number>();
+
   private readonly alertManager: AlertManager;
+  private readonly axeOSPoller: AxeOSPoller | null;
   private readonly tickMetricsRepo: TickMetricsRepo | null;
   private readonly poolBlocksRepo: PoolBlocksRepo | null;
   private readonly now: () => number;
@@ -152,6 +191,7 @@ export class AlertEvaluator {
 
   constructor(opts: AlertEvaluatorOptions) {
     this.alertManager = opts.alertManager;
+    this.axeOSPoller = opts.axeOSPoller ?? null;
     this.tickMetricsRepo = opts.tickMetricsRepo ?? null;
     this.poolBlocksRepo = opts.poolBlocksRepo ?? null;
     this.now = opts.now ?? (() => Date.now());
@@ -218,6 +258,11 @@ export class AlertEvaluator {
     await this.evaluateWalletRunway(state, disabled);
     await this.evaluatePoolBlockCredited(state, disabled);
     await this.evaluateBraiinsDepositDetected(state, disabled);
+    // #149: solo-mining alerts (Bitaxe / AxeOS). No-op when the
+    // master toggle is off or the poller wasn't wired.
+    if (state.config.solo_mining_enabled && this.axeOSPoller) {
+      await this.evaluateSoloMiners(state, disabled);
+    }
     // _available + _returned live in BraiinsDepositWatcherService
     // (on-chain-endpoint poll). The endpoint only exposes already-
     // CREDITED deposits, so it can't see the pre-credited "first-seen"
@@ -735,6 +780,237 @@ export class AlertEvaluator {
     });
     return INITIAL;
   }
+
+  // ---------------------------------------------------------------
+  // #149: solo-mining detectors (Bitaxe / AxeOS).
+  // ---------------------------------------------------------------
+
+  /**
+   * Top-level dispatcher. Iterates the AxeOSPoller snapshot and runs
+   * all four detectors per device. Skips disabled devices entirely
+   * (operator toggled off in the Solo miners table). The class-wide
+   * opt-out via `notification_disabled_event_classes` is checked
+   * inside each sub-detector so a single device drop doesn't silence
+   * the whole event class.
+   */
+  private async evaluateSoloMiners(state: State, disabled: ReadonlySet<string>): Promise<void> {
+    if (!this.axeOSPoller) return;
+    const snapshot = this.axeOSPoller.getSnapshot();
+    if (!snapshot.enabled) return;
+    for (const entry of snapshot.entries) {
+      if (!entry.device.enabled) continue;
+      await this.evaluateSoloOverheating(state, disabled, entry);
+      await this.evaluateSoloZeroHashrate(state, disabled, entry);
+      await this.evaluateSoloShareRejection(state, disabled, entry);
+      await this.evaluateSoloStratumDrift(state, disabled, entry);
+    }
+  }
+
+  /**
+   * Fires when either the ASIC junction temp or the VR temp crosses
+   * the per-ASIC-model ceiling (or the operator's global override)
+   * for N consecutive ticks. Recovery message paired when both temps
+   * fall back below the ceiling.
+   */
+  private async evaluateSoloOverheating(
+    state: State,
+    disabled: ReadonlySet<string>,
+    entry: SoloMinerSnapshotEntry,
+  ): Promise<void> {
+    const override = state.config.solo_overheating_threshold_celsius;
+    const ceiling = override > 0 ? override : overheatingCeilingForAsic(entry.asic_model);
+    const temps = [entry.temp_c, entry.vr_temp_c].filter(
+      (t): t is number => t !== null && Number.isFinite(t),
+    );
+    const isBad = entry.reachable && temps.length > 0 && temps.some((t) => t >= ceiling);
+    const hottest = temps.length > 0 ? Math.max(...temps) : null;
+    const current = this.soloOverheating.get(entry.device.id) ?? INITIAL;
+    const next = await this.runTransition({
+      event_class: 'solo_overheating',
+      severity: 'IMPORTANT',
+      isBad,
+      thresholdMs: 90_000, // ~3 ticks at 30s cadence; matches spec's "3 ticks (~90s)" default.
+      currentState: current,
+      disabledClasses: disabled,
+      title: copyFor(state).solo_overheating_title({
+        label: entry.device.label,
+        temp_c: (hottest ?? ceiling).toFixed(1),
+        ceiling_c: ceiling.toString(),
+      }),
+      titleForRecovery: copyFor(state).solo_overheating_title_recovery({
+        label: entry.device.label,
+      }),
+      bodyForFiring: (durMs) =>
+        copyFor(state).solo_overheating_body({
+          label: entry.device.label,
+          temp_c: (hottest ?? ceiling).toFixed(1),
+          ceiling_c: ceiling.toString(),
+          duration: formatDuration(durMs),
+        }),
+      bodyForRecovery: (durMs) =>
+        copyFor(state).solo_overheating_body_recovery({
+          label: entry.device.label,
+          duration: formatDuration(durMs),
+        }),
+    });
+    this.soloOverheating.set(entry.device.id, next);
+  }
+
+  /**
+   * Fires when the device is unreachable OR reports 0 hashrate
+   * (via the same fallback chain the dashboard uses) for the
+   * operator-configured number of consecutive minutes. Recovery
+   * paired when the device comes back with non-zero hashrate.
+   */
+  private async evaluateSoloZeroHashrate(
+    state: State,
+    disabled: ReadonlySet<string>,
+    entry: SoloMinerSnapshotEntry,
+  ): Promise<void> {
+    const live = pickLiveHashrate(entry);
+    const isBad = !entry.reachable || live === null || live <= 0;
+    const thresholdMs = state.config.solo_zero_hashrate_alert_after_minutes * 60_000;
+    const current = this.soloZeroHashrate.get(entry.device.id) ?? INITIAL;
+    const next = await this.runTransition({
+      event_class: 'solo_zero_hashrate',
+      severity: 'IMPORTANT',
+      isBad,
+      thresholdMs,
+      currentState: current,
+      disabledClasses: disabled,
+      title: copyFor(state).solo_zero_hashrate_title({ label: entry.device.label }),
+      titleForRecovery: copyFor(state).solo_zero_hashrate_title_recovery({
+        label: entry.device.label,
+      }),
+      bodyForFiring: (durMs) =>
+        copyFor(state).solo_zero_hashrate_body({
+          label: entry.device.label,
+          reason: !entry.reachable ? 'unreachable' : 'reporting 0 H/s',
+          duration: formatDuration(durMs),
+        }),
+      bodyForRecovery: (durMs) =>
+        copyFor(state).solo_zero_hashrate_body_recovery({
+          label: entry.device.label,
+          duration: formatDuration(durMs),
+        }),
+    });
+    this.soloZeroHashrate.set(entry.device.id, next);
+  }
+
+  /**
+   * Fires when the rolling-window share-rejection rate exceeds the
+   * threshold. Uses a per-device deque of (tick_at, accepted,
+   * rejected) tuples pruned to the window length; the head is the
+   * window-old baseline. No paired recovery - a high rejection rate
+   * is an attention-now signal, not a "wait for it to settle" one.
+   * Re-armed by the same debounce as the window length so a sustained
+   * bad period doesn't fire on every tick.
+   */
+  private async evaluateSoloShareRejection(
+    state: State,
+    disabled: ReadonlySet<string>,
+    entry: SoloMinerSnapshotEntry,
+  ): Promise<void> {
+    if (disabled.has('solo_share_rejection')) return;
+    if (!entry.reachable) return;
+    if (entry.shares_accepted === null || entry.shares_rejected === null) return;
+    const windowMs = state.config.solo_share_rejection_window_minutes * 60_000;
+    const nowMs = this.now();
+    const hist = this.soloShareHistory.get(entry.device.id) ?? [];
+    hist.push({
+      tick_at: nowMs,
+      accepted: entry.shares_accepted,
+      rejected: entry.shares_rejected,
+    });
+    // Prune entries older than the window. Keep at least one head
+    // (the oldest in-window) so we always have a baseline.
+    const cutoff = nowMs - windowMs;
+    while (hist.length > 1 && hist[1]!.tick_at < cutoff) hist.shift();
+    this.soloShareHistory.set(entry.device.id, hist);
+
+    // Need at least window-long history for a meaningful rate.
+    const head = hist[0]!;
+    if (nowMs - head.tick_at < windowMs * 0.9) return;
+
+    // ESP-Miner share counters reset on reboot. If the current
+    // accepted+rejected total is BELOW the baseline, the device
+    // rebooted mid-window - rebaseline silently and skip this tick's
+    // rate computation.
+    if (
+      entry.shares_accepted < head.accepted ||
+      entry.shares_rejected < head.rejected
+    ) {
+      this.soloShareHistory.set(entry.device.id, [hist[hist.length - 1]!]);
+      return;
+    }
+
+    const dAccepted = entry.shares_accepted - head.accepted;
+    const dRejected = entry.shares_rejected - head.rejected;
+    const total = dAccepted + dRejected;
+    if (total < 10) return; // not enough samples to be meaningful
+    const ratePct = (dRejected / total) * 100;
+    if (ratePct < state.config.solo_share_rejection_threshold_pct) return;
+
+    const lastFired = this.soloShareRejectionLastFiredAt.get(entry.device.id) ?? 0;
+    if (nowMs - lastFired < windowMs) return; // debounce
+
+    this.soloShareRejectionLastFiredAt.set(entry.device.id, nowMs);
+    await this.alertManager.recordAlert({
+      severity: 'IMPORTANT',
+      title: copyFor(state).solo_share_rejection_title({ label: entry.device.label }),
+      body: copyFor(state).solo_share_rejection_body({
+        label: entry.device.label,
+        rate_pct: ratePct.toFixed(2),
+        rejected: dRejected.toString(),
+        total: total.toString(),
+        window_min: state.config.solo_share_rejection_window_minutes.toString(),
+      }),
+      event_class: 'solo_share_rejection',
+    });
+  }
+
+  /**
+   * Fires when the device's `stratumURL` changes between two
+   * consecutive observations. Baseline is captured silently on
+   * first observation so initial discovery doesn't fire a spurious
+   * "drift detected" alert. No timer - this is an immediate signal.
+   * No paired recovery - the new URL becomes the new baseline.
+   */
+  private async evaluateSoloStratumDrift(
+    state: State,
+    disabled: ReadonlySet<string>,
+    entry: SoloMinerSnapshotEntry,
+  ): Promise<void> {
+    if (disabled.has('solo_stratum_drift')) return;
+    if (!entry.reachable || !entry.stratum_url) return;
+    const current = entry.stratum_url;
+    const baseline = this.soloStratumBaseline.get(entry.device.id);
+    if (baseline === undefined) {
+      this.soloStratumBaseline.set(entry.device.id, current);
+      return;
+    }
+    if (baseline === current) return;
+    await this.alertManager.recordAlert({
+      severity: 'IMPORTANT',
+      title: copyFor(state).solo_stratum_drift_title({ label: entry.device.label }),
+      body: copyFor(state).solo_stratum_drift_body({
+        label: entry.device.label,
+        old_url: baseline,
+        new_url: current,
+      }),
+      event_class: 'solo_stratum_drift',
+    });
+    this.soloStratumBaseline.set(entry.device.id, current);
+  }
+}
+
+function pickLiveHashrate(entry: SoloMinerSnapshotEntry): number | null {
+  if (entry.hashrate_10m_ghs !== null && entry.hashrate_10m_ghs > 0) return entry.hashrate_10m_ghs;
+  if (entry.hashrate_1m_ghs !== null && entry.hashrate_1m_ghs > 0) return entry.hashrate_1m_ghs;
+  if (entry.hashrate_1h_ghs !== null && entry.hashrate_1h_ghs > 0) return entry.hashrate_1h_ghs;
+  if (entry.hashrate_instant_ghs !== null && entry.hashrate_instant_ghs > 0)
+    return entry.hashrate_instant_ghs;
+  return null;
 }
 
 function formatDuration(ms: number): string {

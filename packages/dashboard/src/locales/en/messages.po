@@ -1338,6 +1338,22 @@ msgstr "fillable"
 msgid "fired"
 msgstr "fired"
 
+#: src/pages/Config.tsx
+msgid "Fires once whenever a device's stratum URL changes from the previously-observed value. Baselined silently on first poll so adding a device doesn't fire a spurious \"drift detected\" alert."
+msgstr "Fires once whenever a device's stratum URL changes from the previously-observed value. Baselined silently on first poll so adding a device doesn't fire a spurious \"drift detected\" alert."
+
+#: src/pages/Config.tsx
+msgid "Fires when a device is unreachable OR reports 0 H/s for the configured number of consecutive minutes. Recovery paired."
+msgstr "Fires when a device is unreachable OR reports 0 H/s for the configured number of consecutive minutes. Recovery paired."
+
+#: src/pages/Config.tsx
+msgid "Fires when an ASIC or VR temp crosses the per-ASIC-model ceiling (or the global override on Display & Logging → Solo miners) for ~90 s. Recovery paired."
+msgstr "Fires when an ASIC or VR temp crosses the per-ASIC-model ceiling (or the global override on Display & Logging → Solo miners) for ~90 s. Recovery paired."
+
+#: src/pages/Config.tsx
+msgid "Fires when share rejection rate over the rolling window exceeds the configured threshold. Re-armed once per window so a sustained bad period only fires periodically."
+msgstr "Fires when share rejection rate over the rolling window exceeds the configured threshold. Re-armed once per window so a sustained bad period only fires periodically."
+
 #: src/pages/Setup.tsx
 msgid "First-run setup"
 msgstr "First-run setup"
@@ -2751,11 +2767,28 @@ msgstr "Signaling BIP 110 (Reduced Data soft fork)"
 msgid "signing in…"
 msgstr "signing in…"
 
+#: src/pages/Config.tsx
+msgid "Solo miner offline / zero hashrate"
+msgstr "Solo miner offline / zero hashrate"
+
+#: src/pages/Config.tsx
+msgid "Solo miner overheating"
+msgstr "Solo miner overheating"
+
+#: src/pages/Config.tsx
+msgid "Solo miner share-rejection high"
+msgstr "Solo miner share-rejection high"
+
+#: src/pages/Config.tsx
+msgid "Solo miner stratum URL drift"
+msgstr "Solo miner stratum URL drift"
+
 #: src/components/SoloMinersCard.tsx
 #: src/components/SoloMinersCard.tsx
 msgid "Solo miners"
 msgstr "Solo miners"
 
+#: src/pages/Config.tsx
 #: src/pages/Config.tsx
 msgid "Solo miners (Bitaxe / AxeOS)"
 msgstr "Solo miners (Bitaxe / AxeOS)"
