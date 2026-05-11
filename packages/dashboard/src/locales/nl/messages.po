@@ -290,6 +290,7 @@ msgid "Add {0} selected"
 msgstr "{0} geselecteerde toevoegen"
 
 #: src/pages/Config.tsx
+#: src/pages/Config.tsx
 msgid "Add device"
 msgstr "Apparaat toevoegen"
 
@@ -306,6 +307,7 @@ msgstr "Na indienen schrijft de daemon alles naar <0>state.db</0> en zet de cont
 msgid "aged out:"
 msgstr "uit venster:"
 
+#: src/pages/Config.tsx
 #: src/pages/Config.tsx
 msgid "Alert thresholds"
 msgstr "Alarmdrempels"
@@ -994,6 +996,7 @@ msgid "dashboard sign-in"
 msgstr "dashboard aanmelden"
 
 #: src/pages/Config.tsx
+#: src/pages/Config.tsx
 msgid "Date layout"
 msgstr "Datumindeling"
 
@@ -1095,6 +1098,7 @@ msgid "Device"
 msgstr "Apparaat"
 
 #: src/pages/Config.tsx
+#: src/pages/Config.tsx
 msgid "Devices"
 msgstr "Apparaten"
 
@@ -1118,6 +1122,7 @@ msgstr "Uitgeschakeld (alleen sats)"
 msgid "Dismiss"
 msgstr "Sluiten"
 
+#: src/pages/Config.tsx
 #: src/pages/Config.tsx
 msgid "Display"
 msgstr "Weergave"
@@ -1262,6 +1267,7 @@ msgstr "Electrs-host"
 msgid "Enable cheap mode"
 msgstr "Goedkoop-modus inschakelen"
 
+#: src/pages/Config.tsx
 #: src/pages/Config.tsx
 msgid "Enable solo-mining monitoring"
 msgstr "Solo-mining monitoring inschakelen"
@@ -1971,6 +1977,7 @@ msgid "now"
 msgstr "nu"
 
 #: src/pages/Config.tsx
+#: src/pages/Config.tsx
 msgid "Number format"
 msgstr "Getalindeling"
 
@@ -2169,6 +2176,7 @@ msgstr "Ons niet-uitbetaalde saldo ({0}) heeft de uitbetaaldrempel ({1} ≈ 0,01
 msgid "overdue {overdueFormatted}"
 msgstr "{overdueFormatted} te laat"
 
+#: src/pages/Config.tsx
 #: src/pages/Config.tsx
 msgid "Overheating ceiling (°C, 0 = auto per model)"
 msgstr "Oververhittingsgrens (°C, 0 = automatisch per model)"
@@ -2652,6 +2660,7 @@ msgid "Scan failed:"
 msgstr "Scan mislukt:"
 
 #: src/pages/Config.tsx
+#: src/pages/Config.tsx
 msgid "Scan local network"
 msgstr "Lokaal netwerk scannen"
 
@@ -2722,9 +2731,11 @@ msgid "share_log %"
 msgstr "share_log %"
 
 #: src/pages/Config.tsx
+#: src/pages/Config.tsx
 msgid "Share-rejection threshold (%)"
 msgstr "Share-verwerpingsdrempel (%)"
 
+#: src/pages/Config.tsx
 #: src/pages/Config.tsx
 msgid "Share-rejection window (minutes)"
 msgstr "Share-verwerpingsvenster (minuten)"
@@ -2800,6 +2811,7 @@ msgstr "Solo-miner stratum-URL afwijking"
 msgid "Solo miners"
 msgstr "Solo-miners"
 
+#: src/pages/Config.tsx
 #: src/pages/Config.tsx
 #: src/pages/Config.tsx
 msgid "Solo miners (Bitaxe / AxeOS)"
@@ -3269,6 +3281,7 @@ msgstr "Je adres dat Ocean TIDES-uitbetalingen ontvangt. De worker-identiteit hi
 msgid "Zero hashrate for"
 msgstr "Geen hashrate gedurende"
 
+#: src/pages/Config.tsx
 #: src/pages/Config.tsx
 msgid "Zero-hashrate alert after (minutes)"
 msgstr "Nul-hashrate-alarm na (minuten)"

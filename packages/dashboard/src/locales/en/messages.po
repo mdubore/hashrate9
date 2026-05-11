@@ -290,6 +290,7 @@ msgid "Add {0} selected"
 msgstr "Add {0} selected"
 
 #: src/pages/Config.tsx
+#: src/pages/Config.tsx
 msgid "Add device"
 msgstr "Add device"
 
@@ -306,6 +307,7 @@ msgstr "After submit, the daemon writes everything to <0>state.db</0> and brings
 msgid "aged out:"
 msgstr "aged out:"
 
+#: src/pages/Config.tsx
 #: src/pages/Config.tsx
 msgid "Alert thresholds"
 msgstr "Alert thresholds"
@@ -994,6 +996,7 @@ msgid "dashboard sign-in"
 msgstr "dashboard sign-in"
 
 #: src/pages/Config.tsx
+#: src/pages/Config.tsx
 msgid "Date layout"
 msgstr "Date layout"
 
@@ -1095,6 +1098,7 @@ msgid "Device"
 msgstr "Device"
 
 #: src/pages/Config.tsx
+#: src/pages/Config.tsx
 msgid "Devices"
 msgstr "Devices"
 
@@ -1118,6 +1122,7 @@ msgstr "Disabled (sats only)"
 msgid "Dismiss"
 msgstr "Dismiss"
 
+#: src/pages/Config.tsx
 #: src/pages/Config.tsx
 msgid "Display"
 msgstr "Display"
@@ -1262,6 +1267,7 @@ msgstr "Electrs host"
 msgid "Enable cheap mode"
 msgstr "Enable cheap mode"
 
+#: src/pages/Config.tsx
 #: src/pages/Config.tsx
 msgid "Enable solo-mining monitoring"
 msgstr "Enable solo-mining monitoring"
@@ -1971,6 +1977,7 @@ msgid "now"
 msgstr "now"
 
 #: src/pages/Config.tsx
+#: src/pages/Config.tsx
 msgid "Number format"
 msgstr "Number format"
 
@@ -2169,6 +2176,7 @@ msgstr "Our unpaid balance ({0}) has already crossed the payout threshold ({1} �
 msgid "overdue {overdueFormatted}"
 msgstr "overdue {overdueFormatted}"
 
+#: src/pages/Config.tsx
 #: src/pages/Config.tsx
 msgid "Overheating ceiling (°C, 0 = auto per model)"
 msgstr "Overheating ceiling (°C, 0 = auto per model)"
@@ -2652,6 +2660,7 @@ msgid "Scan failed:"
 msgstr "Scan failed:"
 
 #: src/pages/Config.tsx
+#: src/pages/Config.tsx
 msgid "Scan local network"
 msgstr "Scan local network"
 
@@ -2722,9 +2731,11 @@ msgid "share_log %"
 msgstr "share_log %"
 
 #: src/pages/Config.tsx
+#: src/pages/Config.tsx
 msgid "Share-rejection threshold (%)"
 msgstr "Share-rejection threshold (%)"
 
+#: src/pages/Config.tsx
 #: src/pages/Config.tsx
 msgid "Share-rejection window (minutes)"
 msgstr "Share-rejection window (minutes)"
@@ -2800,6 +2811,7 @@ msgstr "Solo miner stratum URL drift"
 msgid "Solo miners"
 msgstr "Solo miners"
 
+#: src/pages/Config.tsx
 #: src/pages/Config.tsx
 #: src/pages/Config.tsx
 msgid "Solo miners (Bitaxe / AxeOS)"
@@ -3269,6 +3281,7 @@ msgstr "Your address that receives Ocean TIDES payouts. The worker identity belo
 msgid "Zero hashrate for"
 msgstr "Zero hashrate for"
 
+#: src/pages/Config.tsx
 #: src/pages/Config.tsx
 msgid "Zero-hashrate alert after (minutes)"
 msgstr "Zero-hashrate alert after (minutes)"

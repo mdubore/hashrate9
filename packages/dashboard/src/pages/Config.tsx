@@ -730,7 +730,7 @@ const TAB_SECTIONS: Record<TabId, readonly string[]> = {
   strategy: ['hashrate-targets', 'cheap-mode', 'pricing', 'budget', 'daemon-startup'],
   pool: ['pool-destination', 'ddns', 'payout-source', 'profit-and-loss', 'btc-price-oracle'],
   notifications: ['notifications', 'block-found-sound'],
-  display: ['block-explorer', 'chart-smoothing', 'chart-markers', 'log-retention'],
+  display: ['display-settings', 'solo-miners', 'block-explorer', 'chart-smoothing', 'chart-markers', 'log-retention'],
 };
 
 function isTabId(s: string | null): s is TabId {
@@ -786,6 +786,27 @@ function ConfigTabsAndContent({
     notifications: {
       title: t`Notifications`,
       labels: [t`Telegram bot token`, t`Chat ID`, t`Instance label (optional)`, t`Send messages to Telegram`, t`Retry interval`, t`Wallet runway below`, t`Ocean pool-block credited`],
+    },
+    'display-settings': {
+      title: t`Display`,
+      labels: [t`Number format`, t`Date layout`],
+    },
+    'solo-miners': {
+      title: t`Solo miners (Bitaxe / AxeOS)`,
+      labels: [
+        t`Enable solo-mining monitoring`,
+        t`Devices`,
+        t`Add device`,
+        t`Scan local network`,
+        t`Alert thresholds`,
+        t`Overheating ceiling (°C, 0 = auto per model)`,
+        t`Zero-hashrate alert after (minutes)`,
+        t`Share-rejection threshold (%)`,
+        t`Share-rejection window (minutes)`,
+        // Aliases - operators search by product family, not by control label.
+        'Nerdaxe',
+        'ESP-Miner',
+      ],
     },
   };
 
@@ -870,6 +891,12 @@ function ConfigTabsAndContent({
         sid,
         <NotificationsSection draft={draft} locale={locale} onChange={onChange} />,
       );
+    }
+    if (sid === 'display-settings') {
+      return wrapHighlight(sid, <DisplaySettingsSection />);
+    }
+    if (sid === 'solo-miners') {
+      return wrapHighlight(sid, <SoloMinersSection draft={draft} onChange={onChange} />);
     }
     const std = sections.find((s) => s.id === sid);
     if (!std) return null;
@@ -968,17 +995,13 @@ function ConfigTabsAndContent({
 
       {/* Active tab body. */}
       <div className="space-y-4">
-        {/* Display & Logging tab leads with the format picker - same
-            "how does this render in my browser" concern as the other
-            sections in this tab. Used to render above the tabs as a
-            standalone card; consolidated here so the tab is self-
-            contained. */}
-        {activeTab === 'display' && (
-          <>
-            <DisplaySettingsSection />
-            <SoloMinersSection draft={draft} onChange={onChange} />
-          </>
-        )}
+        {/* All sections - standard + ad-hoc - flow through
+            TAB_SECTIONS / renderSection so the cross-tab search
+            index sees them. DisplaySettings + SoloMiners are
+            registered as ad-hoc cases on the Display tab (#151).
+            Rendering order for the Display tab follows
+            TAB_SECTIONS.display, which puts display-settings +
+            solo-miners first. */}
         {body}
       </div>
     </div>
