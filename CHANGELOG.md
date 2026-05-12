@@ -1,6 +1,10 @@
 # Changelog
 
-## 2026-05-11
+## 2026-05-11 · v1.7.2
+
+### `[Release]` v1.7.2 - solo-miner scan reliability
+
+Hot-fix on top of v1.7.1. The wrong-subnet fix landed but operator dev-box testing showed the scan was still flaky - repeated clicks intermittently came back empty even on a known-good CIDR with a live device. Redesign in this release: scanner is now a singleton-stateful background sweeper at concurrency 8 with 1.5 s per-IP timeout (was 254-way `Promise.all` at 200 ms, which overwhelmed ESP-Miner's HTTP stack and the Wi-Fi AP's ARP table under Docker NAT). Modal opens immediately on click and renders a progress bar + "Probing X of 254…" counter as the daemon polls, with discovered devices appearing live in the table. Reliable on the first click. See the `[Fix]` entry below for the full diagnosis.
 
 ### `[Fix]` Solo-miner scan: chunked sweep with progress bar; fixes intermittent empty results (#156 follow-up)
 
