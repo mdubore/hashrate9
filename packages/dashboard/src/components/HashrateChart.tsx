@@ -1068,10 +1068,27 @@ export const HashrateChart = memo(function HashrateChart({
           ))}
 
         {/* #167: marketplace-empty bands. Drawn behind data lines so
-            they sit as a faint grey background, not obscuring the
-            traces. Each interval represents a contiguous run of
-            ticks where the Braiins orderbook had no asks that could
-            fill the target hashrate. */}
+            they sit behind the traces without obscuring them. Each
+            interval represents a contiguous run of ticks where the
+            Braiins orderbook had no asks that could fill the target
+            hashrate. Diagonal-hatch pattern (vs an earlier flat tint)
+            makes the band actually stand out at a glance - the
+            12%-opacity slate fill alone was easy to miss until you
+            hovered for the tooltip. */}
+        {marketplaceEmptyIntervals.length > 0 && (
+          <defs>
+            <pattern
+              id="mktEmptyHatchHr"
+              patternUnits="userSpaceOnUse"
+              width="8"
+              height="8"
+              patternTransform="rotate(45)"
+            >
+              <rect width="8" height="8" fill="#475569" fillOpacity="0.12" />
+              <line x1="0" y1="0" x2="0" y2="8" stroke="#94a3b8" strokeWidth="1.5" strokeOpacity="0.35" />
+            </pattern>
+          </defs>
+        )}
         {marketplaceEmptyIntervals.map((iv, i) => {
           const x0 = xScale(Math.max(minX, iv.x0));
           const x1 = xScale(Math.min(maxX, iv.x1));
@@ -1083,8 +1100,7 @@ export const HashrateChart = memo(function HashrateChart({
               y={PADDING.top}
               width={x1 - x0}
               height={chartHeight - PADDING.top - PADDING.bottom}
-              fill="#475569"
-              opacity="0.12"
+              fill="url(#mktEmptyHatchHr)"
             >
               <title>
                 {`Marketplace empty (${Math.round((iv.x1 - iv.x0) / 60_000)} min)`}

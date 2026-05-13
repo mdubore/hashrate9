@@ -1514,11 +1514,26 @@ export const PriceChart = memo(function PriceChart({
             gradient that fades down to transparent at the cap curve
             so the operator reads it as "walled off" without obscuring
             detail near the cap. */}
-        {/* #167: marketplace-empty bands - faint grey shading wherever
-            fillable_ask was null for contiguous ticks. Renders behind
-            the data series so the gap in `our bid` markers during
-            these periods reads as "the marketplace had nothing to
-            sell" rather than as a controller pause. */}
+        {/* #167: marketplace-empty bands. Diagonal-hatch pattern
+            (separate <defs> id from HashrateChart so the two SVGs
+            don't collide on the page). The gap in `our bid` markers
+            during these periods now reads visibly as "marketplace had
+            nothing to sell" rather than blending into chart
+            background. */}
+        {marketplaceEmptyIntervals.length > 0 && (
+          <defs>
+            <pattern
+              id="mktEmptyHatchPx"
+              patternUnits="userSpaceOnUse"
+              width="8"
+              height="8"
+              patternTransform="rotate(45)"
+            >
+              <rect width="8" height="8" fill="#475569" fillOpacity="0.12" />
+              <line x1="0" y1="0" x2="0" y2="8" stroke="#94a3b8" strokeWidth="1.5" strokeOpacity="0.35" />
+            </pattern>
+          </defs>
+        )}
         {marketplaceEmptyIntervals.map((iv, i) => {
           const x0 = xScale(Math.max(minX, iv.x0));
           const x1 = xScale(Math.min(maxX, iv.x1));
@@ -1530,8 +1545,7 @@ export const PriceChart = memo(function PriceChart({
               y={PADDING.top}
               width={x1 - x0}
               height={chartHeight - PADDING.top - PADDING.bottom}
-              fill="#475569"
-              opacity="0.12"
+              fill="url(#mktEmptyHatchPx)"
             >
               <title>
                 {`Marketplace empty (${Math.round((iv.x1 - iv.x0) / 60_000)} min)`}

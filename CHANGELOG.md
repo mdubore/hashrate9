@@ -2,6 +2,10 @@
 
 ## 2026-05-13
 
+### `[UI]` Marketplace-empty chart band: diagonal-hatch pattern instead of flat tint (#167 follow-up)
+
+Operator feedback on the original 12%-opacity slate fill - the band was visible but easy to miss until you hovered for the tooltip. Replaced with a diagonal-hatch pattern (45° lines at 8 px spacing) layered over the same faint tint. Each chart has its own `<pattern>` id in its `<defs>` block (`mktEmptyHatchHr` / `mktEmptyHatchPx`) so the two SVGs don't collide on the page. Tooltip behaviour unchanged.
+
 ### `[UI]` Last tick proposals: show full bid id and humanise the gate-reason label
 
 Two small annoyances on the LAST TICK PROPOSALS strip on the Status page. The bid id was truncated server-side to 8 chars + ellipsis ("EDIT B8662467… 48.332 → 47.998 sat/PH/day"), which made the row look chopped without saving any meaningful width. And the gate-reason came through as the raw enum label ("(PRICE_DECREASE_COOLDOWN)"), which leaked the internal constant name into the UI. Fixed: full id rendered, gate reason mapped to the same humanised label the tick-result feedback row uses (PRICE_DECREASE_COOLDOWN → "Braiins 10-min cooldown", RUN_MODE_NOT_LIVE → "not in LIVE mode", etc.). Unknown reasons fall back to a lowercased space-separated form of the raw enum so future additions still read decently.
