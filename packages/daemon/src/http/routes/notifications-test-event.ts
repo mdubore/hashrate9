@@ -76,6 +76,15 @@ const SAMPLE_BUILDERS: Record<string, (locale: string | null | undefined) => Sam
       is_recovery: false,
     };
   },
+  marketplace_empty: (locale) => {
+    const c = getAlertCopy(locale);
+    return {
+      severity: 'INFO',
+      title: c.marketplace_empty_title(),
+      body: c.marketplace_empty_body({ duration: '8m' }),
+      is_recovery: false,
+    };
+  },
   hashrate_below_floor: (locale) => {
     const c = getAlertCopy(locale);
     return {

@@ -419,6 +419,13 @@ export const AppConfigSchema = z.object({
   // Rolling-window size in minutes over which solo share rejection
   // rate is computed.
   solo_share_rejection_window_minutes: z.number().int().positive().default(60),
+
+  // #167: consecutive minutes the Braiins marketplace must have had no
+  // hashrate available for our target AND delivery must be ~0 before the
+  // `marketplace_empty` Telegram event fires (and the Status-page banner
+  // shows). Two-condition gate keeps micro-gaps in the orderbook from
+  // tripping a false alert.
+  marketplace_empty_alert_after_minutes: z.number().int().positive().default(5),
 });
 
 export type AppConfig = z.infer<typeof AppConfigSchema>;
@@ -534,4 +541,5 @@ export const APP_CONFIG_DEFAULTS: Omit<
   solo_zero_hashrate_alert_after_minutes: 5,
   solo_share_rejection_threshold_pct: 10,
   solo_share_rejection_window_minutes: 60,
+  marketplace_empty_alert_after_minutes: 5,
 };

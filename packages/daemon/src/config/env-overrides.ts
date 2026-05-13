@@ -230,6 +230,10 @@ const APP_CONFIG_ENV: {
     varName: 'BHA_SOLO_SHARE_REJECTION_WINDOW_MINUTES',
     coerce: asInt,
   },
+  marketplace_empty_alert_after_minutes: {
+    varName: 'BHA_MARKETPLACE_EMPTY_ALERT_AFTER_MINUTES',
+    coerce: asInt,
+  },
 };
 
 // ---------------------------------------------------------------------------

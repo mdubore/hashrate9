@@ -353,6 +353,8 @@ export interface AppConfig {
   solo_zero_hashrate_alert_after_minutes: number;
   solo_share_rejection_threshold_pct: number;
   solo_share_rejection_window_minutes: number;
+  // #167: minutes the Braiins marketplace must be empty (no fillable + delivery ~0) before the Telegram alert fires.
+  marketplace_empty_alert_after_minutes: number;
 }
 
 export interface ConfigResponse {

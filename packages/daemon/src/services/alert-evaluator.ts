@@ -147,6 +147,8 @@ export class AlertEvaluator {
   private sustained_paused: EventState = INITIAL;
   private beta_exit: EventState = INITIAL;
   private wallet_runway: EventState = INITIAL;
+  /** #167: Braiins marketplace had no fillable supply for our target AND delivery was ~0. */
+  private marketplace_empty: EventState = INITIAL;
   /**
    * #117: highest pool-block height we've already considered for
    * the celebratory Telegram. Hydrated at boot from
@@ -241,6 +243,7 @@ export class AlertEvaluator {
       ['sustained_paused', (s) => { this.sustained_paused = s; }],
       ['beta_exit', (s) => { this.beta_exit = s; }],
       ['wallet_runway', (s) => { this.wallet_runway = s; }],
+      ['marketplace_empty', (s) => { this.marketplace_empty = s; }],
     ];
     for (const [cls, setter] of classes) {
       const open = await alertsRepo.findOpenAlert(cls);
@@ -274,6 +277,7 @@ export class AlertEvaluator {
     await this.evaluateSustainedPaused(state, disabled);
     await this.evaluateBetaExit(state, disabled);
     await this.evaluateWalletRunway(state, disabled);
+    await this.evaluateMarketplaceEmpty(state, disabled);
     await this.evaluatePoolBlockCredited(state, disabled);
     await this.evaluateBraiinsDepositDetected(state, disabled);
     // #149: solo-mining alerts (Bitaxe / AxeOS). No-op when the
@@ -572,6 +576,39 @@ export class AlertEvaluator {
    * normal alert with retries would be obnoxious if Telegram
    * blipped during a block flurry.
    */
+  /**
+   * #167: Braiins marketplace has no asks that can fill our target,
+   * AND we're actually being affected (delivery is ~0). Two-condition
+   * gate filters out micro-gaps in the orderbook level walk where
+   * `fillable_ask_sat_per_eh_day` momentarily goes null but a stale
+   * match keeps delivering. Operator caught a real instance
+   * 2026-05-13: orderbook genuinely had nothing to sell for ~75 min,
+   * delivery fell to zero, hashrate chart dropped to ~0 across all
+   * three sources. Surfaces as an INFO Telegram alert + a yellow
+   * banner on the Status page while active + a grey shaded band on
+   * the chart historically (the latter two live in the dashboard).
+   */
+  private async evaluateMarketplaceEmpty(state: State, disabledClasses: ReadonlySet<string>): Promise<void> {
+    const isBad =
+      state.fillable_ask_sat_per_eh_day === null &&
+      state.actual_hashrate.total_ph < 0.05;
+    const thresholdMs = state.config.marketplace_empty_alert_after_minutes * 60_000;
+    this.marketplace_empty = await this.runTransition({
+      event_class: 'marketplace_empty',
+      severity: 'INFO',
+      isBad,
+      thresholdMs,
+      currentState: this.marketplace_empty,
+      disabledClasses,
+      title: copyFor(state).marketplace_empty_title(),
+      titleForRecovery: copyFor(state).marketplace_empty_title_recovery(),
+      bodyForFiring: (durMs) =>
+        copyFor(state).marketplace_empty_body({ duration: formatDuration(durMs) }),
+      bodyForRecovery: (durMs) =>
+        copyFor(state).marketplace_empty_body_recovery({ duration: formatDuration(durMs) }),
+    });
+  }
+
   private async evaluatePoolBlockCredited(state: State, disabledClasses: ReadonlySet<string>): Promise<void> {
     if (!state.config.notify_on_pool_block_credit) return;
     if (disabledClasses.has('pool_block_credited')) return;

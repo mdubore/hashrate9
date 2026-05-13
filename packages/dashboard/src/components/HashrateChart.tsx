@@ -800,6 +800,32 @@ export const HashrateChart = memo(function HashrateChart({
       shareLogYScale,
       padRight,
       rightAxis,
+      // #167: contiguous spans of ticks with `fillable_ask_sat_per_ph_day === null`,
+      // i.e. the marketplace had no asks that could fill the target.
+      // Rendered as a faint grey shaded background band - retroactive
+      // visual cue for periods like 2026-05-13 ~07:00-08:15 when the
+      // hashrate line dropped and the operator couldn't tell whether
+      // it was their autopilot or supply-side at fault. Computed once
+      // per points change and used by the SVG render layer.
+      marketplaceEmptyIntervals: (() => {
+        const intervals: Array<{ x0: number; x1: number }> = [];
+        let runStart: number | null = null;
+        for (const p of points) {
+          if (p.fillable_ask_sat_per_ph_day === null) {
+            if (runStart === null) runStart = p.tick_at;
+          } else if (runStart !== null) {
+            intervals.push({ x0: runStart, x1: p.tick_at });
+            runStart = null;
+          }
+        }
+        if (runStart !== null) {
+          intervals.push({
+            x0: runStart,
+            x1: points[points.length - 1]?.tick_at ?? runStart,
+          });
+        }
+        return intervals;
+      })(),
     };
   }, [
     points,
@@ -942,7 +968,7 @@ export const HashrateChart = memo(function HashrateChart({
     );
   }
 
-  const { minX, maxX, xScale, yScale, deliveredPath, datumPath, hasDatum, oceanPath, hasOcean, targetPath, floorPath, yTicks, xTickInterval, xTicks, hasShareLog, shareLogPath, shareLogYTicks, shareLogYScale, padRight, rightAxis } = chartData;
+  const { minX, maxX, xScale, yScale, deliveredPath, datumPath, hasDatum, oceanPath, hasOcean, targetPath, floorPath, yTicks, xTickInterval, xTicks, hasShareLog, shareLogPath, shareLogYTicks, shareLogYScale, padRight, rightAxis, marketplaceEmptyIntervals } = chartData;
 
   return (
     <div className="bg-slate-900 border rounded-lg p-4 border-slate-800">
@@ -1041,6 +1067,31 @@ export const HashrateChart = memo(function HashrateChart({
             </g>
           ))}
 
+        {/* #167: marketplace-empty bands. Drawn behind data lines so
+            they sit as a faint grey background, not obscuring the
+            traces. Each interval represents a contiguous run of
+            ticks where the Braiins orderbook had no asks that could
+            fill the target hashrate. */}
+        {marketplaceEmptyIntervals.map((iv, i) => {
+          const x0 = xScale(Math.max(minX, iv.x0));
+          const x1 = xScale(Math.min(maxX, iv.x1));
+          if (!Number.isFinite(x0) || !Number.isFinite(x1) || x1 <= x0) return null;
+          return (
+            <rect
+              key={`mkt-empty-${i}`}
+              x={x0}
+              y={PADDING.top}
+              width={x1 - x0}
+              height={chartHeight - PADDING.top - PADDING.bottom}
+              fill="#475569"
+              opacity="0.12"
+            >
+              <title>
+                {`Marketplace empty (${Math.round((iv.x1 - iv.x0) / 60_000)} min)`}
+              </title>
+            </rect>
+          );
+        })}
         <path d={targetPath} stroke={COLOR_TARGET} strokeWidth="1.2" strokeDasharray="4 3" fill="none" opacity="0.6" />
         <path d={floorPath} stroke={COLOR_FLOOR} strokeWidth="1" strokeDasharray="2 3" fill="none" opacity="0.5" />
 

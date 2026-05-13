@@ -113,6 +113,8 @@ export interface ConfigTable {
   solo_share_rejection_threshold_pct: number;
   /** #149: rolling window in minutes over which share-rejection rate is computed. */
   solo_share_rejection_window_minutes: number;
+  /** #167: marketplace_empty alert threshold (consecutive minutes the orderbook is empty for our target AND delivery is ~0). */
+  marketplace_empty_alert_after_minutes: number;
   updated_at: number;
 }
 

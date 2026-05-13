@@ -177,6 +177,10 @@ msgstr "/PH/dag"
 msgid "← Back"
 msgstr "← Terug"
 
+#: src/pages/Status.tsx
+msgid "<0>Braiins marketplace empty.</0> The orderbook has no asks that can fill your target hashrate, and delivery has fallen to zero. The autopilot is still bidding - this resolves automatically when supply returns. Nothing to do."
+msgstr "<0>Braiins-marktplaats leeg.</0> De orderbook heeft geen asks die je doel-hashrate kunnen vervullen, en levering is gezakt naar nul. De autopilot blijft bieden - dit lost zichzelf op zodra er weer aanbod is. Niets te doen."
+
 #: src/pages/Setup.tsx
 msgid "<0>Detected from environment:</0> Umbrel/Start9-style <1>BITCOIN_RPC_*</1> env vars are set. The fields below are pre-filled - check them and override if needed."
 msgstr "<0>Gedetecteerd uit omgeving:</0> Umbrel/Start9-stijl <1>BITCOIN_RPC_*</1> env-variabelen zijn ingesteld. De velden hieronder zijn vooringevuld - controleer ze en pas aan indien nodig."
@@ -728,6 +732,10 @@ msgstr "Braiins marketplace"
 #: src/pages/Status.tsx
 msgid "Braiins marketplace API - reachable when the last observe() read market/orderbook/balance without error."
 msgstr "Braiins marketplace API - bereikbaar wanneer de laatste observe() market/orderbook/balance zonder fout heeft gelezen."
+
+#: src/pages/Config.tsx
+msgid "Braiins marketplace empty for"
+msgstr "Braiins-marktplaats leeg gedurende"
 
 #: src/pages/Status.tsx
 msgid "Braiins's own `state_estimate.avg_speed_ph` reading - their internal estimate of current matched hashrate. Reacts to a CREATE_BID / EDIT_SPEED within ~3 min. The orange \"delivered (Braiins)\" line on the Hashrate chart below plots a different signal: real billed PH/s derived from the consumed-sat counter (Δconsumed / (bid × Δt)). That counter signal is the truthful long-run billing record but takes longer to catch up to a capacity bump because matched shares have to accumulate. During a Datum outage the counter goes to zero correctly while this estimate holds elevated for minutes - that's why the chart uses the counter signal."
@@ -1456,6 +1464,10 @@ msgstr "Vuurt wanneer de ASIC-temperatuur boven 75 °C komt (instelbaar op Weerg
 #: src/pages/Config.tsx
 #~ msgid "Fires when the ASIC temp crosses its per-model ceiling (configurable on Display & Logging → Solo miners) OR the VR temp crosses 90 °C (separate built-in ceiling - VRs run a wider range than the ASIC), sustained for ~90 s. Recovery paired."
 #~ msgstr "Vuurt wanneer de ASIC-temperatuur de per-model-grens overschrijdt (instelbaar op Weergave & Logging → Solo miners) OF de VR-temperatuur boven 90 °C komt (aparte, ingebouwde grens - VR's hebben een breder werkbereik dan de ASIC), aangehouden gedurende ~90 s. Herstelmelding gekoppeld."
+
+#: src/pages/Config.tsx
+msgid "Fires when the Braiins orderbook has no hashrate available for your target AND delivery has fallen to zero, sustained for at least this many minutes. Two-condition gate filters micro-gaps in the orderbook. Recovery paired. Rare - normally only happens during low-supply stretches."
+msgstr "Vuurt wanneer de Braiins-orderbook geen hashrate beschikbaar heeft voor je doel ÉN de levering naar nul is gezakt, aangehouden gedurende ten minste dit aantal minuten. Tweevoudige check filtert micro-gaten in de orderbook. Herstelmelding gekoppeld. Zeldzaam - gebeurt normaal alleen tijdens lage-aanbod periodes."
 
 #: src/pages/Setup.tsx
 msgid "First-run setup"

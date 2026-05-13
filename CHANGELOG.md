@@ -2,6 +2,14 @@
 
 ## 2026-05-13
 
+### `[Feature]` Surface 'Braiins marketplace empty' state on Telegram + Status banner + chart shading (#167)
+
+Operator caught a real instance 2026-05-13 ~07:00-08:15 where hashrate dropped to zero across Braiins / Datum / Ocean because the marketplace had no asks that could fill their target. The autopilot's `no_market_supply` descriptor on the NEXT ACTION panel already detected the state but it was easy to miss and there was no historical record on the charts. Three visibility layers added:
+
+- **Telegram event class `marketplace_empty`** (INFO, off by default, on the Notifications tab with an inline minutes input). Fires when `fillable_ask_sat_per_eh_day` is null AND `actual_hashrate.total_ph < 0.05` for `marketplace_empty_alert_after_minutes` consecutive minutes (default 5). Two-condition gate filters micro-gaps in the orderbook. Recovery paired. EN + NL + ES copy. New migration `0088_marketplace_empty_alert.sql` adds the config column. Test event wired into the notifications-test-event route so the tile's Test button works.
+- **Live yellow banner** on the Status page (top, above all sections). Renders the moment both conditions match - no minute threshold here, that's the Telegram alert's job. Disappears the tick supply returns.
+- **Subtle grey shaded band** on the Hashrate + Price charts wherever `fillable_ask_sat_per_eh_day IS NULL` on consecutive ticks. Retroactive across the full chart range, no new column - reads the existing `tick_metrics.fillable_ask_sat_per_eh_day`. Hover tooltip shows the duration.
+
 ### `[UI]` NEXT ACTION panel: reserve space for the detail line + progress bar so the panel doesn't jump in height
 
 Operator caught a regression - the `JustExecutedBanner` spacer from #154 prevented the recap-row from shifting the page, but two other rows in the panel still grew/shrank: the descriptor's optional detail line (`Will lower to … in ~8 min`) appeared and disappeared depending on the descriptor kind, and the cooldown / escalation / patience / override progress bar only rendered when an event was queued. Each transition jumped the rest of the page by 16-30 px. Both rows now reserve their vertical footprint with invisible spacers, mirroring the JustExecutedBanner pattern - detail line uses `&nbsp;` when null, progress bar renders a fixed-height empty placeholder when no event is active.

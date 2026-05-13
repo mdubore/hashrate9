@@ -2992,6 +2992,24 @@ function EventClassSubscriptions({
         </span>
       ),
     },
+    {
+      // #167: marketplace empty (Braiins has no asks for our target
+      // AND delivery is ~0). Off by default; INFO severity. The
+      // detection runs whether or not the operator subscribes - the
+      // Status-page banner and the chart shading both surface the
+      // state independently. This tile only controls the Telegram
+      // push.
+      id: 'marketplace_empty',
+      label: t`Braiins marketplace empty for`,
+      help: t`Fires when the Braiins orderbook has no hashrate available for your target AND delivery has fallen to zero, sustained for at least this many minutes. Two-condition gate filters micro-gaps in the orderbook. Recovery paired. Rare - normally only happens during low-supply stretches.`,
+      enabled: !disabled.has('marketplace_empty'),
+      setEnabled: (n) => toggleClass('marketplace_empty', n),
+      severity: 'INFO',
+      extra: minutesInput(
+        'marketplace_empty_alert_after_minutes',
+        !disabled.has('marketplace_empty'),
+      ),
+    },
   ];
 
   const oceanTiles: Tile[] = [

@@ -325,11 +325,29 @@ export function Status() {
 
   const s: StatusResponse = query.data;
 
+  // #167: marketplace-empty banner. Fires the moment the daemon's
+  // current state matches both conditions (fillable null AND delivery
+  // ~0); no minute-threshold wait here (that's the Telegram alert's
+  // job - the banner is the in-the-moment indicator). Disappears the
+  // tick supply returns.
+  const marketplaceEmptyNow =
+    s.market !== null &&
+    s.market.fillable_ask_sat_per_ph_day === null &&
+    s.actual_hashrate_ph < 0.05;
   return (
     <div className="space-y-5">
       {/* #113: stale-URL banner. Renders only when there's a real
           mismatch between config and an active bid - silent otherwise. */}
       <StaleUrlBanner />
+      {marketplaceEmptyNow && (
+        <div className="bg-amber-950/40 border border-amber-700/60 rounded-lg p-3 text-sm text-amber-200">
+          <Trans>
+            <strong>Braiins marketplace empty.</strong> The orderbook has no asks that can fill
+            your target hashrate, and delivery has fallen to zero. The autopilot is still bidding -
+            this resolves automatically when supply returns. Nothing to do.
+          </Trans>
+        </div>
+      )}
       {/* No "Status" h2 header - the top nav already announces the
           page, and last-tick info is duplicated in the
           NextActionCard's footer. Saved a chunk of vertical real

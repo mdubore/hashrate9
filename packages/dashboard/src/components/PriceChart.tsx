@@ -1043,7 +1043,31 @@ export const PriceChart = memo(function PriceChart({
           (e) => allowedKinds.has(e.kind) && e.occurred_at >= minX && e.occurred_at <= maxX,
         );
 
-    return { pricePoints, minX, maxX, hasPrice, priceMin, priceMax, xScale, yScale, pricePath, priceAreaPath, hashpricePath, fillablePath, fillableHasData: fillablePoints.length > 0, effectivePath, effectiveHasData: effectivePoints.length > 0, capPath, capExclusionPolygon, yTicks, xTickInterval, xTicks, visibleEvents, rightAxis, hasRightAxis, rightAxisPath, rightYTicks, rightYScale, padRight };
+    // #167: contiguous spans of ticks with fillable_ask null - the
+    // marketplace had no asks that could fill our target. Rendered as
+    // a faint grey shaded band behind the data so the gap in our_bid
+    // markers during these periods is visually labelled rather than
+    // looking like a controller pause.
+    const marketplaceEmptyIntervals: Array<{ x0: number; x1: number }> = [];
+    {
+      let runStart: number | null = null;
+      for (const p of points) {
+        if (p.fillable_ask_sat_per_ph_day === null) {
+          if (runStart === null) runStart = p.tick_at;
+        } else if (runStart !== null) {
+          marketplaceEmptyIntervals.push({ x0: runStart, x1: p.tick_at });
+          runStart = null;
+        }
+      }
+      if (runStart !== null) {
+        marketplaceEmptyIntervals.push({
+          x0: runStart,
+          x1: points[points.length - 1]?.tick_at ?? runStart,
+        });
+      }
+    }
+
+    return { pricePoints, minX, maxX, hasPrice, priceMin, priceMax, xScale, yScale, pricePath, priceAreaPath, hashpricePath, fillablePath, fillableHasData: fillablePoints.length > 0, effectivePath, effectiveHasData: effectivePoints.length > 0, capPath, capExclusionPolygon, yTicks, xTickInterval, xTicks, visibleEvents, rightAxis, hasRightAxis, rightAxisPath, rightYTicks, rightYScale, padRight, marketplaceEmptyIntervals };
   }, [points, events, showEventKinds, priceSmoothingMinutes, maxOverpayVsHashpriceSatPerPhDay, chartHeight, rightAxisSeries, soloSeries, denomination, intlLocale]);
 
   const eventPriceAt = useCallback((e: BidEventView): number | null => {
@@ -1310,7 +1334,7 @@ export const PriceChart = memo(function PriceChart({
     );
   }
 
-  const { pricePoints, minX, maxX, hasPrice, priceMin, priceMax, xScale, yScale, pricePath, priceAreaPath, hashpricePath, fillablePath, fillableHasData, effectivePath, effectiveHasData, capPath, capExclusionPolygon, yTicks, xTickInterval, xTicks, visibleEvents, rightAxis, hasRightAxis, rightAxisPath, rightYTicks, rightYScale, padRight } = chartData;
+  const { pricePoints, minX, maxX, hasPrice, priceMin, priceMax, xScale, yScale, pricePath, priceAreaPath, hashpricePath, fillablePath, fillableHasData, effectivePath, effectiveHasData, capPath, capExclusionPolygon, yTicks, xTickInterval, xTicks, visibleEvents, rightAxis, hasRightAxis, rightAxisPath, rightYTicks, rightYScale, padRight, marketplaceEmptyIntervals } = chartData;
 
   // Format Y-axis tick values via the denomination context so the
   // numbers track the currency + hashrate-unit toggle. The full
@@ -1490,6 +1514,31 @@ export const PriceChart = memo(function PriceChart({
             gradient that fades down to transparent at the cap curve
             so the operator reads it as "walled off" without obscuring
             detail near the cap. */}
+        {/* #167: marketplace-empty bands - faint grey shading wherever
+            fillable_ask was null for contiguous ticks. Renders behind
+            the data series so the gap in `our bid` markers during
+            these periods reads as "the marketplace had nothing to
+            sell" rather than as a controller pause. */}
+        {marketplaceEmptyIntervals.map((iv, i) => {
+          const x0 = xScale(Math.max(minX, iv.x0));
+          const x1 = xScale(Math.min(maxX, iv.x1));
+          if (!Number.isFinite(x0) || !Number.isFinite(x1) || x1 <= x0) return null;
+          return (
+            <rect
+              key={`mkt-empty-${i}`}
+              x={x0}
+              y={PADDING.top}
+              width={x1 - x0}
+              height={chartHeight - PADDING.top - PADDING.bottom}
+              fill="#475569"
+              opacity="0.12"
+            >
+              <title>
+                {`Marketplace empty (${Math.round((iv.x1 - iv.x0) / 60_000)} min)`}
+              </title>
+            </rect>
+          );
+        })}
         {capExclusionPolygon && (
           <>
             <defs>

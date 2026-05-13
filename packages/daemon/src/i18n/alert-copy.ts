@@ -48,6 +48,10 @@ export interface AlertCopy {
   datum_unreachable_title_recovery(): string;
   datum_unreachable_body(args: { duration: string }): string;
   datum_unreachable_body_recovery(args: { duration: string }): string;
+  marketplace_empty_title(): string;
+  marketplace_empty_title_recovery(): string;
+  marketplace_empty_body(args: { duration: string }): string;
+  marketplace_empty_body_recovery(args: { duration: string }): string;
 
   hashrate_below_floor_title(): string;
   hashrate_below_floor_title_recovery(): string;
@@ -154,6 +158,13 @@ const EN: AlertCopy = {
   datum_unreachable_body_recovery: ({ duration }) =>
     `Datum gateway reachable again - was down ${duration}.`,
 
+  marketplace_empty_title: () => 'Braiins marketplace empty',
+  marketplace_empty_title_recovery: () => 'Braiins marketplace supply returned',
+  marketplace_empty_body: ({ duration }) =>
+    `The Braiins marketplace has had no hashrate available for your target for ${duration}. The autopilot is bidding but the orderbook has no asks that can fill it. Delivery is at zero. Nothing to do - this resolves when supply returns.`,
+  marketplace_empty_body_recovery: ({ duration }) =>
+    `Marketplace supply returned - was empty for ${duration}. Bids are filling again.`,
+
   hashrate_below_floor_title: () => 'Hashrate below floor',
   hashrate_below_floor_title_recovery: () => 'Hashrate above floor',
   hashrate_below_floor_body: ({ duration, actual_ph, floor_ph }) =>
@@ -257,6 +268,13 @@ const NL: AlertCopy = {
     `Datum gateway is al ${duration} onbereikbaar. Gehuurde hashrate kan Ocean niet bereiken - shares worden niet bijgeschreven.`,
   datum_unreachable_body_recovery: ({ duration }) =>
     `Datum gateway is weer bereikbaar - was ${duration} down.`,
+
+  marketplace_empty_title: () => 'Braiins-marktplaats leeg',
+  marketplace_empty_title_recovery: () => 'Aanbod op de Braiins-marktplaats terug',
+  marketplace_empty_body: ({ duration }) =>
+    `Op de Braiins-marktplaats is al ${duration} geen hashrate beschikbaar voor je doel. De autopilot biedt wel maar er staat niets in de orderbook dat vervuld kan worden. Levering is nul. Niets te doen - dit lost zich op zodra er weer aanbod is.`,
+  marketplace_empty_body_recovery: ({ duration }) =>
+    `Aanbod op de marktplaats is terug - was ${duration} leeg. Biedingen worden weer vervuld.`,
 
   hashrate_below_floor_title: () => 'Hashrate onder de vloer',
   hashrate_below_floor_title_recovery: () => 'Hashrate boven de vloer',
@@ -362,6 +380,13 @@ const ES: AlertCopy = {
     `La gateway Datum lleva ${duration} sin ser accesible. La hashrate del comprador no puede llegar a Ocean - los shares no se acreditan.`,
   datum_unreachable_body_recovery: ({ duration }) =>
     `Gateway Datum accesible de nuevo - estuvo caída ${duration}.`,
+
+  marketplace_empty_title: () => 'Mercado Braiins vacío',
+  marketplace_empty_title_recovery: () => 'Hay oferta de nuevo en el mercado Braiins',
+  marketplace_empty_body: ({ duration }) =>
+    `El mercado Braiins lleva ${duration} sin hashrate disponible para tu objetivo. El autopilot está ofertando pero el libro de órdenes no tiene asks que puedan llenarlo. La entrega está a cero. Nada que hacer - se resuelve cuando vuelva la oferta.`,
+  marketplace_empty_body_recovery: ({ duration }) =>
+    `Volvió la oferta - estuvo vacío ${duration}. Las ofertas se están llenando otra vez.`,
 
   hashrate_below_floor_title: () => 'Hashrate por debajo del mínimo',
   hashrate_below_floor_title_recovery: () => 'Hashrate por encima del mínimo',

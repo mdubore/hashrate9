@@ -443,6 +443,7 @@ INFO severity (opt-in, good news + lifecycle):
 - **Pool-block credit** (TIDES) - opt-in Telegram via the `notify_on_pool_block_credit` toggle. Body contains block height, total reward, our share log %, our credit in sat, and unpaid-total progress toward the 1,048,576-sat on-chain payout threshold. No retry ladder; no inline ack button.
 - **Braiins deposit detected** - fires when `braiins_total_deposited_sat` ticks up (mempool / first-confirmation). Gate: `notify_on_braiins_deposit` master toggle.
 - **Braiins deposit available** - fires when the on-chain endpoint surfaces the deposit as `DEPOSIT_STATUS_CREDITED` (typically 6-12 min after detected). Same master toggle.
+- **Marketplace empty** (#167) - fires when the Braiins orderbook has no asks that can fill the target hashrate AND counter-derived delivery is ~0, sustained for `marketplace_empty_alert_after_minutes` (default 5). Recovery paired when supply returns. Off by default; opted in via the Notifications tab tile. The same detection also drives a yellow banner at the top of the Status page (renders instantly the tick both conditions match, no minute threshold) and a faint grey shaded band across the Hashrate + Price charts wherever `fillable_ask_sat_per_eh_day IS NULL`, so the dropout is visually labelled retroactively.
 
 **Dashboard-only INFO surfaces (no Telegram event):**
 
