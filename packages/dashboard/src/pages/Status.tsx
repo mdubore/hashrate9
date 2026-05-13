@@ -1119,22 +1119,27 @@ function NextActionMessage({ next }: { next: NextActionView }) {
   void i18n;
   const denomination = useDenomination();
   const d = next.descriptor;
-  if (!d) {
-    return (
-      <>
-        <div className="text-slate-100">{relabelSummary(next.summary, denomination)}</div>
-        {next.detail && (
-          <div className="text-xs text-slate-400 mt-1">{relabelSummary(next.detail, denomination)}</div>
-        )}
-      </>
-    );
-  }
-  const summary = renderNextActionSummary(d, denomination);
-  const detail = renderNextActionDetail(d, denomination);
+  // Always reserve the detail-line row, mirroring JustExecutedBanner's
+  // `&nbsp;`-spacer pattern. Some descriptor kinds (paused,
+  // braiins_unreachable, no_market_supply, bid_pending) don't render
+  // a detail line; without the spacer, transitioning into or out of
+  // those kinds shifts the rest of the panel up or down by ~16 px.
+  // The button row, tick-result row, and the rest of the page beneath
+  // all move along with that jump - distracting on every state flip.
+  const summary = d
+    ? renderNextActionSummary(d, denomination)
+    : relabelSummary(next.summary, denomination);
+  const detail = d
+    ? renderNextActionDetail(d, denomination)
+    : next.detail
+      ? relabelSummary(next.detail, denomination)
+      : null;
   return (
     <>
       <div className="text-slate-100">{summary}</div>
-      {detail && <div className="text-xs text-slate-400 mt-1">{detail}</div>}
+      <div className="text-xs text-slate-400 mt-1">
+        {detail ?? <span className="invisible select-none">&nbsp;</span>}
+      </div>
     </>
   );
 }
@@ -1315,7 +1320,22 @@ function NextActionProgress({ next }: { next: NextActionView }) {
     return () => clearInterval(id);
   }, [hasEvent]);
 
-  if (!hasEvent) return null;
+  // Always reserve the progress-bar's vertical footprint (label row +
+  // bar row). When no event is queued, render an invisible placeholder
+  // of the same height so transitioning into/out of an event (cooldown,
+  // escalation, patience, override) doesn't shift the rest of the
+  // panel by ~30 px.
+  if (!hasEvent) {
+    return (
+      <div className="mt-3" aria-hidden="true">
+        <div className="flex items-baseline justify-between text-[11px] text-slate-400 mb-1 font-mono invisible select-none">
+          <span>&nbsp;</span>
+          <span>&nbsp;</span>
+        </div>
+        <div className="h-1.5 bg-slate-800/0 rounded overflow-hidden" />
+      </div>
+    );
+  }
   const start = next.event_started_ms!;
   const end = next.eta_ms!;
   const span = Math.max(1, end - start);

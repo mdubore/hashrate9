@@ -2,6 +2,10 @@
 
 ## 2026-05-13
 
+### `[UI]` NEXT ACTION panel: reserve space for the detail line + progress bar so the panel doesn't jump in height
+
+Operator caught a regression - the `JustExecutedBanner` spacer from #154 prevented the recap-row from shifting the page, but two other rows in the panel still grew/shrank: the descriptor's optional detail line (`Will lower to … in ~8 min`) appeared and disappeared depending on the descriptor kind, and the cooldown / escalation / patience / override progress bar only rendered when an event was queued. Each transition jumped the rest of the page by 16-30 px. Both rows now reserve their vertical footprint with invisible spacers, mirroring the JustExecutedBanner pattern - detail line uses `&nbsp;` when null, progress bar renders a fixed-height empty placeholder when no event is active.
+
 ### `[Fix]` Alerts nav badge: stop counting auto-recovered alerts as unread (#166)
 
 Operator screenshot showed `Alerts 1` in the top nav while the Alerts page had every entry in the ACKNOWLEDGED/RESOLVED bucket and nothing in OPEN. Root cause: `countUnacknowledgedHighSeverity` only checked `acknowledged_at_ms IS NULL` + severity, missing the paired-recovery exclusion the Alerts page's OPEN bucket already enforces. An alert that auto-recovered (got a paired recovery row) but was never explicitly ack'd by the operator counted as unread - badge lit up, page showed nothing actionable. Fix: added the same `NOT EXISTS (paired recovery)` guard the page uses. Verified against the operator's DB - badge query went from 1 → 0, matching the empty OPEN bucket.
