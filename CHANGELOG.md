@@ -2,6 +2,10 @@
 
 ## 2026-05-13
 
+### `[Fix]` Alerts nav badge: stop counting auto-recovered alerts as unread (#166)
+
+Operator screenshot showed `Alerts 1` in the top nav while the Alerts page had every entry in the ACKNOWLEDGED/RESOLVED bucket and nothing in OPEN. Root cause: `countUnacknowledgedHighSeverity` only checked `acknowledged_at_ms IS NULL` + severity, missing the paired-recovery exclusion the Alerts page's OPEN bucket already enforces. An alert that auto-recovered (got a paired recovery row) but was never explicitly ack'd by the operator counted as unread - badge lit up, page showed nothing actionable. Fix: added the same `NOT EXISTS (paired recovery)` guard the page uses. Verified against the operator's DB - badge query went from 1 → 0, matching the empty OPEN bucket.
+
 ### `[UI]` Pool URL: yellow note + info popover explaining the dynamic-IP / DDNS implication (#165)
 
 The Pool URL helper read `Must be reachable from the public internet - Braiins probes it.` Literally true but missed the operational consequence: residential dynamic IPs make a raw-IP entry break the day the ISP rotates. Added an inline yellow `⚠ Dynamic IP? Use a DDNS hostname, not a raw IP.` with a click-to-open ⓘ popover explaining the situation and pointing at the Dynamic DNS panel right below. Same pattern as the #162 popover on the Datum field.

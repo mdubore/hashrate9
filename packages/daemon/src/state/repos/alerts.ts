@@ -293,13 +293,33 @@ export class AlertsRepo {
     return (row as AlertRow | undefined) ?? null;
   }
 
-  /** Count of un-acknowledged alerts at ERROR or WARNING severity. Drives the top-nav badge. */
+  /**
+   * Count of un-acknowledged, un-recovered alerts at IMPORTANT or
+   * WARNING severity. Drives the top-nav badge.
+   *
+   * (#166) The recovery-pair exclusion matches the Alerts page's OPEN
+   * bucket model: `recovery === null && acknowledged_at_ms === null`.
+   * Without it, an alert that auto-recovered (paired with a recovery
+   * row) but was never explicitly ack'd by the operator still counts
+   * as "unread" - the badge lights up while the page itself shows
+   * nothing actionable.
+   */
   async countUnacknowledgedHighSeverity(): Promise<number> {
     const row = await this.db
       .selectFrom('alerts')
       .select((eb) => eb.fn.countAll<number>().as('n'))
       .where('acknowledged_at_ms', 'is', null)
       .where('severity', 'in', ['IMPORTANT', 'WARNING'])
+      .where((eb) =>
+        eb.not(
+          eb.exists(
+            eb
+              .selectFrom('alerts as recovery')
+              .select('recovery.id')
+              .whereRef('recovery.paired_alert_id', '=', 'alerts.id'),
+          ),
+        ),
+      )
       .executeTakeFirstOrThrow();
     return Number(row.n);
   }
