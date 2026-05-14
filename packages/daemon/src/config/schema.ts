@@ -426,6 +426,15 @@ export const AppConfigSchema = z.object({
   // shows). Two-condition gate keeps micro-gaps in the orderbook from
   // tripping a false alert.
   marketplace_empty_alert_after_minutes: z.number().int().positive().default(5),
+
+  // #170: when ON, the payout-observer's electrs path enumerates EVERY
+  // coinbase tx ever credited to the payout address and folds them
+  // into reward_events, so the chart's lifetime-earnings line reflects
+  // historical Ocean payouts even after they've been swept. When OFF,
+  // only currently-unspent outputs are counted (pre-#170 behaviour).
+  // Default ON because the typical user reuses their payout address;
+  // operators with fresh-address discipline can flip it off.
+  include_historical_payouts: z.boolean().default(true),
 });
 
 export type AppConfig = z.infer<typeof AppConfigSchema>;
@@ -542,4 +551,5 @@ export const APP_CONFIG_DEFAULTS: Omit<
   solo_share_rejection_threshold_pct: 10,
   solo_share_rejection_window_minutes: 60,
   marketplace_empty_alert_after_minutes: 5,
+  include_historical_payouts: true,
 };

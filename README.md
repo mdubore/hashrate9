@@ -82,7 +82,12 @@ Non-goals: SaaS / multi-user, cloud deployment, hands-free wallet funding, gaple
 - Each tick also polls the **Ocean pool API** (hashprice, pool stats, payout estimate, recent blocks) and - when
   a `datum_api_url` is configured - the **Datum Gateway's `/umbrel-api`** for a second hashrate reading measured
   at the gateway. Both integrations are informational; the control loop never depends on them being reachable.
-- Optionally reads `bitcoind` or Electrs for on-chain payout observation (income tracking, runway calculation).
+- Optionally reads `bitcoind` or Electrs for on-chain payout observation (income tracking, runway calculation). On
+  Electrs, lifetime earnings count **every coinbase tx ever credited to your payout address** - including
+  historical Ocean payouts you've already swept to another wallet - so the P&L stays coherent even if you reuse a
+  payout address across before-and-after-installation periods. A `Backfill now` button under Config -> Pool &
+  Payout pulls historical receipts on demand. Operators with fresh-address discipline can disable the backfill via
+  the same panel.
 
 Full design: [`docs/spec.md`](docs/spec.md) · [`docs/architecture.md`](docs/architecture.md) ·
 [`docs/research.md`](docs/research.md).

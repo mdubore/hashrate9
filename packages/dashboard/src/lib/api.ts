@@ -355,6 +355,8 @@ export interface AppConfig {
   solo_share_rejection_window_minutes: number;
   // #167: minutes the Braiins marketplace must be empty (no fillable + delivery ~0) before the Telegram alert fires.
   marketplace_empty_alert_after_minutes: number;
+  // #170: when true, the payout-observer backfills ALL historical coinbase receipts at the payout address into reward_events (not just currently-unspent UTXOs).
+  include_historical_payouts: boolean;
 }
 
 export interface ConfigResponse {
@@ -619,6 +621,15 @@ export const api = {
     ),
   payouts: () => request<PayoutsResponse>('/api/payouts'),
   scanPayouts: () => request<{ ok: boolean; error?: string }>('/api/payouts/scan', { method: 'POST' }),
+  backfillPayouts: () =>
+    request<{
+      ok: boolean;
+      error?: string;
+      inserted: number;
+      coinbase_seen: number;
+      tx_seen: number;
+      duration_ms: number;
+    }>('/api/payouts/backfill', { method: 'POST' }),
   rewardEvents: (limit?: number) =>
     request<RewardEventsResponse>(
       `/api/reward-events${limit ? `?limit=${limit}` : ''}`,

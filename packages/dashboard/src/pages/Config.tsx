@@ -779,7 +779,13 @@ function ConfigTabsAndContent({
   const customSectionMeta: Record<string, { title: string; labels: string[] }> = {
     'payout-source': {
       title: t`Payout source`,
-      labels: [t`Bitcoin Core RPC`, t`Electrs`, t`Disabled (no payout tracking)`],
+      labels: [
+        t`Bitcoin Core RPC`,
+        t`Electrs`,
+        t`Disabled (no payout tracking)`,
+        t`Include historical Ocean payouts in lifetime earnings`,
+        t`Backfill now`,
+      ],
     },
     ddns: {
       title: t`Dynamic DNS`,
@@ -3390,6 +3396,13 @@ function PayoutSourceSection({
           <ElectrsFields draft={draft} locale={locale} onChange={onChange} />
         )}
 
+        {/* #170: historical backfill toggle + manual trigger. Only
+            meaningful on electrs (the only path with a cheap full-
+            address history call). Hidden on the other two sources. */}
+        {source === 'electrs' && (
+          <HistoricalPayoutsControls draft={draft} onChange={onChange} />
+        )}
+
         {/* Bitcoin Core RPC fields - always shown, not gated on the
             balance-check radio. These creds drive THREE features and
             only one of them is on-chain payouts: the BIP 110 yellow-
@@ -3404,6 +3417,115 @@ function PayoutSourceSection({
         <BitcoindRpcFields draft={draft} onChange={onChange} />
       </div>
     </section>
+  );
+}
+
+/**
+ * #170: toggle for the historical-payouts backfill loop + a
+ * "Backfill now" button that runs it on demand.
+ *
+ * The toggle is a normal draft/onChange field. The button hits the
+ * `/api/payouts/backfill` endpoint directly via the api client; it
+ * does NOT participate in the dirty/auto-save flow because it's an
+ * imperative operator action, not a config edit. Reports the
+ * inserted-row count so the operator can see "actually, this did
+ * something".
+ */
+function HistoricalPayoutsControls({
+  draft,
+  onChange,
+}: {
+  draft: AppConfig;
+  onChange: <K extends keyof AppConfig>(k: K, v: AppConfig[K]) => void;
+}) {
+  const enabled = draft.include_historical_payouts;
+  const [pending, setPending] = useState(false);
+  const [result, setResult] = useState<{
+    ok: boolean;
+    message: string;
+  } | null>(null);
+
+  const runBackfill = async () => {
+    setPending(true);
+    setResult(null);
+    try {
+      const r = await api.backfillPayouts();
+      if (r.ok) {
+        setResult({
+          ok: true,
+          message: t`Scanned ${r.tx_seen} txs (${r.coinbase_seen} coinbase). Inserted ${r.inserted} new payout row(s) in ${Math.round(r.duration_ms / 1000)}s.`,
+        });
+      } else {
+        setResult({
+          ok: false,
+          message: r.error ?? t`Backfill failed`,
+        });
+      }
+    } catch (err) {
+      setResult({
+        ok: false,
+        message: (err as Error).message,
+      });
+    } finally {
+      setPending(false);
+    }
+  };
+
+  return (
+    <div className="bg-slate-900/40 border border-slate-800 rounded p-3 space-y-3">
+      <label className="flex items-start gap-2 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={enabled}
+          onChange={(e) => onChange('include_historical_payouts', e.target.checked as never)}
+          className="mt-1 accent-amber-400"
+        />
+        <span>
+          <span className="text-sm text-slate-200">
+            <Trans>Include historical Ocean payouts in lifetime earnings</Trans>
+          </span>
+          <span className="block text-xs text-slate-500 mt-0.5">
+            <Trans>
+              When on, lifetime earnings count every coinbase tx ever credited to this
+              payout address - including payouts you have already swept to another
+              wallet. When off, only outputs still sitting at the address are counted
+              (the pre-1.7.5 behaviour). Most users want this on; turn it off if you
+              rotate to a fresh payout address per accounting period.
+            </Trans>
+          </span>
+        </span>
+      </label>
+
+      <div className="flex items-center gap-3 flex-wrap">
+        <button
+          type="button"
+          onClick={() => void runBackfill()}
+          disabled={pending}
+          className="px-3 py-1.5 text-xs rounded border border-amber-600 text-amber-300 hover:bg-amber-950/40 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {pending ? <Trans>Scanning…</Trans> : <Trans>Backfill now</Trans>}
+        </button>
+        <span className="text-xs text-slate-500">
+          <Trans>
+            Walks the full address history via Electrs and adds any historical Ocean
+            coinbase payouts that aren't already recorded. Safe to run repeatedly.
+          </Trans>
+        </span>
+      </div>
+
+      {result && (
+        <div
+          className={
+            'text-xs rounded p-2 ' +
+            (result.ok
+              ? 'bg-emerald-950/30 border border-emerald-800 text-emerald-200'
+              : 'bg-rose-950/30 border border-rose-800 text-rose-200')
+          }
+        >
+          {result.message}
+        </div>
+      )}
+    </div>
   );
 }
 

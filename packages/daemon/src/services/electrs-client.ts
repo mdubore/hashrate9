@@ -35,6 +35,36 @@ export interface ElectrsUnspent {
   readonly value: number;
 }
 
+export interface ElectrsHistoryItem {
+  readonly tx_hash: string;
+  /** Block height. 0 = unconfirmed (mempool). -1 = unconfirmed with unconfirmed parents. */
+  readonly height: number;
+}
+
+/**
+ * Subset of fields we care about from `blockchain.transaction.get`
+ * with verbose=true. Electrs (Romanz fork) passes through bitcoind's
+ * `decoderawtransaction` shape plus block metadata. We only need the
+ * coinbase indicator on vin[0] and the per-vout value + address.
+ */
+export interface ElectrsTransaction {
+  readonly txid: string;
+  readonly vin: ReadonlyArray<{ readonly coinbase?: string }>;
+  readonly vout: ReadonlyArray<{
+    readonly n: number;
+    /** Value in BTC (per bitcoind convention). */
+    readonly value: number;
+    readonly scriptPubKey: {
+      readonly hex: string;
+      readonly address?: string;
+      readonly addresses?: ReadonlyArray<string>;
+    };
+  }>;
+  readonly blockhash?: string;
+  readonly blocktime?: number;
+  readonly confirmations?: number;
+}
+
 export interface ElectrsClient {
   getBalance(address: string): Promise<ElectrsBalance>;
   /**
@@ -47,6 +77,23 @@ export interface ElectrsClient {
    * which is the right call for an Ocean-paying address.
    */
   listUnspent(address: string): Promise<ElectrsUnspent[]>;
+  /**
+   * Full address history (#170): every confirmed or mempool tx
+   * touching the given address. Returns the same shape as
+   * `blockchain.scripthash.get_history`. Used by the historical
+   * backfill loop to discover Ocean coinbase payouts that have
+   * already been swept off-address - those don't appear in
+   * `listUnspent` but they did exist on-chain at some point and
+   * count toward lifetime mining income.
+   */
+  getHistory(address: string): Promise<ElectrsHistoryItem[]>;
+  /**
+   * Verbose tx fetch via `blockchain.transaction.get`. Used by the
+   * backfill loop to (a) confirm a candidate history item is a
+   * coinbase tx and (b) enumerate the vouts that paid to the
+   * payout address.
+   */
+  getTransaction(txid: string): Promise<ElectrsTransaction>;
   /**
    * Fetch the 4-byte version field from the block header at the
    * given height. Returns the parsed signed-int. Used to detect
@@ -180,10 +227,42 @@ export async function createElectrsClient(config: ElectrsConfig): Promise<Electr
         value: Number(r.value),
       }));
     },
+    async getHistory(address: string): Promise<ElectrsHistoryItem[]> {
+      const scripthash = addressToScripthash(address);
+      const rows = await call<Array<{ tx_hash: string; height: number }>>(
+        'blockchain.scripthash.get_history',
+        [scripthash],
+      );
+      return rows.map((r) => ({
+        tx_hash: String(r.tx_hash),
+        height: Number(r.height),
+      }));
+    },
+    async getTransaction(txid: string): Promise<ElectrsTransaction> {
+      // Some Electrum servers reject the `verbose=true` flag and only
+      // return raw hex. Romanz electrs (the de-facto Bitcoin Electrum
+      // server) supports verbose since 0.9.x, which matches what
+      // Umbrel ships. If the call ever surfaces "verbose transactions
+      // are currently unsupported", the caller falls back gracefully
+      // - the backfill is best-effort, not a daemon-killing failure.
+      const tx = await call<ElectrsTransaction>('blockchain.transaction.get', [txid, true]);
+      return tx;
+    },
     close() {
       socket.destroy();
     },
   };
+}
+
+/**
+ * Public helper used by the payout-observer's backfill loop to match
+ * vout.scriptPubKey.hex against the configured payout address without
+ * relying on each electrs build's choice of `address` vs `addresses`
+ * vs nothing-at-all in the verbose-tx response. Comparing hex on both
+ * sides is the one shape that's invariant across implementations.
+ */
+export function addressToScriptPubKeyHex(address: string): string {
+  return addressToScriptPubKey(address).toString('hex');
 }
 
 // ---------------------------------------------------------------------------

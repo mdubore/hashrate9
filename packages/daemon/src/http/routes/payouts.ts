@@ -60,4 +60,35 @@ export async function registerPayoutsRoute(
     await deps.payoutObserver.scanOnce();
     return { ok: true };
   });
+
+  // #170: dashboard "Backfill now" button. Walks the full address
+  // history via electrs and folds every coinbase tx into
+  // reward_events. Ignores the include_historical_payouts gate -
+  // pressing the button is an explicit operator action that the gate
+  // setting should not block.
+  app.post('/api/payouts/backfill', async (_req, reply) => {
+    if (!deps.payoutObserver) {
+      reply.code(503);
+      return { ok: false, error: 'payout observer not configured' };
+    }
+    const result = await deps.payoutObserver.runHistoricalBackfill();
+    if (result.error) {
+      reply.code(502);
+      return {
+        ok: false,
+        error: result.error,
+        inserted: result.inserted,
+        coinbase_seen: result.coinbaseSeen,
+        tx_seen: result.txSeen,
+        duration_ms: result.durationMs,
+      };
+    }
+    return {
+      ok: true,
+      inserted: result.inserted,
+      coinbase_seen: result.coinbaseSeen,
+      tx_seen: result.txSeen,
+      duration_ms: result.durationMs,
+    };
+  });
 }

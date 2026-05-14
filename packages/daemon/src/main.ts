@@ -361,6 +361,9 @@ async function bootOperational(
       electrsPort: cfg.payout_source === 'electrs' ? cfg.electrs_port : null,
       log: (m) => log(m),
       db: handle.db,
+      // #170: live-read the backfill toggle each cycle so flipping it
+      // in the dashboard takes effect without a daemon restart.
+      getHistoricalEnabled: () => cfg.include_historical_payouts,
       // When new reward_events rows land, immediately backfill
       // tick_metrics.paid_total_sat across history so the chart's
       // lifetime-earnings line shows the correct timeline without

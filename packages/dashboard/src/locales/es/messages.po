@@ -299,10 +299,6 @@ msgid "Add"
 msgstr "Anadir"
 
 #: src/pages/Config.tsx
-#~ msgid "Add {0} selected"
-#~ msgstr "Anadir {0} seleccionados"
-
-#: src/pages/Config.tsx
 msgid "Add {pickedCount} selected"
 msgstr ""
 
@@ -390,14 +386,6 @@ msgstr "Solo la temperatura de unión del ASIC. Por defecto 0 usa 167 °F en tod
 #: src/pages/Config.tsx
 msgid "ASIC junction temperature only. Default 0 uses 75 °C across all BM13xx chips - matches AxeOS firmware's THROTTLE_TEMP, the point at which the miner itself reduces frequency. Any non-zero value here overrides it. The VR (voltage regulator) sensor uses a separate built-in ceiling of 100 °C; AxeOS throttles the VR at 105 °C so we fire 5 °C earlier to give you headroom to react."
 msgstr "Solo la temperatura de unión del ASIC. Por defecto 0 usa 75 °C en todos los chips BM13xx - coincide con THROTTLE_TEMP del firmware AxeOS, el punto en que el minero reduce su frecuencia por sí mismo. Cualquier valor distinto de cero aquí lo sobrescribe. El sensor del VR (regulador de voltaje) usa un techo integrado independiente de 100 °C; AxeOS estrangula el VR a 105 °C, por lo que disparamos 5 °C antes para darte margen de reacción."
-
-#: src/pages/Config.tsx
-#~ msgid "ASIC junction temperature only. Default 0 uses per-model lookup (BM1370 = 154 °F, BM1368/BM1366 = 158 °F, BM1397 = 167 °F, fallback 158 °F). Any non-zero value here overrides all of them. The VR (voltage regulator) sensor uses a separate built-in ceiling of 194 °F (90 °C) and is not configurable yet - those chips run a much wider operating range than the ASIC and AxeOS itself doesn't flag them below ~194 °F."
-#~ msgstr "Solo la temperatura de unión del ASIC. Por defecto 0 usa búsqueda por modelo (BM1370 = 154 °F, BM1368/BM1366 = 158 °F, BM1397 = 167 °F, predeterminado 158 °F). Cualquier valor distinto de cero aquí los sobrescribe todos. El sensor del VR (regulador de voltaje) usa un techo integrado independiente de 194 °F (90 °C) y aún no es configurable - esos chips funcionan en un rango más amplio que el ASIC y AxeOS no los señala por debajo de ~194 °F."
-
-#: src/pages/Config.tsx
-#~ msgid "ASIC junction temperature only. Default 0 uses per-model lookup (BM1370 = 68 °C, BM1368/BM1366 = 70 °C, BM1397 = 75 °C, fallback 70 °C). Any non-zero value here overrides all of them. The VR (voltage regulator) sensor uses a separate built-in ceiling of 90 °C and is not configurable yet - those chips run a much wider operating range than the ASIC and AxeOS itself doesn't flag them below ~90 °C."
-#~ msgstr "Solo la temperatura de unión del ASIC. Por defecto 0 usa búsqueda por modelo (BM1370 = 68 °C, BM1368/BM1366 = 70 °C, BM1397 = 75 °C, predeterminado 70 °C). Cualquier valor distinto de cero aquí los sobrescribe todos. El sensor del VR (regulador de voltaje) usa un techo integrado independiente de 90 °C y aún no es configurable - esos chips funcionan en un rango más amplio que el ASIC y AxeOS no los señala por debajo de ~90 °C."
 
 #: src/pages/Config.tsx
 #: src/pages/Config.tsx
@@ -511,6 +499,15 @@ msgstr "overpay medio (settled)"
 #: src/pages/Setup.tsx
 msgid "Backend"
 msgstr "Backend"
+
+#: src/pages/Config.tsx
+msgid "Backfill failed"
+msgstr "Backfill fallido"
+
+#: src/pages/Config.tsx
+#: src/pages/Config.tsx
+msgid "Backfill now"
+msgstr "Backfill ahora"
 
 #: src/pages/Config.tsx
 msgid "bad credentials"
@@ -1128,14 +1125,6 @@ msgid "decrease"
 msgstr "disminuir"
 
 #: src/pages/Config.tsx
-#~ msgid "Default 0 uses per-ASIC-model lookup (BM1370 = 154 °F, BM1368/BM1366 = 158 °F, BM1397 = 167 °F, fallback 158 °F). Any non-zero value here overrides all of them."
-#~ msgstr "Por defecto 0 usa la búsqueda por modelo de ASIC (BM1370 = 154 °F, BM1368/BM1366 = 158 °F, BM1397 = 167 °F, predeterminado 158 °F). Cualquier valor distinto de cero aquí sobrescribe todos los anteriores."
-
-#: src/pages/Config.tsx
-#~ msgid "Default 0 uses per-ASIC-model lookup (BM1370 = 68 °C, BM1368/BM1366 = 70 °C, BM1397 = 75 °C, fallback 70 °C). Any non-zero value here overrides all of them."
-#~ msgstr "El valor 0 por defecto usa la tabla por modelo de ASIC (BM1370 = 68 °C, BM1368/BM1366 = 70 °C, BM1397 = 75 °C, por defecto 70 °C). Cualquier valor distinto de cero anula todos los modelos."
-
-#: src/pages/Config.tsx
 msgid "Default 50001."
 msgstr "Predeterminado 50001."
 
@@ -1387,10 +1376,6 @@ msgstr "Cada reinicio vuelve a DRY_RUN. Pasas explícitamente a LIVE desde el pa
 msgid "Example: 95 = activate cheap mode when our bid (fillable ask + overpay - the price we actually post under pay-your-bid) is below 95% of the break-even hashprice from Ocean. Compares our bid, not the order book's cheapest level - a cheap best-ask isn't useful if our overpay puts the bid above hashprice anyway."
 msgstr "Ejemplo: 95 = activar cheap mode cuando nuestra oferta (fillable + overpay - el precio que realmente publicamos bajo pay-your-bid) está por debajo del 95% del hashprice de equilibrio de Ocean. Compara nuestra oferta, no el nivel más barato del libro de órdenes - un best-ask barato no sirve si nuestro overpay deja la oferta por encima del hashprice de todos modos."
 
-#: src/pages/Config.tsx
-#~ msgid "Example: 95 = activate cheap mode when the best ask on the orderbook is below 95% of the break-even hashprice from Ocean. Braiins matches pay-your-bid (the bid IS the price we pay), and the autopilot tracks the fillable ask plus a small overpay - so a cheap best ask reliably translates into a cheap bid."
-#~ msgstr "Ejemplo: 95 = activar modo barato cuando la mejor oferta del orderbook esté por debajo del 95% del hashprice de break-even de Ocean. Braiins iguala pay-your-bid (la oferta ES el precio que pagamos), y el autopilot sigue el fillable ask más un pequeño overpay - así que una mejor oferta barata se traduce de forma fiable en una oferta barata."
-
 #: src/pages/Setup.tsx
 msgid "Existing config detected - fields are pre-filled. Update what changed and click through."
 msgstr "Configuración existente detectada - los campos están rellenados previamente. Actualiza lo que cambió y continúa."
@@ -1452,20 +1437,12 @@ msgid "Fires when a device is unreachable OR reports 0 H/s for the configured nu
 msgstr "Se dispara cuando un dispositivo es inalcanzable O reporta 0 H/s durante el numero configurado de minutos consecutivos. Mensaje de recuperacion emparejado."
 
 #: src/pages/Config.tsx
-#~ msgid "Fires when an ASIC or VR temp crosses the per-ASIC-model ceiling (or the global override on Display & Logging → Solo miners) for ~90 s. Recovery paired."
-#~ msgstr "Se dispara cuando la temperatura del ASIC o del VR cruza el limite por modelo de ASIC (o el ajuste global en Visualizacion y registro → Mineros en solitario) durante ~90 s. Mensaje de recuperacion emparejado."
-
-#: src/pages/Config.tsx
 msgid "Fires when share rejection rate over the rolling window exceeds the configured threshold. Re-armed once per window so a sustained bad period only fires periodically."
 msgstr "Se dispara cuando la tasa de rechazo de shares en la ventana movil supera el umbral configurado. Se rearma una vez por ventana, de modo que un periodo malo sostenido solo se dispara periodicamente."
 
 #: src/pages/Config.tsx
 msgid "Fires when the ASIC temp crosses 75 °C (configurable on Display & Logging → Solo miners) OR the VR temp crosses 100 °C, sustained for ~90 s. Thresholds match AxeOS firmware's own throttle points so the alert lines up with when the miner itself starts taking action. Recovery paired."
 msgstr "Se dispara cuando la temperatura del ASIC supera 75 °C (configurable en Pantalla y registro → Solo miners) O la temperatura del VR supera 100 °C, sostenido durante ~90 s. Los umbrales coinciden con los puntos de throttle del propio firmware AxeOS, para que la alerta se alinee con el momento en que el minero empieza a actuar. Recuperación emparejada."
-
-#: src/pages/Config.tsx
-#~ msgid "Fires when the ASIC temp crosses its per-model ceiling (configurable on Display & Logging → Solo miners) OR the VR temp crosses 90 °C (separate built-in ceiling - VRs run a wider range than the ASIC), sustained for ~90 s. Recovery paired."
-#~ msgstr "Se dispara cuando la temperatura del ASIC supera su techo por modelo (configurable en Pantalla y registro → Solo miners) O la temperatura del VR supera 90 °C (techo integrado independiente - los VR funcionan en un rango más amplio que el ASIC), sostenido durante ~90 s. Recuperación emparejada."
 
 #: src/pages/Config.tsx
 msgid "Fires when the Braiins orderbook has no hashrate available for your target AND delivery has fallen to zero, sustained for at least this many minutes. Two-condition gate filters micro-gaps in the orderbook. Recovery paired. Rare - normally only happens during low-supply stretches."
@@ -1670,6 +1647,11 @@ msgstr "importante"
 #: src/pages/Config.tsx
 msgid "IMPORTANT"
 msgstr "IMPORTANTE"
+
+#: src/pages/Config.tsx
+#: src/pages/Config.tsx
+msgid "Include historical Ocean payouts in lifetime earnings"
+msgstr "Incluir pagos históricos de Ocean en las ganancias totales"
 
 #: src/pages/Status.tsx
 msgid "income/day est."
@@ -2234,10 +2216,6 @@ msgstr "Pagos on-chain"
 msgid "Only engage cheap-mode when every tick in the last N minutes had our bid below the threshold, and there are at least N ticks of complete data (one per minute at the 60 s cadence). Literal sustained-below: one outlier doesn't trigger, one missing tick keeps it off. 0 = per-tick spot check (legacy)."
 msgstr "Activa cheap mode solo cuando cada tick en los últimos N minutos tuvo nuestra oferta por debajo del umbral, y hay al menos N ticks de datos completos (uno por minuto al ritmo de 60 s por tick). Sostenido-debajo en sentido literal: un valor atípico no dispara, un tick faltante lo mantiene apagado. 0 = comprobación por tick (legacy)."
 
-#: src/pages/Config.tsx
-#~ msgid "Only engage cheap-mode when the rolling average of best-ask vs hashprice over this many minutes is below the threshold. Avoids flapping on single-tick market spikes. 0 = evaluate per tick (legacy). Requires ≥5 samples in the window before honouring it; below that falls back to the spot check."
-#~ msgstr "Activa el modo barato solo cuando el promedio móvil del mejor precio de venta vs hashprice durante estos minutos esté por debajo del umbral. Evita que oscile por picos de mercado de un solo tick. 0 = evaluar por tick (legado). Requiere ≥5 muestras en la ventana antes de aplicarlo; por debajo de eso vuelve a la verificación spot."
-
 #. placeholder {0}: formatAge(firing.created_at)
 #: src/pages/Alerts.tsx
 msgid "open · {0}"
@@ -2264,10 +2242,6 @@ msgstr "Abre Telegram y conversa con <0>@BotFather</0>, envía /newbot y sigue l
 #: src/pages/Config.tsx
 msgid "Optional dynamic ceiling. On each tick the effective cap = min(Maximum, hashprice + this). Stops the autopilot from wildly overpaying when hashprice drops sharply and the fixed Maximum alone would still allow it. Set to 0 to disable."
 msgstr "Tope dinámico opcional. En cada tick el tope efectivo = min(Máximo, hashprice + este valor). Evita que el autopilot pague descontroladamente cuando el hashprice cae bruscamente y el Máximo fijo aún lo permitiría. Pon 0 para desactivar."
-
-#: src/pages/Config.tsx
-#~ msgid "Optional. Datum Gateway's /umbrel-api endpoint - e.g. http://192.168.1.121:7152. Leave empty to disable; the Datum panel will show \"not configured\". See docs/setup-datum-api.md for the Umbrel-side port-exposure recipe."
-#~ msgstr "Opcional. Endpoint /umbrel-api de Datum Gateway - p.ej. http://192.168.1.121:7152. Déjalo vacío para desactivar; el panel Datum mostrará \"no configurado\". Ver docs/setup-datum-api.md para la receta de exposición de puerto del lado Umbrel."
 
 #: src/pages/Config.tsx
 msgid "Optional. The HTTP API exposed by Datum Gateway - e.g. http://192.168.1.121:7152. Leave empty to disable; the Datum panel will show \"not configured\"."
@@ -2318,16 +2292,6 @@ msgstr "Nuestro saldo no pagado ({0}) ya ha superado el umbral de pago ({1} ≈ 
 #: src/pages/Status.tsx
 msgid "overdue {overdueFormatted}"
 msgstr "atrasado {overdueFormatted}"
-
-#: src/pages/Config.tsx
-#: src/pages/Config.tsx
-#~ msgid "Overheating ceiling (°C, 0 = auto per model)"
-#~ msgstr "Limite de sobrecalentamiento (°C, 0 = automatico por modelo)"
-
-#: src/pages/Config.tsx
-#: src/pages/Config.tsx
-#~ msgid "Overheating ceiling (°F, 0 = auto per model)"
-#~ msgstr "Techo de sobrecalentamiento (°F, 0 = automático por modelo)"
 
 #: src/components/PriceChart.tsx
 msgid "overpay"
@@ -2841,11 +2805,20 @@ msgstr "Resultados del escaneo"
 msgid "scanned"
 msgstr "escaneados"
 
+#. placeholder {0}: r.tx_seen
+#. placeholder {1}: r.coinbase_seen
+#. placeholder {2}: r.inserted
+#. placeholder {3}: Math.round(r.duration_ms / 1000)
+#: src/pages/Config.tsx
+msgid "Scanned {0} txs ({1} coinbase). Inserted {2} new payout row(s) in {3}s."
+msgstr "Se escanearon {0} txs ({1} coinbase). Se insertaron {2} fila(s) nueva(s) de pago en {3}s."
+
 #: src/pages/Config.tsx
 msgid "scanning…"
 msgstr "escaneando…"
 
 #: src/components/Bip110ScanCard.tsx
+#: src/pages/Config.tsx
 msgid "Scanning…"
 msgstr "Escaneando…"
 
@@ -3354,6 +3327,10 @@ msgid "Waiting for Ocean hashprice - trading is paused until the break-even refe
 msgstr "Esperando el hashprice de Ocean - el trading está en pausa hasta que la referencia break-even esté disponible."
 
 #: src/pages/Config.tsx
+msgid "Walks the full address history via Electrs and adds any historical Ocean coinbase payouts that aren't already recorded. Safe to run repeatedly."
+msgstr "Recorre todo el historial de la dirección vía Electrs y añade cualquier pago coinbase histórico de Ocean que aún no esté registrado. Seguro ejecutarlo varias veces."
+
+#: src/pages/Config.tsx
 #: src/pages/Config.tsx
 msgid "Wallet runway below"
 msgstr "Runway de la wallet por debajo de"
@@ -3388,20 +3365,16 @@ msgid "When more than this many markers would render on the price chart, the das
 msgstr "Cuando se renderizarían más marcadores de los aquí indicados en la gráfica de precios, el panel oculta primero los marcadores EDIT_PRICE (CREATE / EDIT_SPEED / CANCEL se mantienen porque son raros y diagnósticos). Si incluso tras quitar EDIT_PRICE el total sigue por encima del tope, se ocultan todos los marcadores. 0 = sin filtro por cantidad (todos los marcadores se muestran sujetos a la regla por rango existente). Útil con overpay bajo donde EDIT_PRICE se dispara cada pocos minutos y satura la gráfica."
 
 #: src/pages/Config.tsx
+msgid "When on, lifetime earnings count every coinbase tx ever credited to this payout address - including payouts you have already swept to another wallet. When off, only outputs still sitting at the address are counted (the pre-1.7.5 behaviour). Most users want this on; turn it off if you rotate to a fresh payout address per accounting period."
+msgstr "Cuando está activado, las ganancias totales cuentan cada tx coinbase que se haya acreditado a esta dirección de pago - incluidos pagos que ya hayas movido a otra wallet. Cuando está desactivado, solo cuentan las salidas que aún están en la dirección (el comportamiento anterior a 1.7.5). La mayoría de usuarios lo quieren activado; desactívalo si rotas a una dirección de pago nueva por período contable."
+
+#: src/pages/Config.tsx
 msgid "When our bid drops below the break-even hashprice from Ocean, scale up to a higher target so we capture more hashrate while it's cheap. Tick \"Enable cheap mode\" to edit the fields below."
 msgstr "Cuando nuestra oferta cae por debajo del hashprice de equilibrio de Ocean, escalamos a un objetivo más alto para capturar más hashrate mientras está barato. Marca \"Activar cheap mode\" para editar los campos de abajo."
 
 #: src/pages/Config.tsx
 msgid "When the bid is cheap (below the hashprice threshold), scale up to this target instead of the normal one."
 msgstr "Cuando la oferta es barata (por debajo del umbral de hashprice), escala a este objetivo en lugar del normal."
-
-#: src/pages/Config.tsx
-#~ msgid "When the market is cheap (below the hashprice threshold), scale up to this target instead of the normal one."
-#~ msgstr "Cuando el mercado está barato (por debajo del umbral de hashprice), escala a este objetivo en lugar del normal."
-
-#: src/pages/Config.tsx
-#~ msgid "When the spot market drops below the break-even hashprice from Ocean, scale the bid up to a higher target so we capture more hashrate while it's cheap. Tick \"Enable cheap mode\" to edit the fields below."
-#~ msgstr "Cuando el mercado spot cae por debajo del hashprice de break-even de Ocean, escala la oferta a un objetivo mayor para capturar más hashrate mientras está barato. Marca \"Habilitar modo barato\" para editar los campos de abajo."
 
 #: src/pages/Config.tsx
 msgid "Where rented hashrate lands. Change only if your pool endpoint moves. The BTC payout address sits here too - the worker identity below is auto-derived from it whenever you edit the address, same as the first-run wizard."

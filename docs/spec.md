@@ -314,6 +314,7 @@ Per-device fields (`solo_miners` table, not on `config`): `id`, `label`, `ip` (I
   first boot)
 - Optional `electrs_host` + `electrs_port` (preferred over `bitcoind` RPC for balance lookups - instant)
 - `payout_source` - `none` | `electrs` | `bitcoind`
+- `include_historical_payouts` - boolean (default `true`, #170). When `true`, the payout-observer's electrs path enumerates every coinbase tx ever credited to `btc_payout_address` (via `blockchain.scripthash.get_history`) and folds them into `reward_events`, so the chart's lifetime-earnings line reflects historical Ocean payouts even after the operator sweeps them. When `false`, only currently-unspent outputs are counted (pre-1.7.5 behaviour). Bitcoind-only setups ignore this knob: backfill is electrs-only. The dashboard exposes a "Backfill now" button under Pool & Payout that POSTs `/api/payouts/backfill` and runs the same loop on demand (ignores this gate; explicit operator action).
 - `block_explorer_url_template` - URL template applied at click time on every dashboard surface that links to a block (Hashrate-chart cube markers, OCEAN panel "last pool block" row, BIP 110 scan results, BlockTooltip). Placeholders `{hash}` and `{height}` are substituted; at least one must be present. Default `https://mempool.space/block/{hash}`. Privacy-conscious operators point this at their own explorer (e.g. `http://umbrel:3006/block/{hash}`); the Config page exposes mempool.space / blockstream.info / blockchair.com / btcscan.org / btc.com presets plus a free-form custom field. (#22)
 - `block_explorer_tx_url_template` - separate template for transaction links (the on-chain payout dot on the Price chart deep-links via this). Placeholders `{txid}` and `{hash}` are substituted; default `https://mempool.space/tx/{txid}`. Migration 0071 derives the value from the operator's existing block template via known-preset matching, falling back to a `/block/{hash}` -> `/tx/{txid}` string replacement (catches local-Umbrel mempool variants). Config-page presets set both block + tx templates atomically.
 - `btc_price_source` - `none` | `coingecko` | `coinbase` | `bitstamp` | `kraken` (feeds the dashboard sat <-> USD toggle)
@@ -497,7 +498,15 @@ Persistent ledger (SQLite) of:
 - Cumulative spend (from filled bids; autopilot and foreign combined).
 - Spend per calendar month.
 - Cumulative block reward income detected at `btc_payout_address` via Electrs or `bitcoind` RPC, valued at BTC price
-  at time of receipt. BTC price source: TBD - picked at implementation time.
+  at time of receipt. BTC price source: TBD - picked at implementation time. Two modes (#170, toggle
+  `include_historical_payouts`, default ON): **full backfill** walks the address history via electrs's
+  `blockchain.scripthash.get_history` and folds every coinbase tx ever credited to the payout address into
+  `reward_events`, even ones whose outputs the operator has since swept off-address; **unspent-only** (toggle OFF)
+  reverts to pre-1.7.5 behaviour where only currently-unspent outputs at the address count. Coinbase-only filter
+  rejects accidental non-mining deposits (Ocean is non-custodial; real payouts are always coinbase). Backfill is
+  electrs-only - bitcoind-only setups stay on the `scantxoutset`-based unspent-only path because a full chain scan
+  is too expensive there. A dashboard "Backfill now" button under Pool & Payout triggers the same loop on demand
+  (ignores the toggle gate; explicit operator action).
 - **Net result:** reward income minus spend, absolute and per-month.
 
 Ledger is the source of truth for runway forecasting.

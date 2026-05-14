@@ -2,6 +2,16 @@
 
 ## 2026-05-14
 
+### `[Feature]` Lifetime earnings: backfill historical Ocean coinbase receipts at the payout address (#170)
+
+A Twitter user flagged that lifetime earnings showed a "massive loss" because they'd been mining to their Ocean payout address before installing the autopilot. Pre-1.7.5 the payout-observer only counted **currently-unspent** outputs at the address (electrs `listunspent` / bitcoind `scantxoutset`), so any Ocean payout that had since been swept to another wallet was invisible to the chart - asymmetric with spend tracking, which already covers the full Braiins-account lifetime. The result: lifetime P&L looked catastrophically negative for anyone who reused a payout address or sweeps payouts on receipt.
+
+Fix on the electrs path: walk the full address history via `blockchain.scripthash.get_history`, fetch each tx with `blockchain.transaction.get` verbose, filter to coinbase transactions (Ocean is non-custodial, so genuine pool payouts are always coinbase outputs - this naturally rejects accidental non-mining deposits), and insert every matching vout into `reward_events` with `detected_at` = actual block timestamp. Existing `(txid, vout)` UNIQUE index handles idempotency, so re-runs are cheap. Backfill auto-runs at startup and on a slow 6-hour cadence; new toggle `include_historical_payouts` (default ON) gates the auto-loop for operators with fresh-address discipline who don't want past activity pulled in.
+
+Dashboard adds a **Backfill now** button under Config -> Pool & Payout that POSTs `/api/payouts/backfill` and reports the result inline (`Scanned 218 txs (47 coinbase). Inserted 23 new payout row(s) in 9s.`). The manual button ignores the toggle gate - pressing it is an explicit operator action. Bitcoind-only setups keep the pre-1.7.5 currently-unspent behaviour (full chain scan via `scanblocks` is technically possible but expensive to ship; deferred until demand surfaces).
+
+New migration `0089_include_historical_payouts.sql`. EN / NL / ES translations updated.
+
 ### `[Fix]` Pool-block-credited Telegram: defer notification until Ocean's unpaid endpoint catches up (#168)
 
 Operator screenshot showed a Telegram pool-block-credited message reporting `Unpaid total: 775,295 sat` while the dashboard chart's unpaid (sat) line at the same block (#949,312) clearly stepped up to ~820,000 sat. Root cause: `evaluatePoolBlockCredited` read `state.ocean_unpaid_sat` at the tick when the block first showed up in `pool_blocks` and put that value in the message body. Empirically Ocean's `pool_blocks` endpoint updates within ~1 minute of a block landing, but the `user_hashrate` endpoint that drives `ocean_unpaid_sat` lags by ~4 minutes - so the body reported the pre-credit value. Verified against the operator's DB: ocean_unpaid_sat stayed at 775,295 for 4 ticks after the 03:47:01 UTC block, then jumped to 815,996 at 03:51:23.

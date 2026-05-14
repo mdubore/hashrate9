@@ -234,6 +234,10 @@ const APP_CONFIG_ENV: {
     varName: 'BHA_MARKETPLACE_EMPTY_ALERT_AFTER_MINUTES',
     coerce: asInt,
   },
+  include_historical_payouts: {
+    varName: 'BHA_INCLUDE_HISTORICAL_PAYOUTS',
+    coerce: asBoolean,
+  },
 };
 
 // ---------------------------------------------------------------------------

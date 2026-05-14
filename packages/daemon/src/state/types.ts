@@ -115,6 +115,8 @@ export interface ConfigTable {
   solo_share_rejection_window_minutes: number;
   /** #167: marketplace_empty alert threshold (consecutive minutes the orderbook is empty for our target AND delivery is ~0). */
   marketplace_empty_alert_after_minutes: number;
+  /** #170: when 1 (default), payout-observer's electrs path backfills ALL historical coinbase receipts at btc_payout_address into reward_events; when 0, only currently-unspent outputs are counted. */
+  include_historical_payouts: 0 | 1;
   updated_at: number;
 }
 

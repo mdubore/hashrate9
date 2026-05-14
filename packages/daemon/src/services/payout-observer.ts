@@ -17,10 +17,19 @@ import type { BitcoindClient, ScanTxoutSetResult } from '@braiins-hashrate/bitco
 import type { Kysely } from 'kysely';
 
 import type { Database } from '../state/types.js';
-import { createElectrsClient, type ElectrsClient } from './electrs-client.js';
+import {
+  addressToScriptPubKeyHex,
+  createElectrsClient,
+  type ElectrsClient,
+} from './electrs-client.js';
 
 const ELECTRS_INTERVAL_MS = 60 * 1000;
 const BITCOIND_INTERVAL_MS = 60 * 60 * 1000;
+// #170: historical-coinbase backfill runs at startup and then on
+// this slow cadence afterwards. Six hours is well below the typical
+// payout interval at any realistic hashrate level, so we always
+// catch newly-swept coinbase txs that listunspent stopped seeing.
+const HISTORICAL_BACKFILL_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const SAT_PER_BTC = 100_000_000;
 
 export interface PayoutSnapshot {
@@ -67,14 +76,41 @@ export interface PayoutObserverOptions {
    * daemon restart. Best-effort: failures are logged and swallowed.
    */
   readonly onRewardsChanged?: () => Promise<void>;
+  /**
+   * #170: live-read accessor for the `include_historical_payouts`
+   * config flag. When `true`, the observer's auto-backfill loop walks
+   * the full address history via electrs's `get_history` and folds
+   * every coinbase tx it finds into `reward_events` - even those
+   * whose outputs have been swept off-address. When `false`, only the
+   * `listUnspent`-based pre-#170 behaviour runs. The manual
+   * "Backfill now" button (HTTP route) ignores this flag and always
+   * runs - it's an explicit operator action.
+   */
+  readonly getHistoricalEnabled?: () => boolean;
+}
+
+export interface HistoricalBackfillResult {
+  /** Number of new reward_events rows the backfill inserted. */
+  inserted: number;
+  /** Number of coinbase transactions inspected. */
+  coinbaseSeen: number;
+  /** Number of transactions in the address history (all kinds). */
+  txSeen: number;
+  /** Wall-clock duration of the backfill in milliseconds. */
+  durationMs: number;
+  /** Non-fatal error message, when the backfill couldn't complete. Null otherwise. */
+  error: string | null;
 }
 
 export class PayoutObserver {
   private lastSnapshot: PayoutSnapshot | null = null;
   private lastError: string | null = null;
   private running: Promise<void> | null = null;
+  private backfillRunning: Promise<HistoricalBackfillResult> | null = null;
+  private lastBackfill: HistoricalBackfillResult | null = null;
   private timer: NodeJS.Timeout | null = null;
   private rewardsTimer: NodeJS.Timeout | null = null;
+  private backfillTimer: NodeJS.Timeout | null = null;
 
   constructor(private readonly options: PayoutObserverOptions) {}
 
@@ -414,6 +450,25 @@ export class PayoutObserver {
         BITCOIND_INTERVAL_MS,
       );
     }
+
+    // #170: historical-coinbase backfill on the electrs path. First
+    // run shortly after boot (45 s, after the unspent-only scan has
+    // populated the snapshot card and the typical pool-luck-recompute
+    // chain has settled), then every HISTORICAL_BACKFILL_INTERVAL_MS.
+    // No-op on bitcoind-only setups (electrs is the only path that
+    // exposes get_history cheaply).
+    if (useElectrs && this.options.db) {
+      setTimeout(() => {
+        if (this.options.getHistoricalEnabled?.() !== false) {
+          void this.runHistoricalBackfill();
+        }
+      }, 45_000);
+      this.backfillTimer = setInterval(() => {
+        if (this.options.getHistoricalEnabled?.() !== false) {
+          void this.runHistoricalBackfill();
+        }
+      }, HISTORICAL_BACKFILL_INTERVAL_MS);
+    }
   }
 
   stop(): void {
@@ -421,6 +476,213 @@ export class PayoutObserver {
     this.timer = null;
     if (this.rewardsTimer) clearInterval(this.rewardsTimer);
     this.rewardsTimer = null;
+    if (this.backfillTimer) clearInterval(this.backfillTimer);
+    this.backfillTimer = null;
+  }
+
+  /**
+   * #170: walk the full address history via electrs's `get_history`
+   * and insert every previously-unseen coinbase output paying to the
+   * configured payout address into `reward_events`. Used by:
+   *   - the periodic auto-loop (gated by `include_historical_payouts`)
+   *   - the dashboard "Backfill now" button (ignores the gate; explicit
+   *     operator action)
+   *
+   * Coinbase-only filter: Ocean is non-custodial and pays via coinbase,
+   * so this is the right shape for genuine pool payouts. Non-coinbase
+   * receipts (operator self-send, accidental deposit, change from a
+   * swap) are skipped. The output match is on scriptPubKey hex - we
+   * compute the expected hex from the configured address once and
+   * compare byte-for-byte against each vout, which is invariant to
+   * each electrs build's choice of `vout.scriptPubKey.address` vs
+   * `addresses` vs nothing-at-all.
+   *
+   * Idempotent: the `(txid, vout)` UNIQUE index on `reward_events`
+   * (migration 0072) means re-runs are cheap - INSERT ... ON CONFLICT
+   * DO NOTHING drops duplicates at write time.
+   *
+   * Returns counts so the HTTP route and operator log can report
+   * "scanned N txs, M coinbase, inserted K".
+   */
+  async runHistoricalBackfill(): Promise<HistoricalBackfillResult> {
+    if (this.backfillRunning) {
+      return this.backfillRunning;
+    }
+    const promise = this._runHistoricalBackfill();
+    this.backfillRunning = promise;
+    try {
+      const result = await promise;
+      this.lastBackfill = result;
+      return result;
+    } finally {
+      this.backfillRunning = null;
+    }
+  }
+
+  private async _runHistoricalBackfill(): Promise<HistoricalBackfillResult> {
+    const now = this.options.now ?? Date.now;
+    const start = now();
+    const baseResult: Omit<HistoricalBackfillResult, 'durationMs' | 'error'> = {
+      inserted: 0,
+      coinbaseSeen: 0,
+      txSeen: 0,
+    };
+
+    if (!this.options.db) {
+      return { ...baseResult, durationMs: now() - start, error: 'no database wired' };
+    }
+    if (!this.options.electrsHost || !this.options.electrsPort) {
+      return {
+        ...baseResult,
+        durationMs: now() - start,
+        error: 'electrs not configured (historical backfill requires electrs)',
+      };
+    }
+
+    const address = this.options.getAddress();
+    let scriptPubKeyHex: string;
+    try {
+      scriptPubKeyHex = addressToScriptPubKeyHex(address);
+    } catch (err) {
+      return { ...baseResult, durationMs: now() - start, error: (err as Error).message };
+    }
+
+    let client: ElectrsClient | null = null;
+    try {
+      client = await createElectrsClient({
+        host: this.options.electrsHost,
+        port: this.options.electrsPort,
+        // Backfill walks the entire address history one tx at a time;
+        // bump the per-call timeout so a slow electrs run doesn't kill
+        // the loop midway. The default 10 s is calibrated for snappy
+        // single-shot balance lookups, not bulk enumeration.
+        timeoutMs: 30_000,
+      });
+      const history = await client.getHistory(address);
+      const txSeen = history.length;
+      if (txSeen === 0) {
+        return { ...baseResult, durationMs: now() - start, error: null };
+      }
+
+      // Skip txs whose (txid, *) rows already exist - the chart only
+      // cares whether SOME row from this tx has been recorded, and
+      // re-fetching to discover a second vout to the same address is
+      // vanishingly rare for Ocean payouts (which always credit to a
+      // single output per address). This cuts the network-bound
+      // `transaction.get` call count to ~zero on steady-state re-runs.
+      const knownRows = await this.options.db
+        .selectFrom('reward_events')
+        .select('txid')
+        .where(
+          'txid',
+          'in',
+          history.map((h) => h.tx_hash),
+        )
+        .execute();
+      const knownTxids = new Set(knownRows.map((r) => r.txid));
+
+      const candidates = history.filter((h) => !knownTxids.has(h.tx_hash));
+      this.options.log?.(
+        `[payout] historical backfill: ${txSeen} txs at address, ${candidates.length} new to inspect`,
+      );
+
+      let coinbaseSeen = 0;
+      let inserted = 0;
+      const heightToTimeMs = new Map<number, number>();
+
+      for (const item of candidates) {
+        // Mempool-only entries can't be classified yet - height <= 0.
+        // Skip; the next scan picks them up after confirmation.
+        if (item.height <= 0) continue;
+        let tx;
+        try {
+          tx = await client.getTransaction(item.tx_hash);
+        } catch (err) {
+          this.options.log?.(
+            `[payout] historical backfill: transaction.get(${item.tx_hash.slice(0, 12)}…) failed: ${(err as Error).message}`,
+          );
+          continue;
+        }
+        const isCoinbase =
+          tx.vin.length > 0 && typeof tx.vin[0]?.coinbase === 'string';
+        if (!isCoinbase) continue;
+        coinbaseSeen += 1;
+
+        const matchingVouts = tx.vout.filter(
+          (v) => v.scriptPubKey?.hex?.toLowerCase() === scriptPubKeyHex.toLowerCase(),
+        );
+        if (matchingVouts.length === 0) continue;
+
+        // Resolve block time once per height (cache survives all txs
+        // in the same block). Falls back to wall-clock if electrs
+        // can't return the header - keeps the row valid, just stamps
+        // it with the scan time instead of the on-chain time.
+        let blockTimeMs = heightToTimeMs.get(item.height);
+        if (blockTimeMs === undefined) {
+          try {
+            blockTimeMs = (await client.getBlockTimeByHeight(item.height)) * 1000;
+            heightToTimeMs.set(item.height, blockTimeMs);
+          } catch (err) {
+            this.options.log?.(
+              `[payout] historical backfill: block-time #${item.height} failed: ${(err as Error).message}`,
+            );
+            blockTimeMs = now();
+          }
+        }
+
+        // Confirmations field is cosmetic for the chart. Compute it
+        // from the highest height in the history scan as a rough tip
+        // estimate (history is already sorted by height ascending in
+        // practice; take max defensively).
+        const tipHeight = Math.max(...history.map((h) => h.height), item.height);
+        const confirmations = Math.max(0, tipHeight - item.height + 1);
+
+        const writeResult = await this.options.db
+          .insertInto('reward_events')
+          .values(
+            matchingVouts.map((v) => ({
+              txid: tx.txid,
+              vout: v.n,
+              block_height: item.height,
+              confirmations,
+              value_sat: Math.round(v.value * SAT_PER_BTC),
+              detected_at: blockTimeMs ?? now(),
+            })),
+          )
+          .onConflict((oc) => oc.columns(['txid', 'vout']).doNothing())
+          .executeTakeFirst();
+        inserted += Number(writeResult.numInsertedOrUpdatedRows ?? 0);
+      }
+
+      if (inserted > 0 && this.options.onRewardsChanged) {
+        await this.options.onRewardsChanged().catch((err) =>
+          this.options.log?.(
+            `[payout] onRewardsChanged (post-backfill) failed: ${(err as Error).message}`,
+          ),
+        );
+      }
+
+      this.options.log?.(
+        `[payout] historical backfill done: ${txSeen} txs scanned, ${coinbaseSeen} coinbase, ${inserted} new reward_events row(s) in ${now() - start}ms`,
+      );
+      return {
+        inserted,
+        coinbaseSeen,
+        txSeen,
+        durationMs: now() - start,
+        error: null,
+      };
+    } catch (err) {
+      const msg = (err as Error).message;
+      this.options.log?.(`[payout] historical backfill failed: ${msg}`);
+      return { ...baseResult, durationMs: now() - start, error: msg };
+    } finally {
+      client?.close();
+    }
+  }
+
+  getLastBackfill(): HistoricalBackfillResult | null {
+    return this.lastBackfill;
   }
 
   /**

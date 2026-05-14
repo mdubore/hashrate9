@@ -114,6 +114,7 @@ describe('openDatabase - migrations', () => {
       '0086_solo_miner_best_diff.sql',
       '0087_solo_miner_hashrate_instant.sql',
       '0088_marketplace_empty_alert.sql',
+      '0089_include_historical_payouts.sql',
     ]);
     expect(handle.migrations.skipped).toEqual([]);
   });

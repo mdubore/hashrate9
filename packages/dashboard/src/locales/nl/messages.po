@@ -299,10 +299,6 @@ msgid "Add"
 msgstr "Toevoegen"
 
 #: src/pages/Config.tsx
-#~ msgid "Add {0} selected"
-#~ msgstr "{0} geselecteerde toevoegen"
-
-#: src/pages/Config.tsx
 msgid "Add {pickedCount} selected"
 msgstr ""
 
@@ -390,14 +386,6 @@ msgstr "Alleen de ASIC-junctietemperatuur. Standaard 0 gebruikt 167 °F voor all
 #: src/pages/Config.tsx
 msgid "ASIC junction temperature only. Default 0 uses 75 °C across all BM13xx chips - matches AxeOS firmware's THROTTLE_TEMP, the point at which the miner itself reduces frequency. Any non-zero value here overrides it. The VR (voltage regulator) sensor uses a separate built-in ceiling of 100 °C; AxeOS throttles the VR at 105 °C so we fire 5 °C earlier to give you headroom to react."
 msgstr "Alleen de ASIC-junctietemperatuur. Standaard 0 gebruikt 75 °C voor alle BM13xx-chips - komt overeen met THROTTLE_TEMP in de AxeOS-firmware, het punt waarop de miner zelf de frequentie verlaagt. Elke niet-nul-waarde hier overschrijft die. De VR-sensor (voltage regulator) gebruikt een aparte, ingebouwde grens van 100 °C; AxeOS throttlet de VR pas bij 105 °C, dus wij vuren 5 °C eerder zodat je tijd hebt om te reageren."
-
-#: src/pages/Config.tsx
-#~ msgid "ASIC junction temperature only. Default 0 uses per-model lookup (BM1370 = 154 °F, BM1368/BM1366 = 158 °F, BM1397 = 167 °F, fallback 158 °F). Any non-zero value here overrides all of them. The VR (voltage regulator) sensor uses a separate built-in ceiling of 194 °F (90 °C) and is not configurable yet - those chips run a much wider operating range than the ASIC and AxeOS itself doesn't flag them below ~194 °F."
-#~ msgstr "Alleen de ASIC-junctietemperatuur. Standaard 0 gebruikt per-model-lookup (BM1370 = 154 °F, BM1368/BM1366 = 158 °F, BM1397 = 167 °F, fallback 158 °F). Elke niet-nul-waarde hier overschrijft die allemaal. De VR-sensor (voltage regulator) gebruikt een aparte, ingebouwde grens van 194 °F (90 °C) en is nog niet instelbaar - die chips hebben een veel breder werkbereik dan de ASIC en AxeOS zelf markeert ze pas boven ~194 °F."
-
-#: src/pages/Config.tsx
-#~ msgid "ASIC junction temperature only. Default 0 uses per-model lookup (BM1370 = 68 °C, BM1368/BM1366 = 70 °C, BM1397 = 75 °C, fallback 70 °C). Any non-zero value here overrides all of them. The VR (voltage regulator) sensor uses a separate built-in ceiling of 90 °C and is not configurable yet - those chips run a much wider operating range than the ASIC and AxeOS itself doesn't flag them below ~90 °C."
-#~ msgstr "Alleen de ASIC-junctietemperatuur. Standaard 0 gebruikt per-model-lookup (BM1370 = 68 °C, BM1368/BM1366 = 70 °C, BM1397 = 75 °C, fallback 70 °C). Elke niet-nul-waarde hier overschrijft die allemaal. De VR-sensor (voltage regulator) gebruikt een aparte, ingebouwde grens van 90 °C en is nog niet instelbaar - die chips hebben een veel breder werkbereik dan de ASIC en AxeOS zelf markeert ze pas boven ~90 °C."
 
 #: src/pages/Config.tsx
 #: src/pages/Config.tsx
@@ -511,6 +499,15 @@ msgstr "gem. overpay (settled)"
 #: src/pages/Setup.tsx
 msgid "Backend"
 msgstr "Backend"
+
+#: src/pages/Config.tsx
+msgid "Backfill failed"
+msgstr "Backfill mislukt"
+
+#: src/pages/Config.tsx
+#: src/pages/Config.tsx
+msgid "Backfill now"
+msgstr "Nu backfillen"
 
 #: src/pages/Config.tsx
 msgid "bad credentials"
@@ -1128,14 +1125,6 @@ msgid "decrease"
 msgstr "verlagen"
 
 #: src/pages/Config.tsx
-#~ msgid "Default 0 uses per-ASIC-model lookup (BM1370 = 154 °F, BM1368/BM1366 = 158 °F, BM1397 = 167 °F, fallback 158 °F). Any non-zero value here overrides all of them."
-#~ msgstr "Standaard 0 gebruikt per-ASIC-model-lookup (BM1370 = 154 °F, BM1368/BM1366 = 158 °F, BM1397 = 167 °F, fallback 158 °F). Elke niet-nul-waarde hier overschrijft die allemaal."
-
-#: src/pages/Config.tsx
-#~ msgid "Default 0 uses per-ASIC-model lookup (BM1370 = 68 °C, BM1368/BM1366 = 70 °C, BM1397 = 75 °C, fallback 70 °C). Any non-zero value here overrides all of them."
-#~ msgstr "Standaard 0 gebruikt opzoektabel per ASIC-model (BM1370 = 68 °C, BM1368/BM1366 = 70 °C, BM1397 = 75 °C, fallback 70 °C). Een waarde anders dan 0 overschrijft alle modellen."
-
-#: src/pages/Config.tsx
 msgid "Default 50001."
 msgstr "Standaard 50001."
 
@@ -1387,10 +1376,6 @@ msgstr "Elke herstart reset naar DRY_RUN. Je schakelt expliciet over naar LIVE v
 msgid "Example: 95 = activate cheap mode when our bid (fillable ask + overpay - the price we actually post under pay-your-bid) is below 95% of the break-even hashprice from Ocean. Compares our bid, not the order book's cheapest level - a cheap best-ask isn't useful if our overpay puts the bid above hashprice anyway."
 msgstr "Voorbeeld: 95 = activeer cheap mode wanneer ons bod (fillable + overpay - de prijs die we daadwerkelijk posten onder pay-your-bid) lager is dan 95% van de break-even hashprice van Ocean. Vergelijkt ons eigen bod, niet het laagste niveau in het orderboek - een goedkope best-ask helpt niet als onze overpay het bod alsnog boven de hashprice tilt."
 
-#: src/pages/Config.tsx
-#~ msgid "Example: 95 = activate cheap mode when the best ask on the orderbook is below 95% of the break-even hashprice from Ocean. Braiins matches pay-your-bid (the bid IS the price we pay), and the autopilot tracks the fillable ask plus a small overpay - so a cheap best ask reliably translates into a cheap bid."
-#~ msgstr "Voorbeeld: 95 = activeer goedkoop-modus wanneer de beste vraagprijs in het orderbook onder 95% van de break-even hashprice van Ocean ligt. Braiins matcht pay-your-bid (de bid IS de prijs die we betalen), en de autopilot volgt de fillable ask plus een kleine overpay - dus een goedkope beste vraagprijs vertaalt zich betrouwbaar in een goedkoop bod."
-
 #: src/pages/Setup.tsx
 msgid "Existing config detected - fields are pre-filled. Update what changed and click through."
 msgstr "Bestaande config gedetecteerd - velden zijn vooringevuld. Pas aan wat veranderd is en ga verder."
@@ -1452,20 +1437,12 @@ msgid "Fires when a device is unreachable OR reports 0 H/s for the configured nu
 msgstr "Vuurt wanneer een apparaat onbereikbaar is OF 0 H/s rapporteert gedurende het ingestelde aantal aaneengesloten minuten. Hersteldmelding gekoppeld."
 
 #: src/pages/Config.tsx
-#~ msgid "Fires when an ASIC or VR temp crosses the per-ASIC-model ceiling (or the global override on Display & Logging → Solo miners) for ~90 s. Recovery paired."
-#~ msgstr "Vuurt wanneer de ASIC- of VR-temperatuur de drempel per ASIC-model overschrijdt (of de globale override op Weergave & logboek → Solo-miners) gedurende ~90 s. Hersteldmelding gekoppeld."
-
-#: src/pages/Config.tsx
 msgid "Fires when share rejection rate over the rolling window exceeds the configured threshold. Re-armed once per window so a sustained bad period only fires periodically."
 msgstr "Vuurt wanneer het share-verwerpingspercentage over het rollende venster boven de ingestelde drempel uitkomt. Wordt eenmaal per venster opnieuw bewapend, zodat een aanhoudende slechte periode slechts periodiek vuurt."
 
 #: src/pages/Config.tsx
 msgid "Fires when the ASIC temp crosses 75 °C (configurable on Display & Logging → Solo miners) OR the VR temp crosses 100 °C, sustained for ~90 s. Thresholds match AxeOS firmware's own throttle points so the alert lines up with when the miner itself starts taking action. Recovery paired."
 msgstr "Vuurt wanneer de ASIC-temperatuur boven 75 °C komt (instelbaar op Weergave & Logging → Solo miners) OF de VR-temperatuur boven 100 °C komt, aangehouden gedurende ~90 s. Drempels komen overeen met de eigen throttle-punten van de AxeOS-firmware, zodat de melding samenvalt met het moment dat de miner zelf in actie komt. Herstelmelding gekoppeld."
-
-#: src/pages/Config.tsx
-#~ msgid "Fires when the ASIC temp crosses its per-model ceiling (configurable on Display & Logging → Solo miners) OR the VR temp crosses 90 °C (separate built-in ceiling - VRs run a wider range than the ASIC), sustained for ~90 s. Recovery paired."
-#~ msgstr "Vuurt wanneer de ASIC-temperatuur de per-model-grens overschrijdt (instelbaar op Weergave & Logging → Solo miners) OF de VR-temperatuur boven 90 °C komt (aparte, ingebouwde grens - VR's hebben een breder werkbereik dan de ASIC), aangehouden gedurende ~90 s. Herstelmelding gekoppeld."
 
 #: src/pages/Config.tsx
 msgid "Fires when the Braiins orderbook has no hashrate available for your target AND delivery has fallen to zero, sustained for at least this many minutes. Two-condition gate filters micro-gaps in the orderbook. Recovery paired. Rare - normally only happens during low-supply stretches."
@@ -1670,6 +1647,11 @@ msgstr "belangrijk"
 #: src/pages/Config.tsx
 msgid "IMPORTANT"
 msgstr "BELANGRIJK"
+
+#: src/pages/Config.tsx
+#: src/pages/Config.tsx
+msgid "Include historical Ocean payouts in lifetime earnings"
+msgstr "Tel historische Ocean-uitbetalingen mee in totale inkomsten"
 
 #: src/pages/Status.tsx
 msgid "income/day est."
@@ -2234,10 +2216,6 @@ msgstr "On-chain uitbetalingen"
 msgid "Only engage cheap-mode when every tick in the last N minutes had our bid below the threshold, and there are at least N ticks of complete data (one per minute at the 60 s cadence). Literal sustained-below: one outlier doesn't trigger, one missing tick keeps it off. 0 = per-tick spot check (legacy)."
 msgstr "Activeer cheap mode alleen wanneer elke tick in de laatste N minuten ons bod onder de drempel had, met minimaal N ticks aan volledige data (één per minuut bij de 60 s tick-cadence). Letterlijk aanhoudend-onder: één uitschieter triggert niet, één gemiste tick houdt het uit. 0 = controle per tick (legacy)."
 
-#: src/pages/Config.tsx
-#~ msgid "Only engage cheap-mode when the rolling average of best-ask vs hashprice over this many minutes is below the threshold. Avoids flapping on single-tick market spikes. 0 = evaluate per tick (legacy). Requires ≥5 samples in the window before honouring it; below that falls back to the spot check."
-#~ msgstr "Activeer goedkoop-modus alleen wanneer het rollende gemiddelde van beste-vraagprijs t.o.v. hashprice over dit aantal minuten onder de drempel ligt. Voorkomt geflapper op enkelvoudige-tick marktpieken. 0 = per tick evalueren (legacy). Vereist ≥5 metingen in het venster voordat het gehonoreerd wordt; daaronder valt het terug op de spot-controle."
-
 #. placeholder {0}: formatAge(firing.created_at)
 #: src/pages/Alerts.tsx
 msgid "open · {0}"
@@ -2264,10 +2242,6 @@ msgstr "Open Telegram en start een chat met <0>@BotFather</0>, stuur /newbot en 
 #: src/pages/Config.tsx
 msgid "Optional dynamic ceiling. On each tick the effective cap = min(Maximum, hashprice + this). Stops the autopilot from wildly overpaying when hashprice drops sharply and the fixed Maximum alone would still allow it. Set to 0 to disable."
 msgstr "Optionele dynamische bovengrens. Bij elke tick is de effectieve cap = min(Maximum, hashprice + dit). Voorkomt dat de autopilot wild overbetaalt wanneer hashprice scherp daalt en het vaste Maximum dit alleen nog steeds zou toestaan. Zet op 0 om uit te schakelen."
-
-#: src/pages/Config.tsx
-#~ msgid "Optional. Datum Gateway's /umbrel-api endpoint - e.g. http://192.168.1.121:7152. Leave empty to disable; the Datum panel will show \"not configured\". See docs/setup-datum-api.md for the Umbrel-side port-exposure recipe."
-#~ msgstr "Optioneel. Het /umbrel-api-endpoint van Datum Gateway - bijv. http://192.168.1.121:7152. Laat leeg om uit te schakelen; het Datum-paneel toont dan \"niet geconfigureerd\". Zie docs/setup-datum-api.md voor het port-exposure recept aan de Umbrel-kant."
 
 #: src/pages/Config.tsx
 msgid "Optional. The HTTP API exposed by Datum Gateway - e.g. http://192.168.1.121:7152. Leave empty to disable; the Datum panel will show \"not configured\"."
@@ -2318,16 +2292,6 @@ msgstr "Ons niet-uitbetaalde saldo ({0}) heeft de uitbetaaldrempel ({1} ≈ 0,01
 #: src/pages/Status.tsx
 msgid "overdue {overdueFormatted}"
 msgstr "{overdueFormatted} te laat"
-
-#: src/pages/Config.tsx
-#: src/pages/Config.tsx
-#~ msgid "Overheating ceiling (°C, 0 = auto per model)"
-#~ msgstr "Oververhittingsgrens (°C, 0 = automatisch per model)"
-
-#: src/pages/Config.tsx
-#: src/pages/Config.tsx
-#~ msgid "Overheating ceiling (°F, 0 = auto per model)"
-#~ msgstr "Oververhittingsgrens (°F, 0 = automatisch per model)"
 
 #: src/components/PriceChart.tsx
 msgid "overpay"
@@ -2841,11 +2805,20 @@ msgstr "Scanresultaten"
 msgid "scanned"
 msgstr "gescand"
 
+#. placeholder {0}: r.tx_seen
+#. placeholder {1}: r.coinbase_seen
+#. placeholder {2}: r.inserted
+#. placeholder {3}: Math.round(r.duration_ms / 1000)
+#: src/pages/Config.tsx
+msgid "Scanned {0} txs ({1} coinbase). Inserted {2} new payout row(s) in {3}s."
+msgstr "{0} transacties gescand ({1} coinbase). {2} nieuwe uitbetalingsregel(s) toegevoegd in {3}s."
+
 #: src/pages/Config.tsx
 msgid "scanning…"
 msgstr "scannen…"
 
 #: src/components/Bip110ScanCard.tsx
+#: src/pages/Config.tsx
 msgid "Scanning…"
 msgstr "Bezig met scannen…"
 
@@ -3354,6 +3327,10 @@ msgid "Waiting for Ocean hashprice - trading is paused until the break-even refe
 msgstr "Wacht op Ocean hashprice - trading is gepauzeerd tot de break-even-referentie beschikbaar is."
 
 #: src/pages/Config.tsx
+msgid "Walks the full address history via Electrs and adds any historical Ocean coinbase payouts that aren't already recorded. Safe to run repeatedly."
+msgstr "Doorloopt de volledige adresgeschiedenis via Electrs en voegt historische Ocean coinbase-uitbetalingen toe die nog niet zijn vastgelegd. Veilig om herhaaldelijk uit te voeren."
+
+#: src/pages/Config.tsx
 #: src/pages/Config.tsx
 msgid "Wallet runway below"
 msgstr "Wallet-runway onder"
@@ -3388,20 +3365,16 @@ msgid "When more than this many markers would render on the price chart, the das
 msgstr "Wanneer er meer dan dit aantal markers op de prijsgrafiek zou worden getekend, verbergt het dashboard eerst EDIT_PRICE-markers (CREATE / EDIT_SPEED / CANCEL blijven staan omdat die zeldzaam en diagnostisch zijn). Als het aantal ook na het weglaten van EDIT_PRICE nog boven de limiet ligt, worden alle markers verborgen. 0 = geen aantals-gebaseerde filter (alle markers renderen, onder de bestaande per-bereik-regel). Nuttig bij lage overpay-instellingen waar EDIT_PRICE elke paar minuten afgaat en de grafiek vol zet."
 
 #: src/pages/Config.tsx
+msgid "When on, lifetime earnings count every coinbase tx ever credited to this payout address - including payouts you have already swept to another wallet. When off, only outputs still sitting at the address are counted (the pre-1.7.5 behaviour). Most users want this on; turn it off if you rotate to a fresh payout address per accounting period."
+msgstr "Indien aan, tellen de totale inkomsten elke coinbase-transactie mee die ooit aan dit uitbetalingsadres is gecrediteerd - inclusief uitbetalingen die je al naar een andere wallet hebt overgeboekt. Indien uit, tellen alleen outputs die nog op het adres staan (het gedrag van vóór 1.7.5). De meeste gebruikers willen dit aan; zet het uit als je per boekhoudperiode een vers uitbetalingsadres gebruikt."
+
+#: src/pages/Config.tsx
 msgid "When our bid drops below the break-even hashprice from Ocean, scale up to a higher target so we capture more hashrate while it's cheap. Tick \"Enable cheap mode\" to edit the fields below."
 msgstr "Wanneer ons bod onder de break-even hashprice van Ocean zakt, schalen we op naar een hoger doel om meer hashrate binnen te halen terwijl het goedkoop is. Vink \"Cheap mode aanzetten\" aan om de velden hieronder te bewerken."
 
 #: src/pages/Config.tsx
 msgid "When the bid is cheap (below the hashprice threshold), scale up to this target instead of the normal one."
 msgstr "Wanneer het bod goedkoop is (onder de hashprice-drempel), schaal op naar dit doel in plaats van het normale doel."
-
-#: src/pages/Config.tsx
-#~ msgid "When the market is cheap (below the hashprice threshold), scale up to this target instead of the normal one."
-#~ msgstr "Wanneer de markt goedkoop is (onder de hashprice-drempel), schaal op naar dit doel in plaats van het normale doel."
-
-#: src/pages/Config.tsx
-#~ msgid "When the spot market drops below the break-even hashprice from Ocean, scale the bid up to a higher target so we capture more hashrate while it's cheap. Tick \"Enable cheap mode\" to edit the fields below."
-#~ msgstr "Wanneer de spotmarkt onder de break-even hashprice van Ocean zakt, verhoog dan het bod naar een hoger doel zodat we meer hashrate vastleggen zolang het goedkoop is. Vink \"Goedkoop-modus inschakelen\" aan om de velden hieronder te bewerken."
 
 #: src/pages/Config.tsx
 msgid "Where rented hashrate lands. Change only if your pool endpoint moves. The BTC payout address sits here too - the worker identity below is auto-derived from it whenever you edit the address, same as the first-run wizard."

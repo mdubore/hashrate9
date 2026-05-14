@@ -59,6 +59,8 @@ export class ConfigRepo {
       ddns_provider: rest.ddns_provider as AppConfig['ddns_provider'],
       // #149: master toggle stored as 0/1, surfaced as boolean.
       solo_mining_enabled: rest.solo_mining_enabled === 1,
+      // #170: backfill toggle stored as 0/1, surfaced as boolean.
+      include_historical_payouts: rest.include_historical_payouts === 1,
     };
   }
 
@@ -85,6 +87,8 @@ export class ConfigRepo {
         validated.notification_disabled_event_classes.join(','),
       // #149: master toggle stored as 0/1.
       solo_mining_enabled: (validated.solo_mining_enabled ? 1 : 0) as 0 | 1,
+      // #170: backfill toggle stored as 0/1.
+      include_historical_payouts: (validated.include_historical_payouts ? 1 : 0) as 0 | 1,
       // Legacy NOT NULL columns still in the DB - provide harmless defaults
       // so INSERT succeeds.
       emergency_max_bid_sat_per_eh_day: validated.max_bid_sat_per_eh_day,
