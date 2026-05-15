@@ -1392,15 +1392,13 @@ export const HashrateChart = memo(function HashrateChart({
                   transform={`translate(${x - 5}, ${PADDING.top - 9})`}
                   fill="none"
                   stroke="#c084fc"
-                  strokeWidth="1.2"
-                  strokeLinecap="round"
+                  strokeWidth="1.1"
                   strokeLinejoin="round"
                 >
-                  {/* Handle */}
-                  <line x1="2" y1="10" x2="6" y2="3" opacity="0.6" />
-                  {/* Pick head */}
-                  <path d="M3 3.5 Q5 0 10 1.5" fill="none" />
-                  <path d="M3 3.5 Q4 4.5 6 3" fill="#c084fc" fillOpacity="0.3" />
+                  <path d="M0.5 3 L5 1 L9.5 3 L5 4.5 Z" fill="#c084fc" fillOpacity="0.25" />
+                  <path d="M0.5 3 L5 4.5 L5 5.5 L0.5 4 Z" fill="#c084fc" fillOpacity="0.15" />
+                  <path d="M5 4.5 L9.5 3 L9.5 4 L5 5.5 Z" fill="#c084fc" fillOpacity="0.35" />
+                  <line x1="4" y1="5.5" x2="1.5" y2="10" strokeWidth="1.4" opacity="0.4" />
                 </g>
               </g>
             );
