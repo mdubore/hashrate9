@@ -1077,31 +1077,35 @@ export const PriceChart = memo(function PriceChart({
           (e) => allowedKinds.has(e.kind) && e.occurred_at >= minX && e.occurred_at <= maxX,
         );
 
-    // #167: contiguous spans of ticks with fillable_ask null - the
-    // marketplace had no asks that could fill our target. Rendered as
-    // a faint grey shaded band behind the data so the gap in our_bid
-    // markers during these periods is visually labelled rather than
-    // looking like a controller pause.
+    // #167/#173: contiguous spans where fillable_ask is null. Split into
+    // "marketplace empty" (reachable but no supply) vs "Braiins API
+    // unreachable". Pre-migration rows (braiins_reachable === null) keep
+    // the legacy gray "marketplace empty" treatment.
     const marketplaceEmptyIntervals: Array<{ x0: number; x1: number }> = [];
+    const braiinsUnreachableIntervals: Array<{ x0: number; x1: number }> = [];
     {
-      let runStart: number | null = null;
+      let emptyStart: number | null = null;
+      let unreachStart: number | null = null;
       for (const p of points) {
-        if (p.fillable_ask_sat_per_ph_day === null) {
-          if (runStart === null) runStart = p.tick_at;
-        } else if (runStart !== null) {
-          marketplaceEmptyIntervals.push({ x0: runStart, x1: p.tick_at });
-          runStart = null;
+        const isUnreachable = p.fillable_ask_sat_per_ph_day === null && p.braiins_reachable === 0;
+        const isEmpty = p.fillable_ask_sat_per_ph_day === null && !isUnreachable;
+        if (isUnreachable) {
+          if (emptyStart !== null) { marketplaceEmptyIntervals.push({ x0: emptyStart, x1: p.tick_at }); emptyStart = null; }
+          if (unreachStart === null) unreachStart = p.tick_at;
+        } else if (isEmpty) {
+          if (unreachStart !== null) { braiinsUnreachableIntervals.push({ x0: unreachStart, x1: p.tick_at }); unreachStart = null; }
+          if (emptyStart === null) emptyStart = p.tick_at;
+        } else {
+          if (emptyStart !== null) { marketplaceEmptyIntervals.push({ x0: emptyStart, x1: p.tick_at }); emptyStart = null; }
+          if (unreachStart !== null) { braiinsUnreachableIntervals.push({ x0: unreachStart, x1: p.tick_at }); unreachStart = null; }
         }
       }
-      if (runStart !== null) {
-        marketplaceEmptyIntervals.push({
-          x0: runStart,
-          x1: points[points.length - 1]?.tick_at ?? runStart,
-        });
-      }
+      const lastT = points[points.length - 1]?.tick_at;
+      if (emptyStart !== null) marketplaceEmptyIntervals.push({ x0: emptyStart, x1: lastT ?? emptyStart });
+      if (unreachStart !== null) braiinsUnreachableIntervals.push({ x0: unreachStart, x1: lastT ?? unreachStart });
     }
 
-    return { pricePoints, minX, maxX, hasPrice, priceMin, priceMax, xScale, yScale, pricePath, priceAreaPath, hashpricePath, fillablePath, fillableHasData: fillablePoints.length > 0, effectivePath, effectiveHasData: effectivePoints.length > 0, capPath, capExclusionPolygon, yTicks, xTickInterval, xTicks, visibleEvents, rightAxis, hasRightAxis, rightAxisPath, rightYTicks, rightYScale, padRight, marketplaceEmptyIntervals };
+    return { pricePoints, minX, maxX, hasPrice, priceMin, priceMax, xScale, yScale, pricePath, priceAreaPath, hashpricePath, fillablePath, fillableHasData: fillablePoints.length > 0, effectivePath, effectiveHasData: effectivePoints.length > 0, capPath, capExclusionPolygon, yTicks, xTickInterval, xTicks, visibleEvents, rightAxis, hasRightAxis, rightAxisPath, rightYTicks, rightYScale, padRight, marketplaceEmptyIntervals, braiinsUnreachableIntervals };
   }, [points, events, showEventKinds, priceSmoothingMinutes, historicalPayoutsOffsetSat, maxOverpayVsHashpriceSatPerPhDay, chartHeight, rightAxisSeries, soloSeries, denomination, intlLocale]);
 
   const eventPriceAt = useCallback((e: BidEventView): number | null => {
@@ -1368,7 +1372,7 @@ export const PriceChart = memo(function PriceChart({
     );
   }
 
-  const { pricePoints, minX, maxX, hasPrice, priceMin, priceMax, xScale, yScale, pricePath, priceAreaPath, hashpricePath, fillablePath, fillableHasData, effectivePath, effectiveHasData, capPath, capExclusionPolygon, yTicks, xTickInterval, xTicks, visibleEvents, rightAxis, hasRightAxis, rightAxisPath, rightYTicks, rightYScale, padRight, marketplaceEmptyIntervals } = chartData;
+  const { pricePoints, minX, maxX, hasPrice, priceMin, priceMax, xScale, yScale, pricePath, priceAreaPath, hashpricePath, fillablePath, fillableHasData, effectivePath, effectiveHasData, capPath, capExclusionPolygon, yTicks, xTickInterval, xTicks, visibleEvents, rightAxis, hasRightAxis, rightAxisPath, rightYTicks, rightYScale, padRight, marketplaceEmptyIntervals, braiinsUnreachableIntervals } = chartData;
 
   // Format Y-axis tick values via the denomination context so the
   // numbers track the currency + hashrate-unit toggle. The full
@@ -1583,6 +1587,39 @@ export const PriceChart = memo(function PriceChart({
             >
               <title>
                 {`Marketplace empty (${formatDuration(iv.x1 - iv.x0)})`}
+              </title>
+            </rect>
+          );
+        })}
+        {braiinsUnreachableIntervals.length > 0 && (
+          <defs>
+            <pattern
+              id="braiinsUnreachHatchPx"
+              patternUnits="userSpaceOnUse"
+              width="8"
+              height="8"
+              patternTransform="rotate(45)"
+            >
+              <rect width="8" height="8" fill="#7f1d1d" fillOpacity="0.15" />
+              <line x1="0" y1="0" x2="0" y2="8" stroke="#ef4444" strokeWidth="1.5" strokeOpacity="0.4" />
+            </pattern>
+          </defs>
+        )}
+        {braiinsUnreachableIntervals.map((iv, i) => {
+          const x0 = xScale(Math.max(minX, iv.x0));
+          const x1 = xScale(Math.min(maxX, iv.x1));
+          if (!Number.isFinite(x0) || !Number.isFinite(x1) || x1 <= x0) return null;
+          return (
+            <rect
+              key={`braiins-unreach-${i}`}
+              x={x0}
+              y={PADDING.top}
+              width={x1 - x0}
+              height={chartHeight - PADDING.top - PADDING.bottom}
+              fill="url(#braiinsUnreachHatchPx)"
+            >
+              <title>
+                {`Braiins API unreachable (${formatDuration(iv.x1 - iv.x0)})`}
               </title>
             </rect>
           );

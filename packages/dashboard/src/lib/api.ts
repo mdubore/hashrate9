@@ -165,6 +165,7 @@ export interface MetricPoint {
    */
   pool_luck_24h: number | null;
   pool_luck_7d: number | null;
+  braiins_reachable: number | null;
 }
 
 export interface BidEventView {

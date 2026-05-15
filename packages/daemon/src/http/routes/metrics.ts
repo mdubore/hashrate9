@@ -104,6 +104,7 @@ export interface MetricPoint {
    */
   readonly pool_luck_24h: number | null;
   readonly pool_luck_7d: number | null;
+  readonly braiins_reachable: number | null;
 }
 
 export async function registerMetricsRoute(
@@ -184,6 +185,7 @@ function toMetricPoint(r: {
   pool_hashrate_ph_avg_7d: number | null;
   pool_luck_24h: number | null;
   pool_luck_7d: number | null;
+  braiins_reachable: number | null;
 }): MetricPoint {
   return {
     tick_at: r.tick_at,
@@ -227,6 +229,7 @@ function toMetricPoint(r: {
     pool_hashrate_ph_avg_7d: r.pool_hashrate_ph_avg_7d,
     pool_luck_24h: r.pool_luck_24h,
     pool_luck_7d: r.pool_luck_7d,
+    braiins_reachable: r.braiins_reachable,
   };
 }
 

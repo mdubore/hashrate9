@@ -68,6 +68,7 @@ export interface InsertTickMetricArgs {
    */
   readonly pool_luck_24h: number | null;
   readonly pool_luck_7d: number | null;
+  readonly braiins_reachable: number | null;
   readonly run_mode: TickMetricsTable['run_mode'];
   readonly action_mode: TickMetricsTable['action_mode'];
 }
@@ -108,6 +109,7 @@ export interface AggregatedTickMetricRow {
   pool_hashrate_ph_avg_7d: number | null;
   pool_luck_24h: number | null;
   pool_luck_7d: number | null;
+  braiins_reachable: number | null;
 }
 
 export class TickMetricsRepo {
@@ -176,6 +178,7 @@ export class TickMetricsRepo {
         pool_hashrate_ph_avg_7d: r.pool_hashrate_ph_avg_7d,
         pool_luck_24h: r.pool_luck_24h,
         pool_luck_7d: r.pool_luck_7d,
+        braiins_reachable: r.braiins_reachable,
       }));
     }
 
@@ -258,6 +261,7 @@ export class TickMetricsRepo {
         // a bucket's mean luck reads cleanly.
         sql<number | null>`AVG(pool_luck_24h)`.as('pool_luck_24h'),
         sql<number | null>`AVG(pool_luck_7d)`.as('pool_luck_7d'),
+        sql<number | null>`MIN(braiins_reachable)`.as('braiins_reachable'),
       ])
       .where('tick_at', '>=', sinceMs)
       .groupBy(sql`tick_at / ${sql.lit(bucketMs)}`)

@@ -325,11 +325,10 @@ export function Status() {
 
   const s: StatusResponse = query.data;
 
-  // #167: marketplace-empty banner. Fires the moment the daemon's
-  // current state matches both conditions (fillable null AND delivery
-  // ~0); no minute-threshold wait here (that's the Telegram alert's
-  // job - the banner is the in-the-moment indicator). Disappears the
-  // tick supply returns.
+  // #167/#173: marketplace-empty banner. Only fires when Braiins is
+  // reachable but the orderbook genuinely has no supply. When the API
+  // is unreachable, the Next Action descriptor already shows
+  // "Braiins API unreachable" and this banner stays silent.
   const marketplaceEmptyNow =
     s.market !== null &&
     s.market.fillable_ask_sat_per_ph_day === null &&

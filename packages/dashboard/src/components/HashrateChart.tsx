@@ -807,31 +807,32 @@ export const HashrateChart = memo(function HashrateChart({
       shareLogYScale,
       padRight,
       rightAxis,
-      // #167: contiguous spans of ticks with `fillable_ask_sat_per_ph_day === null`,
-      // i.e. the marketplace had no asks that could fill the target.
-      // Rendered as a faint grey shaded background band - retroactive
-      // visual cue for periods like 2026-05-13 ~07:00-08:15 when the
-      // hashrate line dropped and the operator couldn't tell whether
-      // it was their autopilot or supply-side at fault. Computed once
-      // per points change and used by the SVG render layer.
-      marketplaceEmptyIntervals: (() => {
-        const intervals: Array<{ x0: number; x1: number }> = [];
-        let runStart: number | null = null;
+      // #167/#173: split fillable-null spans into marketplace-empty vs
+      // Braiins-unreachable. Pre-migration rows (braiins_reachable null)
+      // keep the legacy gray band.
+      ...(() => {
+        const marketplaceEmptyIntervals: Array<{ x0: number; x1: number }> = [];
+        const braiinsUnreachableIntervals: Array<{ x0: number; x1: number }> = [];
+        let emptyStart: number | null = null;
+        let unreachStart: number | null = null;
         for (const p of points) {
-          if (p.fillable_ask_sat_per_ph_day === null) {
-            if (runStart === null) runStart = p.tick_at;
-          } else if (runStart !== null) {
-            intervals.push({ x0: runStart, x1: p.tick_at });
-            runStart = null;
+          const isUnreachable = p.fillable_ask_sat_per_ph_day === null && p.braiins_reachable === 0;
+          const isEmpty = p.fillable_ask_sat_per_ph_day === null && !isUnreachable;
+          if (isUnreachable) {
+            if (emptyStart !== null) { marketplaceEmptyIntervals.push({ x0: emptyStart, x1: p.tick_at }); emptyStart = null; }
+            if (unreachStart === null) unreachStart = p.tick_at;
+          } else if (isEmpty) {
+            if (unreachStart !== null) { braiinsUnreachableIntervals.push({ x0: unreachStart, x1: p.tick_at }); unreachStart = null; }
+            if (emptyStart === null) emptyStart = p.tick_at;
+          } else {
+            if (emptyStart !== null) { marketplaceEmptyIntervals.push({ x0: emptyStart, x1: p.tick_at }); emptyStart = null; }
+            if (unreachStart !== null) { braiinsUnreachableIntervals.push({ x0: unreachStart, x1: p.tick_at }); unreachStart = null; }
           }
         }
-        if (runStart !== null) {
-          intervals.push({
-            x0: runStart,
-            x1: points[points.length - 1]?.tick_at ?? runStart,
-          });
-        }
-        return intervals;
+        const lastT = points[points.length - 1]?.tick_at;
+        if (emptyStart !== null) marketplaceEmptyIntervals.push({ x0: emptyStart, x1: lastT ?? emptyStart });
+        if (unreachStart !== null) braiinsUnreachableIntervals.push({ x0: unreachStart, x1: lastT ?? unreachStart });
+        return { marketplaceEmptyIntervals, braiinsUnreachableIntervals };
       })(),
     };
   }, [
@@ -975,7 +976,7 @@ export const HashrateChart = memo(function HashrateChart({
     );
   }
 
-  const { minX, maxX, xScale, yScale, deliveredPath, datumPath, hasDatum, oceanPath, hasOcean, targetPath, floorPath, yTicks, xTickInterval, xTicks, hasShareLog, shareLogPath, shareLogYTicks, shareLogYScale, padRight, rightAxis, marketplaceEmptyIntervals } = chartData;
+  const { minX, maxX, xScale, yScale, deliveredPath, datumPath, hasDatum, oceanPath, hasOcean, targetPath, floorPath, yTicks, xTickInterval, xTicks, hasShareLog, shareLogPath, shareLogYTicks, shareLogYScale, padRight, rightAxis, marketplaceEmptyIntervals, braiinsUnreachableIntervals } = chartData;
 
   return (
     <div className="bg-slate-900 border rounded-lg p-4 border-slate-800">
@@ -1111,6 +1112,39 @@ export const HashrateChart = memo(function HashrateChart({
             >
               <title>
                 {`Marketplace empty (${formatDuration(iv.x1 - iv.x0)})`}
+              </title>
+            </rect>
+          );
+        })}
+        {braiinsUnreachableIntervals.length > 0 && (
+          <defs>
+            <pattern
+              id="braiinsUnreachHatchHr"
+              patternUnits="userSpaceOnUse"
+              width="8"
+              height="8"
+              patternTransform="rotate(45)"
+            >
+              <rect width="8" height="8" fill="#7f1d1d" fillOpacity="0.15" />
+              <line x1="0" y1="0" x2="0" y2="8" stroke="#ef4444" strokeWidth="1.5" strokeOpacity="0.4" />
+            </pattern>
+          </defs>
+        )}
+        {braiinsUnreachableIntervals.map((iv, i) => {
+          const x0 = xScale(Math.max(minX, iv.x0));
+          const x1 = xScale(Math.min(maxX, iv.x1));
+          if (!Number.isFinite(x0) || !Number.isFinite(x1) || x1 <= x0) return null;
+          return (
+            <rect
+              key={`braiins-unreach-${i}`}
+              x={x0}
+              y={PADDING.top}
+              width={x1 - x0}
+              height={chartHeight - PADDING.top - PADDING.bottom}
+              fill="url(#braiinsUnreachHatchHr)"
+            >
+              <title>
+                {`Braiins API unreachable (${formatDuration(iv.x1 - iv.x0)})`}
               </title>
             </rect>
           );

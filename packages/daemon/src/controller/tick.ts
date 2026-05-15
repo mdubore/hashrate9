@@ -174,6 +174,7 @@ export class Controller {
         pool_hashrate_ph_avg_7d: state.pool_hashrate_ph_avg_7d,
         pool_luck_24h: state.pool_luck_24h,
         pool_luck_7d: state.pool_luck_7d,
+        braiins_reachable: state.market !== null ? 1 : 0,
         run_mode: state.run_mode,
         action_mode: 'NORMAL' as const,
       });

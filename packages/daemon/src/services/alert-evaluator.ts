@@ -612,7 +612,8 @@ export class AlertEvaluator {
   private async evaluateMarketplaceEmpty(state: State, disabledClasses: ReadonlySet<string>): Promise<void> {
     const isBad =
       state.fillable_ask_sat_per_eh_day === null &&
-      state.actual_hashrate.total_ph < 0.05;
+      state.actual_hashrate.total_ph < 0.05 &&
+      state.market !== null;
     const thresholdMs = state.config.marketplace_empty_alert_after_minutes * 60_000;
     this.marketplace_empty = await this.runTransition({
       event_class: 'marketplace_empty',
