@@ -124,7 +124,7 @@ function rollingMean(
   return out;
 }
 
-interface RetargetEvent {
+export interface RetargetEvent {
   /** Tick timestamp of the first sample at the new difficulty. */
   tick_at: number;
   /** New difficulty (raw integer). */
@@ -138,7 +138,7 @@ interface RetargetEvent {
   luckAfter?: number | null;
 }
 
-interface RetargetTooltipState {
+export interface RetargetTooltipState {
   event: RetargetEvent;
   x: number;
   y: number;
@@ -1388,18 +1388,16 @@ export const HashrateChart = memo(function HashrateChart({
                   height={16}
                   fill="transparent"
                 />
-                <g
-                  transform={`translate(${x - 5}, ${PADDING.top - 9})`}
-                  fill="none"
-                  stroke="#c084fc"
-                  strokeWidth="1.1"
-                  strokeLinejoin="round"
+                <svg
+                  x={x - 6} y={PADDING.top - 10}
+                  width="12" height="12" viewBox="0 0 24 24"
+                  fill="none" stroke="#c084fc" strokeWidth="2.5"
+                  strokeLinecap="round" strokeLinejoin="round"
+                  opacity="0.85"
                 >
-                  <path d="M0.5 3 L5 1 L9.5 3 L5 4.5 Z" fill="#c084fc" fillOpacity="0.25" />
-                  <path d="M0.5 3 L5 4.5 L5 5.5 L0.5 4 Z" fill="#c084fc" fillOpacity="0.15" />
-                  <path d="M5 4.5 L9.5 3 L9.5 4 L5 5.5 Z" fill="#c084fc" fillOpacity="0.35" />
-                  <line x1="4" y1="5.5" x2="1.5" y2="10" strokeWidth="1.4" opacity="0.4" />
-                </g>
+                  <path d="m14 13-8.381 8.38a1 1 0 0 1-3.001-3L11 9.999" />
+                  <path d="M18.352 3.352a1.205 1.205 0 0 0-1.704 0l-5.296 5.296a1.205 1.205 0 0 0 0 1.704l2.296 2.296a1.205 1.205 0 0 0 1.704 0l5.296-5.296a1.205 1.205 0 0 0 0-1.704z" />
+                </svg>
               </g>
             );
           })}
@@ -1682,7 +1680,7 @@ export function PoolBlockTooltip({
  * trillions, and the % change vs the previous epoch (positive
  * green, negative red - matches the "easier vs harder" intuition).
  */
-function RetargetTooltip({
+export function RetargetTooltip({
   tip,
   locale,
   dateTimeLocale,

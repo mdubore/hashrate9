@@ -47,7 +47,10 @@ import { useDateTimeLocale, useFormatters, useLocale } from '../lib/locale';
 import { SatSymbol } from './SatSymbol';
 import {
   PoolBlockTooltip,
+  RetargetTooltip,
   type PoolBlockTooltipState,
+  type RetargetEvent,
+  type RetargetTooltipState,
 } from './HashrateChart';
 
 const WIDTH = 880;
@@ -326,6 +329,7 @@ export const PriceChart = memo(function PriceChart({
   // + explorer link.
   const [poolBlockTip, setPoolBlockTip] = useState<PoolBlockTooltipState | null>(null);
   const [rewardTip, setRewardTip] = useState<RewardTooltipState | null>(null);
+  const [retargetTip, setRetargetTip] = useState<RetargetTooltipState | null>(null);
   const [expanded, setExpanded] = useState(false);
   const chartHeight = expanded ? HEIGHT * 2 : HEIGHT;
   const { intlLocale } = useLocale();
@@ -1170,6 +1174,45 @@ export const PriceChart = memo(function PriceChart({
   );
   const closePoolBlockTip = useCallback(() => setPoolBlockTip(null), []);
 
+  const onRetargetEnter = useCallback(
+    (event: RetargetEvent) => (e: React.MouseEvent) => {
+      setRetargetTip((prev) => {
+        if (prev?.pinned) return prev;
+        return { event, x: e.clientX, y: e.clientY, pinned: false };
+      });
+    },
+    [],
+  );
+  const onRetargetLeave = useCallback(() => {
+    setRetargetTip((prev) => (prev?.pinned ? prev : null));
+  }, []);
+  const onRetargetClick = useCallback(
+    (event: RetargetEvent) => (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setRetargetTip({ event, x: e.clientX, y: e.clientY, pinned: true });
+    },
+    [],
+  );
+  const closeRetargetTip = useCallback(() => setRetargetTip(null), []);
+
+  useEffect(() => {
+    if (!retargetTip?.pinned) return;
+    const onDocClick = (ev: MouseEvent) => {
+      const target = ev.target as Node | null;
+      if (
+        target &&
+        document
+          .getElementById('price-chart-pinned-retarget-tooltip')
+          ?.contains(target)
+      ) {
+        return;
+      }
+      setRetargetTip(null);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [retargetTip?.pinned]);
+
   // Reward-event dots (right-axis = paid_total_sat or lifetime_earnings_sat).
   const onRewardEnter = useCallback(
     (reward: RewardEventView) => (e: React.MouseEvent) => {
@@ -1360,6 +1403,32 @@ export const PriceChart = memo(function PriceChart({
     }
     return out;
   }, [chartData, showPoolBlockMarkers, ourBlocks, points]);
+
+  const difficultyRetargets = useMemo<RetargetEvent[]>(() => {
+    const n = points.length;
+    if (n === 0) return [];
+    const nextNonNull: Array<number | null> = new Array(n);
+    let trailing: number | null = null;
+    for (let i = n - 1; i >= 0; i -= 1) {
+      const d = points[i]!.network_difficulty;
+      if (typeof d === 'number' && Number.isFinite(d)) trailing = d;
+      nextNonNull[i] = trailing;
+    }
+    const out: RetargetEvent[] = [];
+    let prev: number | null = null;
+    for (let i = 0; i < n; i += 1) {
+      const d = points[i]!.network_difficulty;
+      if (typeof d !== 'number' || !Number.isFinite(d)) continue;
+      if (prev !== null && Math.abs(d - prev) / prev > 0.005) {
+        const next = i + 1 < n ? nextNonNull[i + 1] ?? null : null;
+        if (next === null || Math.abs(next - d) / d <= 0.005) {
+          out.push({ tick_at: points[i]!.tick_at, difficulty: d, previous: prev });
+        }
+      }
+      prev = d;
+    }
+    return out;
+  }, [points]);
 
   if (!chartData) {
     return (
@@ -1844,6 +1913,87 @@ export const PriceChart = memo(function PriceChart({
             </g>
           );
         })}
+
+        {ourBlocks
+          .filter((b) => b.timestamp_ms >= minX && b.timestamp_ms <= maxX)
+          .map((b) => {
+            const x = xScale(b.timestamp_ms);
+            const isOurs = b.found_by_us;
+            const isBip110 = !isOurs && b.signals_bip110 === true;
+            const color = isOurs ? '#fbbf24' : isBip110 ? '#fde047' : '#3b82f6';
+            return (
+              <g
+                key={`block-icon-${b.block_hash || b.height}`}
+                onMouseEnter={onPoolBlockEnter(b)}
+                onMouseLeave={onPoolBlockLeave}
+                onClick={onPoolBlockClick(b)}
+                style={{ cursor: 'pointer' }}
+              >
+                <line
+                  x1={x} x2={x}
+                  y1={PADDING.top + 8} y2={chartHeight - PADDING.bottom}
+                  stroke={color}
+                  strokeWidth={isOurs ? '1.8' : '1'}
+                  strokeDasharray={isOurs ? '4 2' : '2 3'}
+                  opacity={isOurs ? '0.95' : '0.55'}
+                  pointerEvents="none"
+                />
+                <rect x={x - 8} y={PADDING.top - 12} width={16} height={16} fill="transparent" />
+                {isOurs ? (
+                  <g
+                    transform={`translate(${x - 5}, ${PADDING.top - 9})`}
+                    fill={color} fillOpacity="0.45"
+                    stroke={color} strokeWidth="1.1" strokeLinejoin="round"
+                  >
+                    <path d="M0 8 L1.5 3 L4 5.5 L5 1 L6 5.5 L8.5 3 L10 8 Z" />
+                    <line x1="0" y1="9.5" x2="10" y2="9.5" stroke={color} strokeWidth="1.4" />
+                  </g>
+                ) : (
+                  <g
+                    transform={`translate(${x - 5}, ${PADDING.top - 9})`}
+                    fill="none" stroke={color} strokeWidth="1.1" strokeLinejoin="round"
+                  >
+                    <path d="M5 0 L10 2.5 L5 5 L0 2.5 Z" fill={color} fillOpacity="0.25" />
+                    <path d="M0 2.5 L0 7.5 L5 10 L5 5 Z" fill={color} fillOpacity="0.15" />
+                    <path d="M5 5 L5 10 L10 7.5 L10 2.5 Z" fill={color} fillOpacity="0.35" />
+                  </g>
+                )}
+              </g>
+            );
+          })}
+
+        {difficultyRetargets
+          .filter((r) => r.tick_at >= minX && r.tick_at <= maxX)
+          .map((r) => {
+            const x = xScale(r.tick_at);
+            return (
+              <g
+                key={`retarget-icon-${r.tick_at}`}
+                onMouseEnter={onRetargetEnter(r)}
+                onMouseLeave={onRetargetLeave}
+                onClick={onRetargetClick(r)}
+                style={{ cursor: 'pointer' }}
+              >
+                <line
+                  x1={x} x2={x}
+                  y1={PADDING.top + 8} y2={chartHeight - PADDING.bottom}
+                  stroke="#c084fc" strokeWidth="1" strokeDasharray="2 3" opacity="0.4"
+                  pointerEvents="none"
+                />
+                <rect x={x - 8} y={PADDING.top - 12} width={16} height={16} fill="transparent" />
+                <svg
+                  x={x - 6} y={PADDING.top - 10}
+                  width="12" height="12" viewBox="0 0 24 24"
+                  fill="none" stroke="#c084fc" strokeWidth="2.5"
+                  strokeLinecap="round" strokeLinejoin="round"
+                  opacity="0.85"
+                >
+                  <path d="m14 13-8.381 8.38a1 1 0 0 1-3.001-3L11 9.999" />
+                  <path d="M18.352 3.352a1.205 1.205 0 0 0-1.704 0l-5.296 5.296a1.205 1.205 0 0 0 0 1.704l2.296 2.296a1.205 1.205 0 0 0 1.704 0l5.296-5.296a1.205 1.205 0 0 0 0-1.704z" />
+                </svg>
+              </g>
+            );
+          })}
       </svg>
 
       {poolBlockTip && (
@@ -1854,6 +2004,14 @@ export const PriceChart = memo(function PriceChart({
           shareLogPct={shareLogPct}
           onClose={closePoolBlockTip}
           pinnedDomId="price-chart-pinned-pool-block-tooltip"
+        />
+      )}
+      {retargetTip && (
+        <RetargetTooltip
+          tip={retargetTip}
+          locale={intlLocale}
+          dateTimeLocale={dateTimeLocale}
+          onClose={closeRetargetTip}
         />
       )}
       {rewardTip && (
