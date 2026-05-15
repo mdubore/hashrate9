@@ -243,6 +243,7 @@ export const HashrateChart = memo(function HashrateChart({
   datumSmoothingMinutes = 1,
   rightAxisSeries = 'none',
   soloSeries = [],
+  markersHiddenCount = 0,
 }: {
   points: readonly MetricPoint[];
   range: ChartRange;
@@ -274,6 +275,8 @@ export const HashrateChart = memo(function HashrateChart({
   rightAxisSeries?: HashrateRightAxis;
   /** #149: per-tick aggregated solo-mining fleet series; only used when rightAxisSeries is one of the `solo_*` variants. */
   soloSeries?: ReadonlyArray<SoloSeriesRow>;
+  /** #172: number of markers hidden by the global marker cap. */
+  markersHiddenCount?: number;
 }) {
   const { i18n } = useLingui();
   void i18n;
@@ -1019,6 +1022,14 @@ export const HashrateChart = memo(function HashrateChart({
                 b.timestamp_ms <= chartData.maxX &&
                 b.found_by_us,
             ) && <Legend color={COLOR_OUR_BLOCK} label={t`found by us`} dashed />}
+          {markersHiddenCount > 0 && (
+            <span
+              className="text-[10px] text-slate-500 italic"
+              title={t`Markers were hidden because the combined count exceeded the configured chart-marker cap. Adjust the cap on Config → Display & Logging.`}
+            >
+              <Trans>{markersHiddenCount} markers hidden (cap)</Trans>
+            </span>
+          )}
         </div>
       </div>
       <svg

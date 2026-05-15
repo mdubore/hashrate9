@@ -73,11 +73,16 @@ msgstr "{hours}u geleden"
 msgid "{label} DOWN"
 msgstr "{label} OFFLINE"
 
+#. placeholder {0}: markersHiddenKind === 'edit_price' ? 'edit-price' : markersHiddenKind === 'pool_block' ? 'pool-block' : markersHiddenKind === 'reward_event' ? 'reward-event' : ''
 #: src/components/PriceChart.tsx
-msgid "{markersHiddenCount} edit-price markers hidden (cap)"
-msgstr "{markersHiddenCount} edit-price-markers verborgen (limiet)"
+msgid "{markersHiddenCount} {0} markers hidden (cap)"
+msgstr "{markersHiddenCount} {0} markers verborgen (limiet)"
 
 #: src/components/PriceChart.tsx
+#~ msgid "{markersHiddenCount} edit-price markers hidden (cap)"
+#~ msgstr "{markersHiddenCount} edit-price-markers verborgen (limiet)"
+
+#: src/components/HashrateChart.tsx
 msgid "{markersHiddenCount} markers hidden (cap)"
 msgstr "{markersHiddenCount} markers verborgen (limiet)"
 
@@ -332,8 +337,8 @@ msgid "Alerts"
 msgstr "Meldingen"
 
 #: src/components/PriceChart.tsx
-msgid "All markers were hidden because the count exceeded the configured chart-marker cap even after dropping EDIT_PRICE. Adjust the cap on Config → Display & Logging."
-msgstr "Alle markers zijn verborgen omdat het aantal zelfs na het weglaten van EDIT_PRICE de ingestelde grafiek-markerlimiet overschreed. Pas de limiet aan op Config → Display & Logging."
+#~ msgid "All markers were hidden because the count exceeded the configured chart-marker cap even after dropping EDIT_PRICE. Adjust the cap on Config → Display & Logging."
+#~ msgstr "Alle markers zijn verborgen omdat het aantal zelfs na het weglaten van EDIT_PRICE de ingestelde grafiek-markerlimiet overschreed. Pas de limiet aan op Config → Display & Logging."
 
 #: src/pages/Config.tsx
 msgid "already added"
@@ -437,6 +442,7 @@ msgstr "autopilot"
 msgid "Autopilot only (autopilot-tagged bids)"
 msgstr "Alleen autopilot (door autopilot getagde biedingen)"
 
+#: src/pages/Status.tsx
 #: src/pages/Status.tsx
 msgid "available"
 msgstr "beschikbaar"
@@ -652,6 +658,7 @@ msgstr "Blok-URL-sjabloon"
 msgid "Block-found notification"
 msgstr "Notificatie bij gevonden blok"
 
+#: src/pages/Status.tsx
 #: src/pages/Status.tsx
 msgid "blocked"
 msgstr "geblokkeerd"
@@ -1277,8 +1284,8 @@ msgid "EDIT SPEED"
 msgstr "SNELHEID AANPASSEN"
 
 #: src/components/PriceChart.tsx
-msgid "Edit-price markers were hidden because the count exceeded the configured chart-marker cap. CREATE / EDIT_SPEED / CANCEL markers still render. Adjust the cap on Config → Display & Logging."
-msgstr "Edit-price-markers zijn verborgen omdat het aantal de ingestelde grafiek-markerlimiet overschreed. CREATE / EDIT_SPEED / CANCEL-markers worden nog steeds getekend. Pas de limiet aan op Config → Display & Logging."
+#~ msgid "Edit-price markers were hidden because the count exceeded the configured chart-marker cap. CREATE / EDIT_SPEED / CANCEL markers still render. Adjust the cap on Config → Display & Logging."
+#~ msgstr "Edit-price-markers zijn verborgen omdat het aantal de ingestelde grafiek-markerlimiet overschreed. CREATE / EDIT_SPEED / CANCEL-markers worden nog steeds getekend. Pas de limiet aan op Config → Display & Logging."
 
 #: src/components/PriceChart.tsx
 msgid "effective"
@@ -1823,6 +1830,14 @@ msgstr "alles markeren als gezien ({unackedCount})"
 #: src/pages/Alerts.tsx
 msgid "mark as seen"
 msgstr "als gezien markeren"
+
+#: src/components/PriceChart.tsx
+msgid "Markers were hidden because the combined count (bid events + pool blocks + reward events) exceeded the configured chart-marker cap. Adjust the cap on Config → Display & Logging."
+msgstr "Markers zijn verborgen omdat het gecombineerde aantal (bid events + pool blocks + reward events) de ingestelde chart-marker limiet overschrijdt. Pas de limiet aan via Config → Display & Logging."
+
+#: src/components/HashrateChart.tsx
+msgid "Markers were hidden because the combined count exceeded the configured chart-marker cap. Adjust the cap on Config → Display & Logging."
+msgstr "Markers zijn verborgen omdat het gecombineerde aantal de ingestelde chart-marker limiet overschrijdt. Pas de limiet aan via Config → Display & Logging."
 
 #: src/components/PriceChart.tsx
 msgid "market at this tick"
@@ -2771,6 +2786,7 @@ msgid "Run the pending decision immediately - clears the post-edit lock and bypa
 msgstr "Voer de wachtende beslissing onmiddellijk uit - heft de post-edit-lock op en omzeilt de patience/escalation-timers zodat een wachtende EDIT_PRICE op deze tick afgaat in plaats van na het volledige venster."
 
 #: src/pages/Status.tsx
+#: src/pages/Status.tsx
 msgid "runway"
 msgstr "runway"
 
@@ -3203,6 +3219,7 @@ msgstr "Tijds-gewogen gemiddelde van (ons bod - fillable ask) per tick over het 
 msgid "tip"
 msgstr "tip"
 
+#: src/pages/Status.tsx
 #: src/pages/Status.tsx
 msgid "total"
 msgstr "totaal"

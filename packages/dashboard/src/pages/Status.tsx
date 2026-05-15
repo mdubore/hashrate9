@@ -282,36 +282,80 @@ export function Status() {
   // see research.md §0.9). Backend field remains in case Braiins
   // changes policy. The endpoint still exists for future use.
 
-  // #123: count-based marker suppression. The dashboard already
-  // hides markers entirely on long ranges via the showEventKinds
-  // per-range rule; this layers a global cap on top so low-overpay
-  // settings (where EDIT_PRICE fires every couple of minutes)
-  // don't make the chart unreadable on shorter ranges. Hide
-  // EDIT_PRICE first; if still over, hide everything.
-  const { visibleBidEvents, markersHiddenKind, markersHiddenCount } = useMemo(() => {
+  // #123/#172: count-based marker suppression across ALL marker types.
+  // The cap applies to bid events + pool blocks + reward events combined.
+  // When over cap, drop in priority order:
+  //   1. EDIT_PRICE bid events (lowest signal)
+  //   2. Non-own pool blocks (found_by_us === false; sky-blue context dots)
+  //   3. Reward events
+  //   4. Everything remaining
+  const allOurBlocks = oceanQuery.data?.our_recent_blocks ?? EMPTY_OUR_BLOCKS;
+  const allRewardEvents = rewardEventsQuery.data?.events ?? EMPTY_REWARD_EVENTS;
+  const { visibleBidEvents, visibleOurBlocks, visibleRewardEvents, markersHiddenKind, markersHiddenCount } = useMemo(() => {
     const events = bidEventsQuery.data?.events ?? EMPTY_BID_EVENTS;
     const cap = configQuery.data?.config?.chart_max_markers ?? 0;
-    if (cap <= 0 || events.length <= cap) {
+    const totalCount = events.length + allOurBlocks.length + allRewardEvents.length;
+    if (cap <= 0 || totalCount <= cap) {
       return {
         visibleBidEvents: events,
-        markersHiddenKind: null as null | 'edit_price' | 'all',
+        visibleOurBlocks: allOurBlocks,
+        visibleRewardEvents: allRewardEvents,
+        markersHiddenKind: null as null | 'edit_price' | 'pool_block' | 'reward_event' | 'all',
         markersHiddenCount: 0,
       };
     }
+    let remaining = totalCount;
+    let curEvents = events;
+    let curBlocks = allOurBlocks;
+    let curRewards = allRewardEvents;
+    let hiddenKind: null | 'edit_price' | 'pool_block' | 'reward_event' | 'all' = null;
+    let hiddenCount = 0;
+    // Step 1: drop EDIT_PRICE bid events
     const withoutEditPrice = events.filter((e) => e.kind !== 'EDIT_PRICE');
-    if (withoutEditPrice.length <= cap) {
+    const editPriceDropped = events.length - withoutEditPrice.length;
+    if (remaining > cap && editPriceDropped > 0) {
+      remaining -= editPriceDropped;
+      hiddenCount += editPriceDropped;
+      curEvents = withoutEditPrice;
+      hiddenKind = 'edit_price';
+    }
+    // Step 2: drop non-own pool blocks
+    if (remaining > cap) {
+      const ownOnly = allOurBlocks.filter((b) => b.found_by_us);
+      const nonOwnDropped = allOurBlocks.length - ownOnly.length;
+      if (nonOwnDropped > 0) {
+        remaining -= nonOwnDropped;
+        hiddenCount += nonOwnDropped;
+        curBlocks = ownOnly;
+        hiddenKind = 'pool_block';
+      }
+    }
+    // Step 3: drop reward events
+    if (remaining > cap && curRewards.length > 0) {
+      hiddenCount += curRewards.length;
+      remaining -= curRewards.length;
+      curRewards = EMPTY_REWARD_EVENTS;
+      hiddenKind = 'reward_event';
+    }
+    // Step 4: drop everything
+    if (remaining > cap) {
+      hiddenCount = totalCount;
       return {
-        visibleBidEvents: withoutEditPrice,
-        markersHiddenKind: 'edit_price' as const,
-        markersHiddenCount: events.length - withoutEditPrice.length,
+        visibleBidEvents: EMPTY_BID_EVENTS,
+        visibleOurBlocks: EMPTY_OUR_BLOCKS,
+        visibleRewardEvents: EMPTY_REWARD_EVENTS,
+        markersHiddenKind: 'all' as const,
+        markersHiddenCount: hiddenCount,
       };
     }
     return {
-      visibleBidEvents: EMPTY_BID_EVENTS,
-      markersHiddenKind: 'all' as const,
-      markersHiddenCount: events.length,
+      visibleBidEvents: curEvents,
+      visibleOurBlocks: curBlocks,
+      visibleRewardEvents: curRewards,
+      markersHiddenKind: hiddenKind,
+      markersHiddenCount: hiddenCount,
     };
-  }, [bidEventsQuery.data?.events, configQuery.data?.config?.chart_max_markers]);
+  }, [bidEventsQuery.data?.events, configQuery.data?.config?.chart_max_markers, allOurBlocks, allRewardEvents]);
 
   if (query.isError && query.error instanceof UnauthorizedError) {
     navigate('/login');
@@ -408,13 +452,14 @@ export function Status() {
           points={metricsQuery.data?.points ?? EMPTY_METRIC_POINTS}
           range={chartRange}
           onRangeChange={setChartRange}
-          ourBlocks={oceanQuery.data?.our_recent_blocks ?? EMPTY_OUR_BLOCKS}
+          ourBlocks={visibleOurBlocks}
           blockExplorerTemplate={configQuery.data?.config?.block_explorer_url_template}
           shareLogPct={oceanQuery.data?.user?.share_log_pct ?? null}
           braiinsSmoothingMinutes={configQuery.data?.config?.braiins_hashrate_smoothing_minutes ?? 1}
           datumSmoothingMinutes={configQuery.data?.config?.datum_hashrate_smoothing_minutes ?? 1}
           rightAxisSeries={hashrateRightAxis}
           soloSeries={soloSeries}
+          markersHiddenCount={markersHiddenCount}
         />
       </div>
       <div className="space-y-1">
@@ -462,8 +507,8 @@ export function Status() {
           }
           rightAxisSeries={priceRightAxis}
           soloSeries={soloSeries}
-          rewardEvents={rewardEventsQuery.data?.events ?? EMPTY_REWARD_EVENTS}
-          ourBlocks={oceanQuery.data?.our_recent_blocks ?? EMPTY_OUR_BLOCKS}
+          rewardEvents={visibleRewardEvents}
+          ourBlocks={visibleOurBlocks}
           blockExplorerTemplate={configQuery.data?.config?.block_explorer_url_template}
           txExplorerTemplate={configQuery.data?.config?.block_explorer_tx_url_template}
           shareLogPct={oceanQuery.data?.user?.share_log_pct ?? null}

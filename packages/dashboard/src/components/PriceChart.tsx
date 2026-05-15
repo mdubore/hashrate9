@@ -310,7 +310,7 @@ export const PriceChart = memo(function PriceChart({
    * EDIT_PRICE the count was over the cap, so everything's hidden).
    * Null = no count-based filter triggered.
    */
-  markersHiddenKind?: null | 'edit_price' | 'all';
+  markersHiddenKind?: null | 'edit_price' | 'pool_block' | 'reward_event' | 'all';
   /** #123: how many markers were dropped (for the inline hint text). */
   markersHiddenCount?: number;
   /** #149: per-tick aggregated solo-mining fleet series; used when rightAxisSeries == 'solo_power_watts'. */
@@ -1447,20 +1447,12 @@ export const PriceChart = memo(function PriceChart({
             <Legend color={rightAxis.stroke} label={rightAxis.axisLabel} />
           )}
           {showEventKinds.length > 0 && <EventLegend kinds={showEventKinds} />}
-          {markersHiddenKind === 'edit_price' && markersHiddenCount > 0 && (
+          {markersHiddenKind != null && markersHiddenCount > 0 && (
             <span
               className="text-[10px] text-slate-500 italic"
-              title={t`Edit-price markers were hidden because the count exceeded the configured chart-marker cap. CREATE / EDIT_SPEED / CANCEL markers still render. Adjust the cap on Config → Display & Logging.`}
+              title={t`Markers were hidden because the combined count (bid events + pool blocks + reward events) exceeded the configured chart-marker cap. Adjust the cap on Config → Display & Logging.`}
             >
-              <Trans>{markersHiddenCount} edit-price markers hidden (cap)</Trans>
-            </span>
-          )}
-          {markersHiddenKind === 'all' && markersHiddenCount > 0 && (
-            <span
-              className="text-[10px] text-slate-500 italic"
-              title={t`All markers were hidden because the count exceeded the configured chart-marker cap even after dropping EDIT_PRICE. Adjust the cap on Config → Display & Logging.`}
-            >
-              <Trans>{markersHiddenCount} markers hidden (cap)</Trans>
+              <Trans>{markersHiddenCount} {markersHiddenKind === 'edit_price' ? 'edit-price' : markersHiddenKind === 'pool_block' ? 'pool-block' : markersHiddenKind === 'reward_event' ? 'reward-event' : ''} markers hidden (cap)</Trans>
             </span>
           )}
         </div>

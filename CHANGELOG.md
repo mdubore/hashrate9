@@ -2,6 +2,10 @@
 
 ## 2026-05-15
 
+### `[Fix]` Chart-marker cap now covers pool blocks and reward events (#172)
+
+The "Max chart markers" setting only counted bid events, so pool-block icons, pool-luck step dots, and reward-event markers rendered uncapped - the All-range chart was slow with 100+ pool blocks despite a low cap. The cap now counts all marker types together (bid events + pool blocks + reward events) and drops in priority order when over budget: EDIT_PRICE bid events first, then non-own pool blocks (sky-blue context dots), then reward events, then everything. Both the Hashrate and Price charts now show a "N markers hidden (cap)" banner when the cap is active.
+
 ### `[Fix]` Distinguish "Marketplace empty" from "Braiins API unreachable" on charts and alerts (#173)
 
 The chart overlay and the `marketplace_empty` Telegram alert both treated "Braiins API unreachable" and "marketplace genuinely empty" as the same event, because both produce `fillable_ask = NULL` in tick_metrics. New `braiins_reachable` column (migration 0091) persists a per-tick boolean so the dashboard can tell them apart. Charts now show gray diagonal hatching for marketplace-empty spans and red diagonal hatching for API-unreachable spans. The `marketplace_empty` alert no longer fires when the API is down (the existing `api_unreachable` alert already covers that). Pre-migration history keeps the legacy gray treatment.

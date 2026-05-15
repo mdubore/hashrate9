@@ -73,11 +73,16 @@ msgstr "hace {hours}h"
 msgid "{label} DOWN"
 msgstr "{label} CAÍDO"
 
+#. placeholder {0}: markersHiddenKind === 'edit_price' ? 'edit-price' : markersHiddenKind === 'pool_block' ? 'pool-block' : markersHiddenKind === 'reward_event' ? 'reward-event' : ''
 #: src/components/PriceChart.tsx
-msgid "{markersHiddenCount} edit-price markers hidden (cap)"
-msgstr "{markersHiddenCount} marcadores edit-price ocultos (tope)"
+msgid "{markersHiddenCount} {0} markers hidden (cap)"
+msgstr "{markersHiddenCount} marcadores {0} ocultos (tope)"
 
 #: src/components/PriceChart.tsx
+#~ msgid "{markersHiddenCount} edit-price markers hidden (cap)"
+#~ msgstr "{markersHiddenCount} marcadores edit-price ocultos (tope)"
+
+#: src/components/HashrateChart.tsx
 msgid "{markersHiddenCount} markers hidden (cap)"
 msgstr "{markersHiddenCount} marcadores ocultos (tope)"
 
@@ -332,8 +337,8 @@ msgid "Alerts"
 msgstr "Alertas"
 
 #: src/components/PriceChart.tsx
-msgid "All markers were hidden because the count exceeded the configured chart-marker cap even after dropping EDIT_PRICE. Adjust the cap on Config → Display & Logging."
-msgstr "Se ocultaron todos los marcadores porque la cantidad superó el tope configurado incluso tras quitar EDIT_PRICE. Ajusta el tope en Config → Display & Logging."
+#~ msgid "All markers were hidden because the count exceeded the configured chart-marker cap even after dropping EDIT_PRICE. Adjust the cap on Config → Display & Logging."
+#~ msgstr "Se ocultaron todos los marcadores porque la cantidad superó el tope configurado incluso tras quitar EDIT_PRICE. Ajusta el tope en Config → Display & Logging."
 
 #: src/pages/Config.tsx
 msgid "already added"
@@ -437,6 +442,7 @@ msgstr "autopilot"
 msgid "Autopilot only (autopilot-tagged bids)"
 msgstr "Solo autopilot (ofertas etiquetadas por el autopilot)"
 
+#: src/pages/Status.tsx
 #: src/pages/Status.tsx
 msgid "available"
 msgstr "disponible"
@@ -652,6 +658,7 @@ msgstr "Plantilla URL del bloque"
 msgid "Block-found notification"
 msgstr "Notificación de bloque encontrado"
 
+#: src/pages/Status.tsx
 #: src/pages/Status.tsx
 msgid "blocked"
 msgstr "bloqueado"
@@ -1277,8 +1284,8 @@ msgid "EDIT SPEED"
 msgstr "EDIT SPEED"
 
 #: src/components/PriceChart.tsx
-msgid "Edit-price markers were hidden because the count exceeded the configured chart-marker cap. CREATE / EDIT_SPEED / CANCEL markers still render. Adjust the cap on Config → Display & Logging."
-msgstr "Los marcadores edit-price se ocultaron porque la cantidad superó el tope configurado. Los marcadores CREATE / EDIT_SPEED / CANCEL siguen renderizándose. Ajusta el tope en Config → Display & Logging."
+#~ msgid "Edit-price markers were hidden because the count exceeded the configured chart-marker cap. CREATE / EDIT_SPEED / CANCEL markers still render. Adjust the cap on Config → Display & Logging."
+#~ msgstr "Los marcadores edit-price se ocultaron porque la cantidad superó el tope configurado. Los marcadores CREATE / EDIT_SPEED / CANCEL siguen renderizándose. Ajusta el tope en Config → Display & Logging."
 
 #: src/components/PriceChart.tsx
 msgid "effective"
@@ -1823,6 +1830,14 @@ msgstr "marcar todo como visto ({unackedCount})"
 #: src/pages/Alerts.tsx
 msgid "mark as seen"
 msgstr "marcar como visto"
+
+#: src/components/PriceChart.tsx
+msgid "Markers were hidden because the combined count (bid events + pool blocks + reward events) exceeded the configured chart-marker cap. Adjust the cap on Config → Display & Logging."
+msgstr "Los marcadores se han ocultado porque el recuento combinado (bid events + pool blocks + reward events) ha superado el tope de marcadores del chart configurado. Ajusta el tope en Config → Display & Logging."
+
+#: src/components/HashrateChart.tsx
+msgid "Markers were hidden because the combined count exceeded the configured chart-marker cap. Adjust the cap on Config → Display & Logging."
+msgstr "Los marcadores se han ocultado porque el recuento combinado ha superado el tope de marcadores del chart configurado. Ajusta el tope en Config → Display & Logging."
 
 #: src/components/PriceChart.tsx
 msgid "market at this tick"
@@ -2771,6 +2786,7 @@ msgid "Run the pending decision immediately - clears the post-edit lock and bypa
 msgstr "Ejecuta la decisión pendiente inmediatamente - libera el bloqueo post-edición y omite los temporizadores de paciencia/escalada para que un EDIT_PRICE pendiente de liquidación se dispare en este tick en lugar de tras la ventana completa."
 
 #: src/pages/Status.tsx
+#: src/pages/Status.tsx
 msgid "runway"
 msgstr "autonomía"
 
@@ -3203,6 +3219,7 @@ msgstr "Promedio ponderado por tiempo de (nuestra oferta - fillable ask) por tic
 msgid "tip"
 msgstr "punta"
 
+#: src/pages/Status.tsx
 #: src/pages/Status.tsx
 msgid "total"
 msgstr "total"
