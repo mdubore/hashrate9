@@ -135,7 +135,7 @@ export function Status() {
 
   const visibleSpan = vp.until_ms - vp.since_ms;
   const fetchBounds = useMemo(() => {
-    const buffer = visibleSpan * 0.5;
+    const buffer = visibleSpan * 1.0;
     return {
       since_ms: Math.max(0, vp.since_ms - buffer),
       until_ms: Math.min(Date.now(), vp.until_ms + buffer),
