@@ -1868,6 +1868,7 @@ export const PriceChart = memo(function PriceChart({
           </text>
         )}
 
+        <g clipPath="url(#price-data-clip)" transform={`translate(${dragOffsetSvg},0)`}>
         {hasRightAxis && rightAxis && (
           <path
             d={rightAxisPath}
@@ -2011,6 +2012,8 @@ export const PriceChart = memo(function PriceChart({
               </g>
             );
           })}
+
+        </g>
 
         {hasRightAxis && rightAxis && (
           <text

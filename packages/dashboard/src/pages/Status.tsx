@@ -194,32 +194,20 @@ export function Status() {
   });
 
   const metricsQuery = useQuery({
-    queryKey: vp.liveEdge && vp.activePreset
-      ? ['metrics', vp.activePreset]
-      : ['metrics', fetchBounds.since_ms, fetchBounds.until_ms],
-    queryFn: () => vp.liveEdge && vp.activePreset
-      ? api.metrics(vp.activePreset)
-      : api.metricsViewport(fetchBounds.since_ms, fetchBounds.until_ms),
+    queryKey: ['metrics', fetchBounds.since_ms, fetchBounds.until_ms],
+    queryFn: () => api.metricsViewport(fetchBounds.since_ms, fetchBounds.until_ms),
     refetchInterval: vp.liveEdge ? 60_000 : false,
   });
 
   const bidEventsQuery = useQuery({
-    queryKey: vp.liveEdge && vp.activePreset
-      ? ['bid-events', vp.activePreset]
-      : ['bid-events', fetchBounds.since_ms, fetchBounds.until_ms],
-    queryFn: () => vp.liveEdge && vp.activePreset
-      ? api.bidEvents(vp.activePreset)
-      : api.bidEventsViewport(fetchBounds.since_ms, fetchBounds.until_ms),
+    queryKey: ['bid-events', fetchBounds.since_ms, fetchBounds.until_ms],
+    queryFn: () => api.bidEventsViewport(fetchBounds.since_ms, fetchBounds.until_ms),
     refetchInterval: vp.liveEdge ? 60_000 : false,
   });
 
   const statsQuery = useQuery({
-    queryKey: vp.liveEdge && vp.activePreset
-      ? ['stats', vp.activePreset]
-      : ['stats', fetchBounds.since_ms, fetchBounds.until_ms],
-    queryFn: () => vp.liveEdge && vp.activePreset
-      ? api.stats(vp.activePreset)
-      : api.statsViewport(fetchBounds.since_ms, fetchBounds.until_ms),
+    queryKey: ['stats', fetchBounds.since_ms, fetchBounds.until_ms],
+    queryFn: () => api.statsViewport(fetchBounds.since_ms, fetchBounds.until_ms),
     refetchInterval: vp.liveEdge ? 60_000 : false,
   });
 
