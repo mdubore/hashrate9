@@ -133,6 +133,15 @@ export function Status() {
   const setChartRange = chartViewport.setPreset;
   const vp = chartViewport.settledViewport;
 
+  const fetchBounds = useMemo(() => {
+    const span = vp.until_ms - vp.since_ms;
+    const buffer = span * 0.5;
+    return {
+      since_ms: Math.max(0, vp.since_ms - buffer),
+      until_ms: Math.min(Date.now(), vp.until_ms + buffer),
+    };
+  }, [vp.since_ms, vp.until_ms]);
+
   // #93: secondary Y-axis selection per chart. Default for the
   // hashrate chart picks up the legacy show_share_log_on_hashrate_chart
   // config toggle so existing operators don't lose their share_log
@@ -187,30 +196,30 @@ export function Status() {
   const metricsQuery = useQuery({
     queryKey: vp.liveEdge && vp.activePreset
       ? ['metrics', vp.activePreset]
-      : ['metrics', vp.since_ms, vp.until_ms],
+      : ['metrics', fetchBounds.since_ms, fetchBounds.until_ms],
     queryFn: () => vp.liveEdge && vp.activePreset
       ? api.metrics(vp.activePreset)
-      : api.metricsViewport(vp.since_ms, vp.until_ms),
+      : api.metricsViewport(fetchBounds.since_ms, fetchBounds.until_ms),
     refetchInterval: vp.liveEdge ? 60_000 : false,
   });
 
   const bidEventsQuery = useQuery({
     queryKey: vp.liveEdge && vp.activePreset
       ? ['bid-events', vp.activePreset]
-      : ['bid-events', vp.since_ms, vp.until_ms],
+      : ['bid-events', fetchBounds.since_ms, fetchBounds.until_ms],
     queryFn: () => vp.liveEdge && vp.activePreset
       ? api.bidEvents(vp.activePreset)
-      : api.bidEventsViewport(vp.since_ms, vp.until_ms),
+      : api.bidEventsViewport(fetchBounds.since_ms, fetchBounds.until_ms),
     refetchInterval: vp.liveEdge ? 60_000 : false,
   });
 
   const statsQuery = useQuery({
     queryKey: vp.liveEdge && vp.activePreset
       ? ['stats', vp.activePreset]
-      : ['stats', vp.since_ms, vp.until_ms],
+      : ['stats', fetchBounds.since_ms, fetchBounds.until_ms],
     queryFn: () => vp.liveEdge && vp.activePreset
       ? api.stats(vp.activePreset)
-      : api.statsViewport(vp.since_ms, vp.until_ms),
+      : api.statsViewport(fetchBounds.since_ms, fetchBounds.until_ms),
     refetchInterval: vp.liveEdge ? 60_000 : false,
   });
 
@@ -254,10 +263,10 @@ export function Status() {
   const financeRangeQuery = useQuery({
     queryKey: vp.liveEdge && vp.activePreset
       ? ['finance-range', vp.activePreset]
-      : ['finance-range', vp.since_ms, vp.until_ms],
+      : ['finance-range', fetchBounds.since_ms, fetchBounds.until_ms],
     queryFn: () => vp.liveEdge && vp.activePreset
       ? api.financeRange(vp.activePreset)
-      : api.financeRangeViewport(vp.since_ms, vp.until_ms),
+      : api.financeRangeViewport(fetchBounds.since_ms, fetchBounds.until_ms),
     refetchInterval: vp.liveEdge ? 60_000 : false,
   });
 
@@ -476,6 +485,9 @@ export function Status() {
           markersHiddenCount={markersHiddenCount}
           viewportHandlers={chartViewport.handlers}
           isDragging={chartViewport.isDragging}
+          viewportSince={chartViewport.viewport.since_ms}
+          viewportUntil={chartViewport.viewport.until_ms}
+          dragOffsetSvg={chartViewport.dragOffsetSvg}
         />
       </div>
       <div className="space-y-1">
@@ -532,6 +544,9 @@ export function Status() {
           shareLogPct={oceanQuery.data?.user?.share_log_pct ?? null}
           viewportHandlers={chartViewport.handlers}
           isDragging={chartViewport.isDragging}
+          viewportSince={chartViewport.viewport.since_ms}
+          viewportUntil={chartViewport.viewport.until_ms}
+          dragOffsetSvg={chartViewport.dragOffsetSvg}
         />
       </div>
 

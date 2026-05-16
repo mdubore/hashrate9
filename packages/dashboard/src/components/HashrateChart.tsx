@@ -251,6 +251,9 @@ export const HashrateChart = memo(function HashrateChart({
   markersHiddenCount = 0,
   viewportHandlers,
   isDragging = false,
+  viewportSince,
+  viewportUntil,
+  dragOffsetSvg = 0,
 }: {
   points: readonly MetricPoint[];
   range: ChartRange;
@@ -292,6 +295,9 @@ export const HashrateChart = memo(function HashrateChart({
     onDoubleClick: () => void;
   };
   isDragging?: boolean;
+  viewportSince?: number;
+  viewportUntil?: number;
+  dragOffsetSvg?: number;
 }) {
   const { i18n } = useLingui();
   void i18n;
@@ -661,8 +667,10 @@ export const HashrateChart = memo(function HashrateChart({
     );
     const hasOcean = oceanYs.some((v) => v !== null);
 
-    const minX = xs[0]!;
-    const maxX = xs[xs.length - 1]!;
+    const dataMinX = xs[0]!;
+    const dataMaxX = xs[xs.length - 1]!;
+    const minX = viewportSince ?? dataMinX;
+    const maxX = viewportUntil ?? dataMaxX;
 
     const yMaxData = Math.max(...ys, ...targets, ...floors, datumMax, oceanMax);
 
@@ -813,6 +821,8 @@ export const HashrateChart = memo(function HashrateChart({
       xs,
       minX,
       maxX,
+      dataMinX,
+      dataMaxX,
       yMax,
       yMin,
       xScale,
@@ -870,6 +880,8 @@ export const HashrateChart = memo(function HashrateChart({
     denomination,
     intlLocale,
     chartHeight,
+    viewportSince,
+    viewportUntil,
   ]);
 
   // Pre-computed retarget marker positions. Filtered to the visible
@@ -886,9 +898,9 @@ export const HashrateChart = memo(function HashrateChart({
     if (!chartData) return empty;
     const isLuck = rightAxisSeries === 'pool_luck_24h' || rightAxisSeries === 'pool_luck_7d';
     if (rightAxisSeries !== 'network_difficulty' && !isLuck) return empty;
-    const { minX, maxX, xScale, shareLogYScale } = chartData;
+    const { dataMinX, dataMaxX, xScale, shareLogYScale } = chartData;
     return difficultyRetargets
-      .filter((r) => r.tick_at >= minX && r.tick_at <= maxX)
+      .filter((r) => r.tick_at >= dataMinX && r.tick_at <= dataMaxX)
       .map((r) => ({
         event: r,
         cx: xScale(r.tick_at),
@@ -924,7 +936,7 @@ export const HashrateChart = memo(function HashrateChart({
     }
     const isDay = rightAxisSeries === 'pool_luck_24h';
     const windowMs = isDay ? 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
-    const { minX, maxX, xScale, shareLogYScale } = chartData;
+    const { dataMinX, dataMaxX, xScale, shareLogYScale } = chartData;
     const countKey = isDay ? 'pool_blocks_24h_count' : 'pool_blocks_7d_count';
     const luckKey = isDay ? 'pool_luck_24h' : 'pool_luck_7d';
     // The block-count column updates with the Ocean refresher's cadence
@@ -942,7 +954,7 @@ export const HashrateChart = memo(function HashrateChart({
       for (const kind of ['in', 'out'] as const) {
         const t =
           kind === 'in' ? block.timestamp_ms : block.timestamp_ms + windowMs;
-        if (t < minX || t > maxX) continue;
+        if (t < dataMinX || t > dataMaxX) continue;
         // Locate the tick at or after the event time - the count-change
         // we're scanning for is somewhere from here onwards.
         let eventIdx = -1;
@@ -1006,7 +1018,7 @@ export const HashrateChart = memo(function HashrateChart({
     );
   }
 
-  const { minX, maxX, xScale, yScale, deliveredPath, datumPath, hasDatum, oceanPath, hasOcean, targetPath, floorPath, yTicks, xTickInterval, xTicks, hasShareLog, shareLogPath, shareLogYTicks, shareLogYScale, padRight, rightAxis, marketplaceEmptyIntervals, braiinsUnreachableIntervals } = chartData;
+  const { minX, maxX, dataMinX, dataMaxX, xScale, yScale, deliveredPath, datumPath, hasDatum, oceanPath, hasOcean, targetPath, floorPath, yTicks, xTickInterval, xTicks, hasShareLog, shareLogPath, shareLogYTicks, shareLogYScale, padRight, rightAxis, marketplaceEmptyIntervals, braiinsUnreachableIntervals } = chartData;
 
   return (
     <div className="bg-slate-900 border rounded-lg p-4 border-slate-800">
@@ -1115,6 +1127,13 @@ export const HashrateChart = memo(function HashrateChart({
             </g>
           ))}
 
+        <defs>
+          <clipPath id="hr-data-clip">
+            <rect x={PADDING.left} y={0} width={WIDTH - PADDING.left - padRight} height={chartHeight} />
+          </clipPath>
+        </defs>
+        <g clipPath="url(#hr-data-clip)" transform={`translate(${dragOffsetSvg},0)`}>
+
         {/* #167: marketplace-empty bands. Drawn behind data lines so
             they sit behind the traces without obscuring them. Each
             interval represents a contiguous run of ticks where the
@@ -1138,8 +1157,8 @@ export const HashrateChart = memo(function HashrateChart({
           </defs>
         )}
         {marketplaceEmptyIntervals.map((iv, i) => {
-          const x0 = xScale(Math.max(minX, iv.x0));
-          const x1 = xScale(Math.min(maxX, iv.x1));
+          const x0 = xScale(Math.max(dataMinX, iv.x0));
+          const x1 = xScale(Math.min(dataMaxX, iv.x1));
           if (!Number.isFinite(x0) || !Number.isFinite(x1) || x1 <= x0) return null;
           return (
             <rect
@@ -1171,8 +1190,8 @@ export const HashrateChart = memo(function HashrateChart({
           </defs>
         )}
         {braiinsUnreachableIntervals.map((iv, i) => {
-          const x0 = xScale(Math.max(minX, iv.x0));
-          const x1 = xScale(Math.min(maxX, iv.x1));
+          const x0 = xScale(Math.max(dataMinX, iv.x0));
+          const x1 = xScale(Math.min(dataMaxX, iv.x1));
           if (!Number.isFinite(x0) || !Number.isFinite(x1) || x1 <= x0) return null;
           return (
             <rect
@@ -1193,7 +1212,7 @@ export const HashrateChart = memo(function HashrateChart({
         <path d={floorPath} stroke={COLOR_FLOOR} strokeWidth="1" strokeDasharray="2 3" fill="none" opacity="0.5" />
 
         <path
-          d={`${deliveredPath} L${xScale(maxX).toFixed(1)},${yScale(0)} L${xScale(minX).toFixed(1)},${yScale(0)} Z`}
+          d={`${deliveredPath} L${xScale(dataMaxX).toFixed(1)},${yScale(0)} L${xScale(dataMinX).toFixed(1)},${yScale(0)} Z`}
           fill="url(#deliveredFill)"
           opacity="0.5"
         />
@@ -1276,7 +1295,7 @@ export const HashrateChart = memo(function HashrateChart({
           ))}
 
         {ourBlocks
-            .filter((b) => b.timestamp_ms >= minX && b.timestamp_ms <= maxX)
+            .filter((b) => b.timestamp_ms >= dataMinX && b.timestamp_ms <= dataMaxX)
             .map((b) => {
               const x = xScale(b.timestamp_ms);
               // #115: marker semantics, in precedence order.
@@ -1371,7 +1390,7 @@ export const HashrateChart = memo(function HashrateChart({
             })}
 
         {difficultyRetargets
-          .filter((r) => r.tick_at >= minX && r.tick_at <= maxX)
+          .filter((r) => r.tick_at >= dataMinX && r.tick_at <= dataMaxX)
           .map((r) => {
             const x = xScale(r.tick_at);
             return (
@@ -1422,6 +1441,8 @@ export const HashrateChart = memo(function HashrateChart({
             <stop offset="100%" stopColor={COLOR_DELIVERED} stopOpacity="0" />
           </linearGradient>
         </defs>
+
+        </g>
 
         <line
           x1={PADDING.left}

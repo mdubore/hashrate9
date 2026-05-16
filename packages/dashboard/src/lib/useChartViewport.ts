@@ -16,6 +16,7 @@ const SETTLE_DELAY_MS = 200;
 const ZOOM_FACTOR = 1.15;
 const DRAG_THRESHOLD_PX = 5;
 const LIVE_EDGE_TOLERANCE_MS = 120_000;
+const SVG_VIEWBOX_WIDTH = 880;
 
 export interface ViewportState {
   since_ms: number;
@@ -39,6 +40,7 @@ export interface UseChartViewportReturn {
   };
   isDragging: boolean;
   isLiveEdge: boolean;
+  dragOffsetSvg: number;
 }
 
 function readStored(): ViewportState {
@@ -86,12 +88,14 @@ interface DragState {
   viewport: ViewportState;
   pointerId: number;
   captured: boolean;
+  svgScale: number;
 }
 
 export function useChartViewport(): UseChartViewportReturn {
   const [viewport, setViewport] = useState<ViewportState>(readStored);
   const [settledViewport, setSettledViewport] = useState<ViewportState>(viewport);
   const [isDragging, setIsDragging] = useState(false);
+  const [dragOffsetSvg, setDragOffsetSvg] = useState(0);
 
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragStart = useRef<DragState | null>(null);
@@ -132,7 +136,6 @@ export function useChartViewport(): UseChartViewportReturn {
     setPreset(DEFAULT_CHART_RANGE);
   }, [setPreset]);
 
-  // Auto-advance live-edge viewports
   useEffect(() => {
     if (!viewport.liveEdge || viewport.activePreset === null) return;
     const spec = CHART_RANGE_SPECS[viewport.activePreset];
@@ -158,8 +161,8 @@ export function useChartViewport(): UseChartViewportReturn {
     const svgWidth = rect.width;
     const paddingLeft = 80;
     const paddingRight = 80;
-    const leftFrac = paddingLeft / 880;
-    const rightFrac = (880 - paddingRight) / 880;
+    const leftFrac = paddingLeft / SVG_VIEWBOX_WIDTH;
+    const rightFrac = (SVG_VIEWBOX_WIDTH - paddingRight) / SVG_VIEWBOX_WIDTH;
     const pxLeft = svgWidth * leftFrac;
     const pxRight = svgWidth * rightFrac;
     return Math.max(0, Math.min(1, (clientX - pxLeft) / (pxRight - pxLeft)));
@@ -184,16 +187,26 @@ export function useChartViewport(): UseChartViewportReturn {
 
   const onPointerDown = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
     if (e.button !== 0) return;
-    dragStart.current = { clientX: e.clientX, viewport, pointerId: e.pointerId, captured: false };
+    const rect = e.currentTarget.getBoundingClientRect();
+    dragStart.current = {
+      clientX: e.clientX,
+      viewport,
+      pointerId: e.pointerId,
+      captured: false,
+      svgScale: SVG_VIEWBOX_WIDTH / rect.width,
+    };
   }, [viewport]);
 
   const onPointerMove = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
     if (!dragStart.current) return;
-    const delta = Math.abs(e.clientX - dragStart.current.clientX);
-    if (!dragStart.current.captured && delta > DRAG_THRESHOLD_PX) {
+    const deltaPx = e.clientX - dragStart.current.clientX;
+    if (!dragStart.current.captured && Math.abs(deltaPx) > DRAG_THRESHOLD_PX) {
       e.currentTarget.setPointerCapture(dragStart.current.pointerId);
       dragStart.current.captured = true;
       setIsDragging(true);
+    }
+    if (dragStart.current.captured) {
+      setDragOffsetSvg(deltaPx * dragStart.current.svgScale);
     }
   }, []);
 
@@ -208,8 +221,8 @@ export function useChartViewport(): UseChartViewportReturn {
       const svgWidth = rect.width;
       const paddingLeft = 80;
       const paddingRight = 80;
-      const leftFrac = paddingLeft / 880;
-      const rightFrac = (880 - paddingRight) / 880;
+      const leftFrac = paddingLeft / SVG_VIEWBOX_WIDTH;
+      const rightFrac = (SVG_VIEWBOX_WIDTH - paddingRight) / SVG_VIEWBOX_WIDTH;
       const dataWidthPx = svgWidth * (rightFrac - leftFrac);
       const startVp = dragStart.current.viewport;
       const duration = startVp.until_ms - startVp.since_ms;
@@ -224,6 +237,7 @@ export function useChartViewport(): UseChartViewportReturn {
     }
     dragStart.current = null;
     setIsDragging(false);
+    setDragOffsetSvg(0);
   }, [updateViewport]);
 
   const onDoubleClick = useCallback(() => {
@@ -239,5 +253,6 @@ export function useChartViewport(): UseChartViewportReturn {
     handlers: { onWheel, onPointerDown, onPointerMove, onPointerUp, onDoubleClick },
     isDragging,
     isLiveEdge: viewport.liveEdge,
+    dragOffsetSvg,
   };
 }

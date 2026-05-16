@@ -228,6 +228,9 @@ export const PriceChart = memo(function PriceChart({
   soloSeries = [],
   viewportHandlers,
   isDragging = false,
+  viewportSince,
+  viewportUntil,
+  dragOffsetSvg = 0,
 }: {
   points: readonly MetricPoint[];
   events?: readonly BidEventView[];
@@ -329,6 +332,9 @@ export const PriceChart = memo(function PriceChart({
     onDoubleClick: () => void;
   };
   isDragging?: boolean;
+  viewportSince?: number;
+  viewportUntil?: number;
+  dragOffsetSvg?: number;
 }) {
   const { i18n } = useLingui();
   void i18n;
@@ -588,8 +594,10 @@ export const PriceChart = memo(function PriceChart({
     if (points.length < 2) return null;
 
     const xs = points.map((p) => p.tick_at);
-    const minX = xs[0]!;
-    const maxX = xs[xs.length - 1]!;
+    const dataMinX = xs[0]!;
+    const dataMaxX = xs[xs.length - 1]!;
+    const minX = viewportSince ?? dataMinX;
+    const maxX = viewportUntil ?? dataMaxX;
 
     const eventPrices = events
       .flatMap((e) => [e.old_price_sat_per_ph_day, e.new_price_sat_per_ph_day])
@@ -1089,7 +1097,7 @@ export const PriceChart = memo(function PriceChart({
     const visibleEvents = allowedKinds.size === 0
       ? []
       : events.filter(
-          (e) => allowedKinds.has(e.kind) && e.occurred_at >= minX && e.occurred_at <= maxX,
+          (e) => allowedKinds.has(e.kind) && e.occurred_at >= dataMinX && e.occurred_at <= dataMaxX,
         );
 
     // #167/#173: contiguous spans where fillable_ask is null. Split into
@@ -1120,8 +1128,8 @@ export const PriceChart = memo(function PriceChart({
       if (unreachStart !== null) braiinsUnreachableIntervals.push({ x0: unreachStart, x1: lastT ?? unreachStart });
     }
 
-    return { pricePoints, minX, maxX, hasPrice, priceMin, priceMax, xScale, yScale, pricePath, priceAreaPath, hashpricePath, fillablePath, fillableHasData: fillablePoints.length > 0, effectivePath, effectiveHasData: effectivePoints.length > 0, capPath, capExclusionPolygon, yTicks, xTickInterval, xTicks, visibleEvents, rightAxis, hasRightAxis, rightAxisPath, rightYTicks, rightYScale, padRight, marketplaceEmptyIntervals, braiinsUnreachableIntervals };
-  }, [points, events, showEventKinds, priceSmoothingMinutes, historicalPayoutsOffsetSat, maxOverpayVsHashpriceSatPerPhDay, chartHeight, rightAxisSeries, soloSeries, denomination, intlLocale]);
+    return { pricePoints, minX, maxX, dataMinX, dataMaxX, hasPrice, priceMin, priceMax, xScale, yScale, pricePath, priceAreaPath, hashpricePath, fillablePath, fillableHasData: fillablePoints.length > 0, effectivePath, effectiveHasData: effectivePoints.length > 0, capPath, capExclusionPolygon, yTicks, xTickInterval, xTicks, visibleEvents, rightAxis, hasRightAxis, rightAxisPath, rightYTicks, rightYScale, padRight, marketplaceEmptyIntervals, braiinsUnreachableIntervals };
+  }, [points, events, showEventKinds, priceSmoothingMinutes, historicalPayoutsOffsetSat, maxOverpayVsHashpriceSatPerPhDay, chartHeight, rightAxisSeries, soloSeries, denomination, intlLocale, viewportSince, viewportUntil]);
 
   const eventPriceAt = useCallback((e: BidEventView): number | null => {
     const pricePoints = chartData?.pricePoints ?? [];
@@ -1322,7 +1330,7 @@ export const PriceChart = memo(function PriceChart({
   const visibleRewardMarkers = useMemo(() => {
     const empty: Array<{ reward: RewardEventView; cx: number; cy: number }> = [];
     if (!chartData || !showRewardMarkers || !chartData.rightAxis) return empty;
-    const { minX, maxX, xScale, rightYScale, rightAxis } = chartData;
+    const { dataMinX, dataMaxX, xScale, rightYScale, rightAxis } = chartData;
     let lastNonNull: number | null = null;
     for (let i = points.length - 1; i >= 0; i -= 1) {
       const v = rightAxis.values[i];
@@ -1335,7 +1343,7 @@ export const PriceChart = memo(function PriceChart({
     let cursor = 0;
     for (const r of rewardEvents) {
       if (r.reorged) continue;
-      if (r.detected_at < minX || r.detected_at > maxX) continue;
+      if (r.detected_at < dataMinX || r.detected_at > dataMaxX) continue;
       while (cursor < points.length && points[cursor]!.tick_at < r.detected_at) {
         cursor += 1;
       }
@@ -1355,7 +1363,7 @@ export const PriceChart = memo(function PriceChart({
   const visiblePoolBlockMarkers = useMemo(() => {
     const empty: Array<{ block: OurBlockMarker; cx: number; cy: number }> = [];
     if (!chartData || !showPoolBlockMarkers || !chartData.rightAxis) return empty;
-    const { minX, maxX, xScale, rightYScale, rightAxis } = chartData;
+    const { dataMinX, dataMaxX, xScale, rightYScale, rightAxis } = chartData;
     let lastNonNull: number | null = null;
     for (let i = points.length - 1; i >= 0; i -= 1) {
       const v = rightAxis.values[i];
@@ -1379,7 +1387,7 @@ export const PriceChart = memo(function PriceChart({
     const MAX_LAG_TICKS = 15;
     let cursor = 0;
     for (const b of sortedBlocks) {
-      if (b.timestamp_ms < minX || b.timestamp_ms > maxX) continue;
+      if (b.timestamp_ms < dataMinX || b.timestamp_ms > dataMaxX) continue;
       while (cursor < points.length && points[cursor]!.tick_at < b.timestamp_ms) {
         cursor += 1;
       }
@@ -1452,7 +1460,7 @@ export const PriceChart = memo(function PriceChart({
     );
   }
 
-  const { pricePoints, minX, maxX, hasPrice, priceMin, priceMax, xScale, yScale, pricePath, priceAreaPath, hashpricePath, fillablePath, fillableHasData, effectivePath, effectiveHasData, capPath, capExclusionPolygon, yTicks, xTickInterval, xTicks, visibleEvents, rightAxis, hasRightAxis, rightAxisPath, rightYTicks, rightYScale, padRight, marketplaceEmptyIntervals, braiinsUnreachableIntervals } = chartData;
+  const { pricePoints, minX, maxX, dataMinX, dataMaxX, hasPrice, priceMin, priceMax, xScale, yScale, pricePath, priceAreaPath, hashpricePath, fillablePath, fillableHasData, effectivePath, effectiveHasData, capPath, capExclusionPolygon, yTicks, xTickInterval, xTicks, visibleEvents, rightAxis, hasRightAxis, rightAxisPath, rightYTicks, rightYScale, padRight, marketplaceEmptyIntervals, braiinsUnreachableIntervals } = chartData;
 
   // Format Y-axis tick values via the denomination context so the
   // numbers track the currency + hashrate-unit toggle. The full
@@ -1586,6 +1594,13 @@ export const PriceChart = memo(function PriceChart({
             </g>
           ))}
 
+        <defs>
+          <clipPath id="price-data-clip">
+            <rect x={PADDING.left} y={0} width={WIDTH - PADDING.left - padRight} height={chartHeight} />
+          </clipPath>
+        </defs>
+        <g clipPath="url(#price-data-clip)" transform={`translate(${dragOffsetSvg},0)`}>
+
         {/* Fillable ask - the tracking anchor for the controller.
             bid = fillable + overpay (clamped to cap). Rendered below
             the amber bid line so the vertical gap between them is the
@@ -1647,8 +1662,8 @@ export const PriceChart = memo(function PriceChart({
           </defs>
         )}
         {marketplaceEmptyIntervals.map((iv, i) => {
-          const x0 = xScale(Math.max(minX, iv.x0));
-          const x1 = xScale(Math.min(maxX, iv.x1));
+          const x0 = xScale(Math.max(dataMinX, iv.x0));
+          const x1 = xScale(Math.min(dataMaxX, iv.x1));
           if (!Number.isFinite(x0) || !Number.isFinite(x1) || x1 <= x0) return null;
           return (
             <rect
@@ -1680,8 +1695,8 @@ export const PriceChart = memo(function PriceChart({
           </defs>
         )}
         {braiinsUnreachableIntervals.map((iv, i) => {
-          const x0 = xScale(Math.max(minX, iv.x0));
-          const x1 = xScale(Math.min(maxX, iv.x1));
+          const x0 = xScale(Math.max(dataMinX, iv.x0));
+          const x1 = xScale(Math.min(dataMaxX, iv.x1));
           if (!Number.isFinite(x0) || !Number.isFinite(x1) || x1 <= x0) return null;
           return (
             <rect
@@ -1802,6 +1817,8 @@ export const PriceChart = memo(function PriceChart({
           return null;
         })}
 
+        </g>
+
         <line
           x1={PADDING.left}
           x2={WIDTH - PADDING.right}
@@ -1913,7 +1930,7 @@ export const PriceChart = memo(function PriceChart({
         })}
 
         {ourBlocks
-          .filter((b) => b.timestamp_ms >= minX && b.timestamp_ms <= maxX)
+          .filter((b) => b.timestamp_ms >= dataMinX && b.timestamp_ms <= dataMaxX)
           .map((b) => {
             const x = xScale(b.timestamp_ms);
             const isOurs = b.found_by_us;
@@ -1961,7 +1978,7 @@ export const PriceChart = memo(function PriceChart({
           })}
 
         {difficultyRetargets
-          .filter((r) => r.tick_at >= minX && r.tick_at <= maxX)
+          .filter((r) => r.tick_at >= dataMinX && r.tick_at <= dataMaxX)
           .map((r) => {
             const x = xScale(r.tick_at);
             return (
