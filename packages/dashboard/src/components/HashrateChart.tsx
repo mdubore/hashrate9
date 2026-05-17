@@ -866,7 +866,21 @@ export const HashrateChart = memo(function HashrateChart({
         const lastT = points[points.length - 1]?.tick_at;
         if (emptyStart !== null) marketplaceEmptyIntervals.push({ x0: emptyStart, x1: lastT ?? emptyStart });
         if (unreachStart !== null) braiinsUnreachableIntervals.push({ x0: unreachStart, x1: lastT ?? unreachStart });
-        return { marketplaceEmptyIntervals, braiinsUnreachableIntervals };
+
+        const daemonOfflineIntervals: Array<{ x0: number; x1: number }> = [];
+        if (points.length > 2) {
+          const gaps: number[] = [];
+          for (let i = 1; i < points.length; i++) gaps.push(points[i]!.tick_at - points[i - 1]!.tick_at);
+          const sorted = [...gaps].sort((a, b) => a - b);
+          const median = sorted[Math.floor(sorted.length / 2)] ?? 0;
+          const threshold = median * 3;
+          for (let i = 1; i < points.length; i++) {
+            if (points[i]!.tick_at - points[i - 1]!.tick_at > threshold) {
+              daemonOfflineIntervals.push({ x0: points[i - 1]!.tick_at, x1: points[i]!.tick_at });
+            }
+          }
+        }
+        return { marketplaceEmptyIntervals, braiinsUnreachableIntervals, daemonOfflineIntervals };
       })(),
     };
   }, [
@@ -1016,7 +1030,7 @@ export const HashrateChart = memo(function HashrateChart({
     );
   }
 
-  const { minX, maxX, dataMinX, dataMaxX, xScale, yScale, deliveredPath, datumPath, hasDatum, oceanPath, hasOcean, targetPath, floorPath, yTicks, xTickInterval, xTicks, hasShareLog, shareLogPath, shareLogYTicks, shareLogYScale, padRight, rightAxis, marketplaceEmptyIntervals, braiinsUnreachableIntervals } = chartData;
+  const { minX, maxX, dataMinX, dataMaxX, xScale, yScale, deliveredPath, datumPath, hasDatum, oceanPath, hasOcean, targetPath, floorPath, yTicks, xTickInterval, xTicks, hasShareLog, shareLogPath, shareLogYTicks, shareLogYScale, padRight, rightAxis, marketplaceEmptyIntervals, braiinsUnreachableIntervals, daemonOfflineIntervals } = chartData;
 
   return (
     <div className="bg-slate-900 border rounded-lg p-4 border-slate-800">
@@ -1201,6 +1215,39 @@ export const HashrateChart = memo(function HashrateChart({
             >
               <title>
                 {`Braiins API unreachable (${formatDuration(iv.x1 - iv.x0)})`}
+              </title>
+            </rect>
+          );
+        })}
+        {daemonOfflineIntervals.length > 0 && (
+          <defs>
+            <pattern
+              id="offlineHatchHr"
+              patternUnits="userSpaceOnUse"
+              width="10"
+              height="10"
+              patternTransform="rotate(45)"
+            >
+              <rect width="10" height="10" fill="#1e293b" fillOpacity="0.35" />
+              <line x1="0" y1="0" x2="0" y2="10" stroke="#64748b" strokeWidth="1.5" strokeOpacity="0.4" />
+            </pattern>
+          </defs>
+        )}
+        {daemonOfflineIntervals.map((iv, i) => {
+          const x0 = xScale(Math.max(dataMinX, iv.x0));
+          const x1 = xScale(Math.min(dataMaxX, iv.x1));
+          if (!Number.isFinite(x0) || !Number.isFinite(x1) || x1 <= x0) return null;
+          return (
+            <rect
+              key={`offline-${i}`}
+              x={x0}
+              y={PADDING.top}
+              width={x1 - x0}
+              height={chartHeight - PADDING.top - PADDING.bottom}
+              fill="url(#offlineHatchHr)"
+            >
+              <title>
+                {`Daemon offline (${formatDuration(iv.x1 - iv.x0)})`}
               </title>
             </rect>
           );

@@ -1126,7 +1126,21 @@ export const PriceChart = memo(function PriceChart({
       if (unreachStart !== null) braiinsUnreachableIntervals.push({ x0: unreachStart, x1: lastT ?? unreachStart });
     }
 
-    return { pricePoints, minX, maxX, dataMinX, dataMaxX, hasPrice, priceMin, priceMax, xScale, yScale, pricePath, priceAreaPath, hashpricePath, fillablePath, fillableHasData: fillablePoints.length > 0, effectivePath, effectiveHasData: effectivePoints.length > 0, capPath, capExclusionPolygon, yTicks, xTickInterval, xTicks, visibleEvents, rightAxis, hasRightAxis, rightAxisPath, rightYTicks, rightYScale, padRight, marketplaceEmptyIntervals, braiinsUnreachableIntervals };
+    const daemonOfflineIntervals: Array<{ x0: number; x1: number }> = [];
+    if (points.length > 2) {
+      const gaps: number[] = [];
+      for (let i = 1; i < points.length; i++) gaps.push(points[i]!.tick_at - points[i - 1]!.tick_at);
+      const sorted = [...gaps].sort((a, b) => a - b);
+      const median = sorted[Math.floor(sorted.length / 2)] ?? 0;
+      const threshold = median * 3;
+      for (let i = 1; i < points.length; i++) {
+        if (points[i]!.tick_at - points[i - 1]!.tick_at > threshold) {
+          daemonOfflineIntervals.push({ x0: points[i - 1]!.tick_at, x1: points[i]!.tick_at });
+        }
+      }
+    }
+
+    return { pricePoints, minX, maxX, dataMinX, dataMaxX, hasPrice, priceMin, priceMax, xScale, yScale, pricePath, priceAreaPath, hashpricePath, fillablePath, fillableHasData: fillablePoints.length > 0, effectivePath, effectiveHasData: effectivePoints.length > 0, capPath, capExclusionPolygon, yTicks, xTickInterval, xTicks, visibleEvents, rightAxis, hasRightAxis, rightAxisPath, rightYTicks, rightYScale, padRight, marketplaceEmptyIntervals, braiinsUnreachableIntervals, daemonOfflineIntervals };
   }, [points, events, showEventKinds, priceSmoothingMinutes, historicalPayoutsOffsetSat, maxOverpayVsHashpriceSatPerPhDay, chartHeight, rightAxisSeries, soloSeries, denomination, intlLocale, viewportSince, viewportUntil]);
 
   const eventPriceAt = useCallback((e: BidEventView): number | null => {
@@ -1458,7 +1472,7 @@ export const PriceChart = memo(function PriceChart({
     );
   }
 
-  const { pricePoints, minX, maxX, dataMinX, dataMaxX, hasPrice, priceMin, priceMax, xScale, yScale, pricePath, priceAreaPath, hashpricePath, fillablePath, fillableHasData, effectivePath, effectiveHasData, capPath, capExclusionPolygon, yTicks, xTickInterval, xTicks, visibleEvents, rightAxis, hasRightAxis, rightAxisPath, rightYTicks, rightYScale, padRight, marketplaceEmptyIntervals, braiinsUnreachableIntervals } = chartData;
+  const { pricePoints, minX, maxX, dataMinX, dataMaxX, hasPrice, priceMin, priceMax, xScale, yScale, pricePath, priceAreaPath, hashpricePath, fillablePath, fillableHasData, effectivePath, effectiveHasData, capPath, capExclusionPolygon, yTicks, xTickInterval, xTicks, visibleEvents, rightAxis, hasRightAxis, rightAxisPath, rightYTicks, rightYScale, padRight, marketplaceEmptyIntervals, braiinsUnreachableIntervals, daemonOfflineIntervals } = chartData;
 
   // Format Y-axis tick values via the denomination context so the
   // numbers track the currency + hashrate-unit toggle. The full
@@ -1706,6 +1720,39 @@ export const PriceChart = memo(function PriceChart({
             >
               <title>
                 {`Braiins API unreachable (${formatDuration(iv.x1 - iv.x0)})`}
+              </title>
+            </rect>
+          );
+        })}
+        {daemonOfflineIntervals.length > 0 && (
+          <defs>
+            <pattern
+              id="offlineHatchPx"
+              patternUnits="userSpaceOnUse"
+              width="10"
+              height="10"
+              patternTransform="rotate(45)"
+            >
+              <rect width="10" height="10" fill="#1e293b" fillOpacity="0.35" />
+              <line x1="0" y1="0" x2="0" y2="10" stroke="#64748b" strokeWidth="1.5" strokeOpacity="0.4" />
+            </pattern>
+          </defs>
+        )}
+        {daemonOfflineIntervals.map((iv, i) => {
+          const x0 = xScale(Math.max(dataMinX, iv.x0));
+          const x1 = xScale(Math.min(dataMaxX, iv.x1));
+          if (!Number.isFinite(x0) || !Number.isFinite(x1) || x1 <= x0) return null;
+          return (
+            <rect
+              key={`offline-${i}`}
+              x={x0}
+              y={PADDING.top}
+              width={x1 - x0}
+              height={chartHeight - PADDING.top - PADDING.bottom}
+              fill="url(#offlineHatchPx)"
+            >
+              <title>
+                {`Daemon offline (${formatDuration(iv.x1 - iv.x0)})`}
               </title>
             </rect>
           );
