@@ -148,15 +148,17 @@ Full design: [`docs/spec.md`](docs/spec.md) · [`docs/architecture.md`](docs/arc
 - **Measured P&L and runway** - spend is read from Braiins' account transaction ledger (settled cost, not
   modelled bid × delivered) and income from on-chain payouts observed via Electrs or bitcoind. Runway on the
   Braiins service card is days-of-balance at the current measured spend rate.
-- **Dashboard** - hashrate and price charts with time-range picker (3h / 6h / 12h / 24h / 1w / 1m / 1y /
-  all), bid event markers on the price chart (each dot corresponds to a CREATE / EDIT / CANCEL; click to
-  pin a detail panel that lists the target-price inputs at that tick - fillable, overpay, hashprice,
-  caps, effective cap, plus a JSON export button), block markers and retarget pickaxes on both charts, per-series
-  rolling-mean smoothing configurable per chart (hashrate smoothing per-source; price chart smooths only
-  `our bid` and `effective` - fillable / hashprice / max bid stay raw), stats bar (uptime, three
-  side-by-side avg-hashrate cards for Braiins / Datum / Ocean, cost metrics), service panels that include
-  a runway forecast on the Braiins card, split P&L panels (period and lifetime), live bid table with full
-  IDs, and a full config editor with live reload.
+- **Dashboard** - hashrate and price charts with drag-to-pan and scroll-wheel zoom (TradingView-style),
+  time-range presets (3h / 6h / 12h / 24h / 1w / 1m / 1y / all) that stay highlighted while panning and
+  soft-snap during zoom, a "live" button that appears when panned away from the current edge, bid event
+  markers on the price chart (each dot corresponds to a CREATE / EDIT / CANCEL; click to pin a detail panel
+  that lists the target-price inputs at that tick - fillable, overpay, hashprice, caps, effective cap, plus
+  a JSON export button), block markers and retarget pickaxes on both charts, per-series rolling-mean
+  smoothing configurable per chart (hashrate smoothing per-source; price chart smooths only `our bid` and
+  `effective` - fillable / hashprice / max bid stay raw), stats bar (uptime, three side-by-side
+  avg-hashrate cards for Braiins / Datum / Ocean, cost metrics), service panels that include a runway
+  forecast on the Braiins card, split P&L panels (period and lifetime), live bid table with full IDs, and
+  a full config editor with live reload.
 - **Unit toggles in the header** - hashrate displays as TH/s, PH/s, or EH/s and prices as sat, ₿ (BTC), or
   USD. Both pickers persist per browser. The USD path uses a live BTC oracle (CoinGecko, Coinbase, Bitstamp,
   or Kraken; pick one) refreshed daemon-side every 4 minutes so it stays current even when the dashboard tab

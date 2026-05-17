@@ -575,8 +575,7 @@ perimeter; the dashboard has a shared-password second gate, not full auth.
   edit, wait for cooldown, or sit still. Includes a "Run decision now" button that bypasses the
   inter-tick wait. When a lower is queued behind Braiins' 10-min cooldown, the panel shows ETA and a
   progress bar.
-- **Time-range picker.** 3h / 6h / 12h / 24h / 1w / 1m / 1y / all. Persisted in `localStorage`. Drives
-  both charts, the stats bar, and the per-day P&L card.
+- **Time-range picker.** 3h / 6h / 12h / 24h / 1w / 1m / 1y / all. Persisted in `localStorage`. Drives both charts, the stats bar, and the per-day P&L card. Both charts also support **drag-to-pan** (pointer-down + drag scrolls the time axis; both charts move in sync) and **scroll-wheel zoom** (anchored at cursor position). Zoom soft-snaps to preset durations so the preset button lights up as you scroll through each one. Panning preserves the active preset (tracks window size, not live-edge state); a **"live" button** appears when the viewport is panned away from the current edge - clicking it or double-clicking the chart snaps back. Data is pre-fetched 1x visible range on each side for smooth panning; previous data stays visible as a placeholder while a new range loads. Viewport API endpoints (`/api/metrics?since=&until=`, `/api/bid-events?since=&until=`, `/api/stats?since=&until=`, `/api/finance/range?since=&until=`) support arbitrary time windows with a separate `span` parameter to control aggregation granularity independently of fetch range.
 - **Stats bar.** UPTIME (counter-derived, see §11.1 notes on delivered hashrate), AVG BRAIINS, AVG
   DATUM, AVG OCEAN (three side-by-side hashrate averages), AVG COST / PH DELIVERED (same metric as the
   hero PRICE card; deliberately duplicated so each panel stands alone), AVG COST VS HASHPRICE

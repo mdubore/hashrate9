@@ -7,7 +7,7 @@ manifestVersion: 1
 id: rdouma-hashrate-autopilot
 category: bitcoin
 name: Hashrate Autopilot
-version: "1.7.5"
+version: "1.7.6"
 tagline: Autopilot for renting hashrate to mine on Ocean Mining
 icon: https://raw.githubusercontent.com/rdouma/hashrate-autopilot/main/assets/icon-512.png
 # Umbrel renders description literally - no YAML folding of soft
@@ -51,6 +51,13 @@ defaultPassword: ""
 submitter: Remco Douma
 submission: https://github.com/rdouma/hashrate-autopilot
 releaseNotes: |
+  v1.7.6 - TradingView-style chart interaction.
+
+  NEW
+  - Drag-to-pan and scroll-wheel zoom on both hashrate and price charts. Both charts scroll in sync. Data is pre-fetched 1x visible range on each side for smooth panning. Preset buttons (3h/6h/12h/24h/1w/1m/1y/All) stay highlighted while panning. A "live" button appears when panned away from the current edge. Zoom soft-snaps to preset durations so the preset button lights up as you scroll through each one. Previous data stays visible as a placeholder while a new range loads, preventing flash-to-empty on release.
+
+  No migration; safe to upgrade or revert.
+
   v1.7.5 - lifetime earnings backfill, marketplace-empty visibility, chart polish.
 
   NEW
