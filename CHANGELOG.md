@@ -2,9 +2,9 @@
 
 ## 2026-05-18
 
-### `[Fix]` "All" chart range no longer shows empty 56-year X-axis (#181)
+### `[Fix]` Chart presets wider than data span no longer show empty space (#181)
 
-The "All" preset was passing `since_ms: 0` (Unix epoch) to the chart viewport, stretching the X-axis from 1970 to now and squishing all data into a thin sliver on the right. The rendering viewport now clamps to the actual data extent with 2% padding, while the internal state stays at 0 so preset detection and API fetching still work correctly.
+Any preset whose time window exceeds the actual data span (e.g. "1y" or "All" with only ~26 days of data) was stretching the X-axis far before the first tick, squishing data into a thin sliver on the right. The rendering viewport now clamps to the first metric point's tick_at (with 2% padding) whenever the viewport starts before the data. Applies to all presets, not just "All".
 
 ## 2026-05-17
 
