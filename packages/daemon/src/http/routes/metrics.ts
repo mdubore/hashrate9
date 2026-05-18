@@ -125,12 +125,16 @@ export async function registerMetricsRoute(
       const parsedUntil = Number.parseInt(req.query.until ?? '', 10);
       if (
         !req.query.range &&
-        Number.isFinite(parsedSince) && parsedSince > 0 &&
+        Number.isFinite(parsedSince) && parsedSince >= 0 &&
         Number.isFinite(parsedUntil) && parsedUntil > parsedSince
       ) {
         const fetchSpanMs = parsedUntil - parsedSince;
         const parsedSpan = Number.parseInt(req.query.span ?? '', 10);
-        const bucketSpanMs = Number.isFinite(parsedSpan) && parsedSpan > 0 ? parsedSpan : fetchSpanMs;
+        let bucketSpanMs = Number.isFinite(parsedSpan) && parsedSpan > 0 ? parsedSpan : fetchSpanMs;
+        const firstTick = await deps.tickMetricsRepo.firstTickAt();
+        if (firstTick !== null && parsedSince < firstTick) {
+          bucketSpanMs = Math.min(bucketSpanMs, parsedUntil - firstTick);
+        }
         const bucketMs = pickBucketForSpan(bucketSpanMs);
         const rows = await deps.tickMetricsRepo.listAggregated(
           parsedSince, bucketMs, limit, parsedUntil,
