@@ -1,7 +1,7 @@
 import { Trans, t } from '@lingui/macro';
 import { useLingui } from '@lingui/react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import {
@@ -142,6 +142,8 @@ export function Status() {
     };
   }, [vp.since_ms, vp.until_ms, visibleSpan]);
 
+  const dataStartMs = useRef<number | null>(null);
+
   // #93: secondary Y-axis selection per chart. Default for the
   // hashrate chart picks up the legacy show_share_log_on_hashrate_chart
   // config toggle so existing operators don't lose their share_log
@@ -199,6 +201,17 @@ export function Status() {
     placeholderData: keepPreviousData,
     refetchInterval: vp.liveEdge ? 60_000 : false,
   });
+
+  if (metricsQuery.data?.points?.length && metricsQuery.data.points[0] != null) {
+    dataStartMs.current = metricsQuery.data.points[0].tick_at;
+  }
+  const effectiveViewportSince = useMemo(() => {
+    if (chartViewport.viewport.activePreset === 'all' && dataStartMs.current != null) {
+      const span = chartViewport.viewport.until_ms - dataStartMs.current;
+      return dataStartMs.current - span * 0.02;
+    }
+    return chartViewport.viewport.since_ms;
+  }, [chartViewport.viewport.activePreset, chartViewport.viewport.since_ms, chartViewport.viewport.until_ms]);
 
   const bidEventsQuery = useQuery({
     queryKey: ['bid-events', fetchBounds.since_ms, fetchBounds.until_ms],
@@ -477,7 +490,7 @@ export function Status() {
           markersHiddenCount={markersHiddenCount}
           viewportHandlers={chartViewport.handlers}
           isDragging={chartViewport.isDragging}
-          viewportSince={chartViewport.viewport.since_ms}
+          viewportSince={effectiveViewportSince}
           viewportUntil={chartViewport.viewport.until_ms}
         />
       </div>
@@ -535,7 +548,7 @@ export function Status() {
           shareLogPct={oceanQuery.data?.user?.share_log_pct ?? null}
           viewportHandlers={chartViewport.handlers}
           isDragging={chartViewport.isDragging}
-          viewportSince={chartViewport.viewport.since_ms}
+          viewportSince={effectiveViewportSince}
           viewportUntil={chartViewport.viewport.until_ms}
         />
       </div>

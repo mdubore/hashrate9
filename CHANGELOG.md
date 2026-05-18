@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-05-18
+
+### `[Fix]` "All" chart range no longer shows empty 56-year X-axis (#181)
+
+The "All" preset was passing `since_ms: 0` (Unix epoch) to the chart viewport, stretching the X-axis from 1970 to now and squishing all data into a thin sliver on the right. The rendering viewport now clamps to the actual data extent with 2% padding, while the internal state stays at 0 so preset detection and API fetching still work correctly.
+
 ## 2026-05-17
 
 ### `[Release]` v1.7.6
