@@ -69,7 +69,13 @@ export class DatumService {
   private consecutiveFailures = 0;
 
   constructor(options: DatumServiceOptions) {
-    this.apiUrl = options.apiUrl.replace(/\/+$/, '');
+    let url = options.apiUrl;
+    while (url.endsWith('/')) url = url.slice(0, -1);
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      throw new Error(`Datum API URL must use http or https, got ${parsed.protocol}`);
+    }
+    this.apiUrl = url;
     this.timeoutMs = options.timeoutMs ?? 5_000;
     this.now = options.now ?? Date.now;
     this.log = options.log ?? ((msg) => console.log(msg));

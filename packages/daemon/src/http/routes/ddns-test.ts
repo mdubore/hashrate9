@@ -67,6 +67,16 @@ export async function registerDdnsTestRoute(
       if (provider === 'dyndns2' && !updateUrl) {
         return { ok: false, error: 'update URL is required for dyndns2' };
       }
+      if (provider === 'dyndns2') {
+        try {
+          const parsed = new URL(updateUrl);
+          if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+            return { ok: false, error: 'update URL must use http or https' };
+          }
+        } catch {
+          return { ok: false, error: 'update URL is not a valid URL' };
+        }
+      }
 
       const ac = new AbortController();
       const timer = setTimeout(() => ac.abort(), 8_000);

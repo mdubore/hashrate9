@@ -2,6 +2,10 @@
 
 ## 2026-05-18
 
+### `[Infra]` Fix CodeQL code scanning alerts
+
+Addressed 12 CodeQL alerts across the daemon and dashboard. Fixed a prototype-pollution vector where user-supplied event_class could access Object prototype methods on the sample-builders lookup (now uses Object.hasOwn). Added URL scheme validation to the DDNS test route (user-provided update URL), bitcoind RPC client, and Datum service as SSRF defense-in-depth. Replaced two regex patterns flagged for polynomial ReDoS with equivalent string methods. Added per-IP rate limiting (100 req/min) at the API gateway to throttle brute-force auth attempts.
+
 ### `[UI]` Mobile-responsive bids, alerts, and chart legends
 
 Bids table on the Status page now renders as stacked cards on mobile (< 640px) with a 2-column key-value grid for price/delivered/budget, while keeping the full table on desktop.

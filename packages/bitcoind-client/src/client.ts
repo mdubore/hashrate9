@@ -132,6 +132,10 @@ function describeFetchFailure(err: unknown, url: string): string {
 }
 
 export function createBitcoindClient(config: BitcoindClientConfig): BitcoindClient {
+  const parsed = new URL(config.url);
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new BitcoindError(`bitcoind RPC URL must use http or https, got ${parsed.protocol}`);
+  }
   const fetchImpl = config.fetch ?? fetch;
   const timeoutMs = config.timeoutMs ?? 300_000;
   const authHeader = 'Basic ' + Buffer.from(`${config.username}:${config.password}`).toString('base64');

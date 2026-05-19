@@ -156,6 +156,28 @@ export async function createHttpServer(deps: HttpServerDeps): Promise<HttpServer
     // native auth dialog, which conflicts with our React login page.
   });
 
+  // Per-IP rate limiting: 100 requests/minute. Runs before auth to
+  // throttle brute-force credential guessing.
+  const rateBuckets = new Map<string, { count: number; resetAt: number }>();
+  const RATE_WINDOW_MS = 60_000;
+  const RATE_LIMIT = 100;
+  app.addHook('onRequest', (req, reply, done) => {
+    if (!req.url.startsWith('/api/')) return done();
+    const ip = req.ip;
+    const now = Date.now();
+    let bucket = rateBuckets.get(ip);
+    if (!bucket || now >= bucket.resetAt) {
+      bucket = { count: 0, resetAt: now + RATE_WINDOW_MS };
+      rateBuckets.set(ip, bucket);
+    }
+    bucket.count += 1;
+    if (bucket.count > RATE_LIMIT) {
+      reply.code(429).send({ error: 'too many requests' });
+      return;
+    }
+    done();
+  });
+
   // Guard all /api/* routes with Basic Auth. basicAuth expects the
   // callback-style Fastify middleware signature (req, reply, done).
   // /api/health is exempt - appliance hosts (Umbrel, Start9, #67) and

@@ -282,10 +282,10 @@ export async function registerNotificationsTestEventRoute(
     '/api/notifications/test-event',
     async (req): Promise<TestEventResponse> => {
       const eventClass = (req.body?.event_class ?? '').trim();
-      const builder = SAMPLE_BUILDERS[eventClass];
-      if (!builder) {
+      if (!Object.hasOwn(SAMPLE_BUILDERS, eventClass)) {
         return { ok: false, error: `unknown event_class: ${eventClass || '(empty)'}` };
       }
+      const builder = SAMPLE_BUILDERS[eventClass]!;
 
       const cfg = await deps.configRepo.get();
       if (!cfg) {

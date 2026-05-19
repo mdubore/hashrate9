@@ -116,7 +116,10 @@ export class TelegramSink implements NotificationSink {
   constructor(opts: TelegramSinkOptions) {
     this.bot_token = opts.bot_token;
     this.chat_id = opts.chat_id;
-    this.instance_label = (opts.instance_label ?? '').trim().replace(/^\[+|\]+$/g, '');
+    let label = (opts.instance_label ?? '').trim();
+    while (label.startsWith('[')) label = label.slice(1);
+    while (label.endsWith(']')) label = label.slice(0, -1);
+    this.instance_label = label;
     this.fetchImpl = opts.fetchImpl ?? fetch;
     this.timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   }
