@@ -136,6 +136,9 @@ importers:
         specifier: ^7.15.1
         version: 7.15.1(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
     devDependencies:
+      '@lingui/babel-plugin-lingui-macro':
+        specifier: ^6.0.1
+        version: 6.0.1
       '@lingui/cli':
         specifier: ^6.0.1
         version: 6.0.1(babel-plugin-macros@3.1.0)

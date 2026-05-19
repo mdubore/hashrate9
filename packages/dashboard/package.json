@@ -22,6 +22,7 @@
     "react-router-dom": "^7.15.1"
   },
   "devDependencies": {
+    "@lingui/babel-plugin-lingui-macro": "^6.0.1",
     "@lingui/cli": "^6.0.1",
     "@lingui/format-po": "^6.0.1",
     "@lingui/vite-plugin": "^6.0.1",
