@@ -1903,7 +1903,7 @@ function BtcRow({
 
 function Legend({ color, label, dashed }: { color: string; label: string; dashed?: boolean }) {
   return (
-    <span className="flex items-center gap-1 text-slate-400">
+    <span className="flex items-center gap-1 text-slate-400 whitespace-nowrap">
       <svg width="14" height="6">
         <line
           x1="0"

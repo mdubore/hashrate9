@@ -2681,7 +2681,7 @@ function Legend({ color, label, dashed }: { color: string; label: string; dashed
   // tightly-spaced round dots to match the hashprice line style on
   // the chart (#hashprice-dots-2026-05-12).
   return (
-    <span className="flex items-center gap-1 text-slate-400">
+    <span className="flex items-center gap-1 text-slate-400 whitespace-nowrap">
       <svg width="14" height="6">
         <line
           x1="0"
@@ -2702,9 +2702,9 @@ function Legend({ color, label, dashed }: { color: string; label: string; dashed
 function EventLegend({ kinds }: { kinds: readonly BidEventKind[] }) {
   const has = (k: BidEventKind) => kinds.includes(k);
   return (
-    <span className="flex items-center gap-2 text-slate-400 pl-2 border-l border-slate-700">
+    <span className="flex items-center gap-2 text-slate-400 pl-2 border-l border-slate-700 flex-wrap">
       {has('CREATE_BID') && (
-        <span className="flex items-center gap-1">
+        <span className="flex items-center gap-1 whitespace-nowrap">
           <svg width="10" height="10">
             <line x1="1" y1="5" x2="9" y2="5" stroke={COLOR_CREATE} strokeWidth="2" />
             <line x1="5" y1="1" x2="5" y2="9" stroke={COLOR_CREATE} strokeWidth="2" />
@@ -2713,7 +2713,7 @@ function EventLegend({ kinds }: { kinds: readonly BidEventKind[] }) {
         </span>
       )}
       {has('EDIT_PRICE') && (
-        <span className="flex items-center gap-1">
+        <span className="flex items-center gap-1 whitespace-nowrap">
           <svg width="10" height="10">
             <circle cx="5" cy="5" r="3.5" fill={COLOR_EDIT} />
           </svg>
@@ -2721,7 +2721,7 @@ function EventLegend({ kinds }: { kinds: readonly BidEventKind[] }) {
         </span>
       )}
       {has('EDIT_SPEED') && (
-        <span className="flex items-center gap-1">
+        <span className="flex items-center gap-1 whitespace-nowrap">
           <svg width="10" height="10">
             <polygon
               points="5,1 9,5 5,9 1,5"
@@ -2734,7 +2734,7 @@ function EventLegend({ kinds }: { kinds: readonly BidEventKind[] }) {
         </span>
       )}
       {has('CANCEL_BID') && (
-        <span className="flex items-center gap-1">
+        <span className="flex items-center gap-1 whitespace-nowrap">
           <svg width="10" height="10">
             <line x1="1" y1="1" x2="9" y2="9" stroke={COLOR_CANCEL} strokeWidth="2" />
             <line x1="9" y1="1" x2="1" y2="9" stroke={COLOR_CANCEL} strokeWidth="2" />

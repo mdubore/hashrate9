@@ -410,7 +410,7 @@ function EventCard({
         onClick={onToggle}
         className="w-full flex items-start gap-3 px-3 py-2 text-left hover:bg-slate-800/40"
       >
-        <span className="text-slate-500 text-xs mt-0.5 select-none w-3">
+        <span className="text-slate-500 text-xs mt-0.5 select-none w-3 shrink-0">
           {expanded ? '▾' : '▸'}
         </span>
         <SeverityBadge severity={firing.severity} isRecovery={false} />
@@ -419,32 +419,29 @@ function EventCard({
             <span className="text-sm text-slate-100">
               <HighlightText text={firing.title} query={query} />
             </span>
-            <span className="text-xs text-slate-500 whitespace-nowrap">
-              {fmt.timestamp(firing.created_at)}
-            </span>
-            <span className="text-[10px] text-slate-500 whitespace-nowrap">
-              {formatAge(firing.created_at)}
+            <span
+              className={
+                'text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border whitespace-nowrap ' +
+                (recovery
+                  ? 'bg-emerald-900/30 border-emerald-800 text-emerald-300'
+                  : firing.acknowledged_at_ms !== null
+                    ? 'bg-slate-800/60 border-slate-700 text-slate-300'
+                    : 'bg-amber-900/30 border-amber-700 text-amber-300')
+              }
+            >
+              {recovery ? (
+                <Trans>resolved</Trans>
+              ) : firing.acknowledged_at_ms !== null ? (
+                <Trans>acknowledged · {formatAge(firing.created_at)}</Trans>
+              ) : (
+                <Trans>open · {formatAge(firing.created_at)}</Trans>
+              )}
             </span>
           </div>
+          <div className="text-xs text-slate-500 mt-0.5">
+            {fmt.timestamp(firing.created_at)} · {formatAge(firing.created_at)}
+          </div>
         </div>
-        <span
-          className={
-            'text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border whitespace-nowrap mt-0.5 ' +
-            (recovery
-              ? 'bg-emerald-900/30 border-emerald-800 text-emerald-300'
-              : firing.acknowledged_at_ms !== null
-                ? 'bg-slate-800/60 border-slate-700 text-slate-300'
-                : 'bg-amber-900/30 border-amber-700 text-amber-300')
-          }
-        >
-          {recovery ? (
-            <Trans>resolved</Trans>
-          ) : firing.acknowledged_at_ms !== null ? (
-            <Trans>acknowledged · {formatAge(firing.created_at)}</Trans>
-          ) : (
-            <Trans>open · {formatAge(firing.created_at)}</Trans>
-          )}
-        </span>
       </button>
 
       {expanded && (
@@ -495,12 +492,12 @@ function EntryRow({
   onAcknowledge: () => void;
 }) {
   return (
-    <div className="flex items-start gap-3 text-sm">
-      <span className="text-[10px] uppercase tracking-wider text-slate-500 w-16 shrink-0 mt-0.5">
-        {kind === 'fired' ? <Trans>fired</Trans> : <Trans>resolved</Trans>}
-      </span>
-      <div className="flex-1 min-w-0">
-        <div className="text-xs text-slate-500">
+    <div className="text-sm space-y-1">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+        <span className="text-[10px] uppercase tracking-wider text-slate-500">
+          {kind === 'fired' ? <Trans>fired</Trans> : <Trans>resolved</Trans>}
+        </span>
+        <span className="text-xs text-slate-500">
           {timestampLabel} · {ageLabel}
           {kind === 'resolved' && durationOpenMs !== undefined && (
             <>
@@ -508,30 +505,26 @@ function EntryRow({
               <Trans>was open for {formatDuration(durationOpenMs)}</Trans>
             </>
           )}
-        </div>
-        <div className="text-xs text-slate-300 mt-0.5 break-words max-w-2xl">
-          <HighlightText text={row.body} query={query} />
-        </div>
-        <div className="mt-1">
-          <DeliveryBadge status={row.delivery_status} attempts={row.delivery_attempts} />
-        </div>
-      </div>
-      <div className="text-right whitespace-nowrap shrink-0">
+        </span>
         {kind === 'fired' && row.acknowledged_at_ms === null && (
           <button
             type="button"
-            onClick={onAcknowledge}
-            className="px-2 py-1 text-xs text-slate-300 border border-slate-700 rounded hover:bg-slate-800"
+            onClick={(e) => { e.stopPropagation(); onAcknowledge(); }}
+            className="ml-auto px-2 py-0.5 text-xs text-slate-300 border border-slate-700 rounded hover:bg-slate-800"
           >
             <Trans>mark as seen</Trans>
           </button>
         )}
         {kind === 'fired' && row.acknowledged_at_ms !== null && (
-          <span className="text-[10px] text-slate-500">
+          <span className="ml-auto text-[10px] text-slate-500">
             <Trans>acknowledged {formatAge(row.acknowledged_at_ms)}</Trans>
           </span>
         )}
       </div>
+      <div className="text-xs text-slate-300 break-words">
+        <HighlightText text={row.body} query={query} />
+      </div>
+      <DeliveryBadge status={row.delivery_status} attempts={row.delivery_attempts} />
     </div>
   );
 }
