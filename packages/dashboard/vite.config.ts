@@ -2,6 +2,7 @@ import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+import linguiMacroPlugin from '@lingui/babel-plugin-lingui-macro';
 import { lingui } from '@lingui/vite-plugin';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
@@ -55,7 +56,7 @@ export default defineConfig({
   plugins: [
     react({
       babel: {
-        plugins: ['@lingui/babel-plugin-lingui-macro'],
+        plugins: [linguiMacroPlugin],
       },
     }),
     // Pin Lingui's config search to the dashboard package dir so
