@@ -2,8 +2,8 @@ import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import linguiMacroPlugin from '@lingui/babel-plugin-lingui-macro';
-import { lingui } from '@lingui/vite-plugin';
+import { lingui, linguiTransformerBabelPreset } from '@lingui/vite-plugin';
+import babel from '@rolldown/plugin-babel';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
@@ -54,16 +54,8 @@ const info = getBuildInfo();
 
 export default defineConfig({
   plugins: [
-    react({
-      babel: {
-        plugins: [linguiMacroPlugin],
-      },
-    }),
-    // Pin Lingui's config search to the dashboard package dir so
-    // pnpm-r and vitest invocations from the workspace root (whose
-    // process.cwd() is the repo root, not packages/dashboard) still
-    // find lingui.config.js. Without this, root-level test runs fail
-    // with "No Lingui config found".
+    react(),
+    babel({ presets: [linguiTransformerBabelPreset({}, { cwd: __dirname })] }),
     lingui({ cwd: __dirname }),
     tailwindcss(),
   ],
