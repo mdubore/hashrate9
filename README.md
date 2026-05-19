@@ -148,9 +148,12 @@ Full design: [`docs/spec.md`](docs/spec.md) · [`docs/architecture.md`](docs/arc
 - **Measured P&L and runway** - spend is read from Braiins' account transaction ledger (settled cost, not
   modelled bid × delivered) and income from on-chain payouts observed via Electrs or bitcoind. Runway on the
   Braiins service card is days-of-balance at the current measured spend rate.
-- **Dashboard** - hashrate and price charts with drag-to-pan and scroll-wheel zoom (TradingView-style),
-  time-range presets (3h / 6h / 12h / 24h / 1w / 1m / 1y / all) that stay highlighted while panning and
-  soft-snap during zoom, a "live" button that appears when panned away from the current edge, bid event
+- **Dashboard** - hashrate and price charts with drag-to-pan and click-to-focus scroll-wheel zoom
+  (TradingView-style; click a chart to activate zoom, click outside or press Escape to deactivate; blue
+  outline shows the focused chart), time-range presets (3h / 6h / 12h / 24h / 1w / 1m / 1y / all) that
+  stay highlighted while panning and soft-snap during zoom, viewport-scoped Y-axis that only scales to
+  visible data (out-of-view spikes don't compress the chart), a "live" button that appears when panned
+  away from the current edge, bid event
   markers on the price chart (each dot corresponds to a CREATE / EDIT / CANCEL; click to pin a detail panel
   that lists the target-price inputs at that tick - fillable, overpay, hashprice, caps, effective cap, plus
   a JSON export button), block markers and retarget pickaxes on both charts, per-series rolling-mean
