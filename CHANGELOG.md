@@ -6,6 +6,10 @@
 
 The root cause of the "All" zoom collapse: the chart renders from the data start (via `effectiveViewportSince`), but zoom calculations used the raw internal viewport, which could be much wider (e.g. 1 year when only 30 days of data exist). Positioning the cursor in the middle of the visible 30-day chart actually anchored the zoom at the middle of the hidden 365-day range - deep in an empty region with no data. Now both zoom and drag compute the effective viewport (matching what the user sees) and use it for cursor mapping, duration scaling, and drag sensitivity. Zooming out past all data snaps to All.
 
+### `[Fix]` Raise API rate limit from 100 to 300 requests/minute
+
+Rapid chart zooming could exceed the 100 req/min rate limit and trigger "429 Too Many Requests", blocking all dashboard data loading until the window resets. Raised to 300/min to accommodate interactive zoom sessions while still throttling brute-force attacks.
+
 ### `[Fix]` Chart zoom/drag edge cases: stuck at All, drag past data
 
 Zoom-in from "All" now snaps to the 1y preset instead of trying to shrink the 56-year viewport one step at a time (which took 17+ scroll steps to even start working). Dragging is clamped so `until_ms` never falls more than 5 years behind now, preventing the viewport from reaching empty time ranges that trigger "Not enough data in this range yet." The zoom transitions are now: ... 1m - 1y - All - (zoom in snaps back to 1y).

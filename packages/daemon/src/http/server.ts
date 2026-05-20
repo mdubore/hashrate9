@@ -156,11 +156,12 @@ export async function createHttpServer(deps: HttpServerDeps): Promise<HttpServer
     // native auth dialog, which conflicts with our React login page.
   });
 
-  // Per-IP rate limiting: 100 requests/minute. Runs before auth to
-  // throttle brute-force credential guessing.
+  // Per-IP rate limiting. Runs before auth to throttle brute-force
+  // credential guessing. 300/min accommodates rapid chart zoom (each
+  // step settles into a metrics fetch after 200ms debounce).
   const rateBuckets = new Map<string, { count: number; resetAt: number }>();
   const RATE_WINDOW_MS = 60_000;
-  const RATE_LIMIT = 100;
+  const RATE_LIMIT = 300;
   app.addHook('onRequest', (req, reply, done) => {
     if (!req.url.startsWith('/api/')) return done();
     const ip = req.ip;

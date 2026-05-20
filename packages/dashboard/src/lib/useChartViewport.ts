@@ -207,6 +207,7 @@ export function useChartViewport(): UseChartViewportReturn {
       const svg = e.currentTarget as SVGSVGElement;
       if (!svg) return;
       const vp = viewportRef.current;
+      if (e.deltaY === 0) return;
       const zoomingOut = e.deltaY > 0;
 
       if (vp.activePreset === 'all' && zoomingOut) return;
@@ -217,7 +218,7 @@ export function useChartViewport(): UseChartViewportReturn {
       // actually sees data, not in a hidden empty region.
       const ds = dataStartRef.current;
       let effSince = vp.since_ms;
-      if (ds !== null && effSince < ds) {
+      if (ds !== null && effSince < ds && vp.until_ms > ds) {
         const span = vp.until_ms - ds;
         effSince = Math.max(0, ds - span * 0.02);
       }
