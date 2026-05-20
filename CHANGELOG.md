@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-05-20
+
+### `[Fix]` Max bid cap line spikes to hard cap when hashprice is null
+
+The "max bid" line on the price chart spiked to the fixed hard cap (e.g. 50,000 sat/PH/day) whenever the Braiins API was briefly unreachable and hashprice was null. The daemon's decide() logic correctly pauses bidding in that scenario, but the chart fell back to plotting the fixed cap instead of skipping the tick. Now the cap line omits ticks with missing hashprice when the dynamic cap is configured, matching what the controller actually does.
+
 ## 2026-05-19
 
 ### `[Fix]` Scroll-to-zoom no longer scrolls the page

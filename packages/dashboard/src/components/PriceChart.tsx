@@ -579,7 +579,11 @@ export const PriceChart = memo(function PriceChart({
     // cap isn't configured, this collapses to max_bid and the line
     // looks exactly like the previous "max bid" line.
     const capPoints: PricePoint[] = points
-      .filter((p) => Number.isFinite(p.max_bid_sat_per_ph_day))
+      .filter((p) => {
+        if (!Number.isFinite(p.max_bid_sat_per_ph_day)) return false;
+        if (maxOverpayVsHashpriceSatPerPhDay !== null && !Number.isFinite(p.hashprice_sat_per_ph_day)) return false;
+        return true;
+      })
       .map((p) => {
         const fixed = p.max_bid_sat_per_ph_day as number;
         const hashprice = Number.isFinite(p.hashprice_sat_per_ph_day)
