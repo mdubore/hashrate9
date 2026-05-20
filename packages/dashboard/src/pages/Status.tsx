@@ -206,8 +206,11 @@ export function Status() {
 
   const firstPointAt = metricsQuery.data?.points?.[0]?.tick_at ?? null;
   useEffect(() => {
-    if (firstPointAt != null) setDataStartMs(firstPointAt);
-  }, [firstPointAt]);
+    if (firstPointAt != null) {
+      setDataStartMs(firstPointAt);
+      chartViewport.setDataStart(firstPointAt);
+    }
+  }, [firstPointAt, chartViewport.setDataStart]);
 
   const effectiveViewportSince = useMemo(() => {
     if (dataStartMs != null && chartViewport.viewport.since_ms < dataStartMs) {

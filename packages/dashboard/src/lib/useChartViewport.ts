@@ -32,6 +32,8 @@ export interface UseChartViewportReturn {
   setPreset: (range: ChartRange) => void;
   goLive: () => void;
   reset: () => void;
+  /** Tell the hook the earliest data timestamp so "All" uses real bounds. */
+  setDataStart: (ms: number) => void;
   /** Ref callback - attach to each chart SVG so scroll-to-zoom
    *  uses a non-passive native listener (prevents page scrolling). */
   wheelRef: (node: SVGSVGElement | null) => void;
@@ -107,6 +109,24 @@ export function useChartViewport(): UseChartViewportReturn {
 
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dragStart = useRef<DragState | null>(null);
+  const dataStartRef = useRef<number | null>(null);
+
+  const allViewport = useCallback((): ViewportState => {
+    const now = Date.now();
+    const ds = dataStartRef.current;
+    const since = ds !== null ? ds - (now - ds) * 0.02 : 0;
+    return { since_ms: Math.max(0, since), until_ms: now, activePreset: 'all' as ChartRange, liveEdge: true };
+  }, []);
+
+  const setDataStart = useCallback((ms: number) => {
+    const prev = dataStartRef.current;
+    dataStartRef.current = ms;
+    if (prev === null && viewport.activePreset === 'all') {
+      const vp = allViewport();
+      setViewport(vp);
+      setSettledViewport(vp);
+    }
+  }, [viewport.activePreset, allViewport]);
   const focusedRef = useRef(false);
   const svgRef = useRef<SVGSVGElement | null>(null);
 
@@ -130,12 +150,14 @@ export function useChartViewport(): UseChartViewportReturn {
   }, [scheduleSettle]);
 
   const setPreset = useCallback((range: ChartRange) => {
-    const vp: ViewportState = { ...presetToViewport(range), activePreset: range, liveEdge: true };
+    const vp: ViewportState = range === 'all'
+      ? allViewport()
+      : { ...presetToViewport(range), activePreset: range, liveEdge: true };
     setViewport(vp);
     setSettledViewport(vp);
     persist(vp);
     if (settleTimer.current) clearTimeout(settleTimer.current);
-  }, []);
+  }, [allViewport]);
 
   const goLive = useCallback(() => {
     const preset = viewport.activePreset ?? DEFAULT_CHART_RANGE;
@@ -202,8 +224,10 @@ export function useChartViewport(): UseChartViewportReturn {
       const factor = zoomingOut ? ZOOM_FACTOR : 1 / ZOOM_FACTOR;
       let newDuration = Math.max(MIN_DURATION_MS, duration * factor);
       if (newDuration > YEAR_MS * halfStep) {
+        const ds = dataStartRef.current;
         const now = Date.now();
-        updateViewportRef.current({ since_ms: 0, until_ms: now, activePreset: 'all', liveEdge: true });
+        const since = ds !== null ? Math.max(0, ds - (now - ds) * 0.02) : 0;
+        updateViewportRef.current({ since_ms: since, until_ms: now, activePreset: 'all', liveEdge: true });
         return;
       }
       let snappedPreset: ChartRange | null = null;
@@ -347,6 +371,7 @@ export function useChartViewport(): UseChartViewportReturn {
     setPreset,
     goLive,
     reset,
+    setDataStart,
     wheelRef,
     handlers: { onPointerDown, onPointerMove, onPointerUp, onDoubleClick },
     isDragging,
