@@ -191,7 +191,13 @@ export function viewportToNearestPreset(vp: ChartViewport): ChartRange | null {
       return key;
     }
   }
-  if (vp.since_ms === 0) return 'all';
+  // "All" has no fixed windowMs. Match if since_ms is at epoch OR if the
+  // duration exceeds the widest fixed preset (1y). The loop above already
+  // catches viewports that are close to 1y, so anything wider is All
+  // territory - this handles both the legacy epoch-based All viewport and
+  // the new data-extent-based one.
+  const YEAR = 365 * DAY;
+  if (vp.since_ms <= 0 || duration > YEAR * 1.1) return 'all';
   return null;
 }
 

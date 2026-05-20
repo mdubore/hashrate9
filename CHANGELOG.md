@@ -2,9 +2,9 @@
 
 ## 2026-05-20
 
-### `[Fix]` "All" viewport uses actual data extent instead of epoch
+### `[Fix]` "All" viewport robust against zoom/drag collapse
 
-The "All" preset previously spanned from Unix epoch (1970) to now - a 56-year window - which caused `clampViewport` to collapse the viewport on any interaction. Now the hook tracks the earliest data timestamp via `setDataStart()` and computes the All viewport as first-data-point-to-now with 2% left padding. This makes All mode stable under zoom and drag, and matches what the user expects: "all collected data", not "all of time."
+Multiple layers of defense against the "All" viewport collapsing when interacting with the chart: (1) `viewportToNearestPreset` now recognizes data-extent-based All viewports (not just `since_ms === 0`), so the 'all' preset is never lost during zoom operations; (2) the wheel handler uses both `activePreset` and duration as All detection, catching cases where the preset is stale; (3) `readStored('all')` uses a 1-year fallback window instead of epoch-to-now; (4) `clampViewport` no longer falls back to `since_ms: 0`; (5) `setDataStart()` feeds the actual first data timestamp into the hook so All spans from first-data-point to now with 2% padding.
 
 ### `[Fix]` Chart zoom/drag edge cases: stuck at All, drag past data
 

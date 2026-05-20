@@ -56,6 +56,10 @@ function readStored(): ViewportState {
   const preset = (['3h', '6h', '12h', '24h', '1w', '1m', '1y', 'all'] as ChartRange[]).includes(raw as ChartRange)
     ? (raw as ChartRange)
     : DEFAULT_CHART_RANGE;
+  if (preset === 'all') {
+    const now = Date.now();
+    return { since_ms: now - CHART_RANGE_SPECS['1y'].windowMs!, until_ms: now, activePreset: 'all', liveEdge: true };
+  }
   return { ...presetToViewport(preset), activePreset: preset, liveEdge: true };
 }
 
@@ -70,7 +74,7 @@ function clampViewport(vp: ChartViewport): ChartViewport {
   const now = Date.now();
   let duration = vp.until_ms - vp.since_ms;
   if (duration < MIN_DURATION_MS) duration = MIN_DURATION_MS;
-  if (duration > MAX_DURATION_MS) return { since_ms: 0, until_ms: now };
+  if (duration > MAX_DURATION_MS) return { since_ms: now - MAX_DURATION_MS, until_ms: now };
   let until = Math.min(vp.until_ms, now);
   let since = until - duration;
   if (since < 0) {
@@ -203,8 +207,10 @@ export function useChartViewport(): UseChartViewportReturn {
       if (!svg) return;
       const vp = viewportRef.current;
       const zoomingOut = e.deltaY > 0;
-      if (vp.activePreset === 'all' && zoomingOut) return;
-      if (vp.activePreset === 'all' && !zoomingOut) {
+      const vpDuration = vp.until_ms - vp.since_ms;
+      const isAll = vp.activePreset === 'all' || vpDuration > YEAR_MS * halfStep;
+      if (isAll && zoomingOut) return;
+      if (isAll && !zoomingOut) {
         const now = Date.now();
         updateViewportRef.current({
           since_ms: now - YEAR_MS, until_ms: now,
@@ -305,7 +311,8 @@ export function useChartViewport(): UseChartViewportReturn {
 
   const onPointerMove = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
     if (!dragStart.current) return;
-    if (dragStart.current.viewport.activePreset === 'all') return;
+    const startDuration = dragStart.current.viewport.until_ms - dragStart.current.viewport.since_ms;
+    if (dragStart.current.viewport.activePreset === 'all' || startDuration > CHART_RANGE_SPECS['1y'].windowMs! * 1.1) return;
     const deltaPx = e.clientX - dragStart.current.clientX;
     if (!dragStart.current.captured && Math.abs(deltaPx) > DRAG_THRESHOLD_PX) {
       e.currentTarget.setPointerCapture(dragStart.current.pointerId);
