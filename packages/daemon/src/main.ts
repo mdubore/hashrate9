@@ -10,6 +10,7 @@
  *     didn't work on plain `start.sh` deployments).
  */
 
+import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 
@@ -72,7 +73,11 @@ const DASHBOARD_STATIC = process.env['DASHBOARD_STATIC'] ?? 'packages/dashboard/
 
 function defaultAgeKeyPath(): string {
   const xdg = process.env['XDG_CONFIG_HOME'] ?? `${homedir()}/.config`;
-  return `${xdg}/hashrate-autopilot/age.key`;
+  const preferred = `${xdg}/hashrate-autopilot/age.key`;
+  if (existsSync(preferred)) return preferred;
+  const legacy = `${xdg}/braiins-hashrate/age.key`;
+  if (existsSync(legacy)) return legacy;
+  return preferred;
 }
 
 interface BootDeps {
