@@ -9,7 +9,7 @@
  *   - We allow free-form typing while focused (no reformatting mid-edit).
  */
 
-import { useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 
 export interface NumberFieldProps {
   value: number;
@@ -26,7 +26,7 @@ export interface NumberFieldProps {
   /**
    * Optional suffix rendered to the right of the field, e.g. "sat/PH/day".
    */
-  suffix?: string;
+  suffix?: ReactNode;
 }
 
 function formatForDisplay(

@@ -6,6 +6,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { NumberField } from '../components/NumberField';
+import { SatSymbol } from '../components/SatSymbol';
 import { StaleUrlBanner } from '../components/StaleUrlBanner';
 import {
   api,
@@ -46,7 +47,7 @@ type Section = {
   /** Stable English identity used for keys and structural decisions (e.g. inserting the payout-source card before "Profit & Loss"). The visible `title` is translated via `t\`...\``; this stays untranslated. */
   id: string;
   title: string;
-  description?: string;
+  description?: React.ReactNode;
   fields: FieldSpec[];
   /** Render this section in a half-width column so an adjacent `sideBySide` section can sit next to it. */
   sideBySide?: boolean;
@@ -55,12 +56,12 @@ type Section = {
 };
 
 type FieldSpec = (
-  | { key: keyof AppConfig; label: string; kind: 'decimal'; unit: string; help?: string }
+  | { key: keyof AppConfig; label: string; kind: 'decimal'; unit: React.ReactNode; help?: string }
   | {
       key: keyof AppConfig;
       label: string;
       kind: 'integer';
-      unit: string;
+      unit: React.ReactNode;
       help?: string;
       noGrouping?: boolean;
     }
@@ -68,7 +69,7 @@ type FieldSpec = (
       key: keyof AppConfig;
       label: string;
       kind: 'integer_spinner';
-      unit: string;
+      unit: React.ReactNode;
       help?: string;
       min: number;
       step: number;
@@ -194,7 +195,7 @@ function useSections(): Section[] {
       {
         id: 'pricing',
         title: t`Pricing`,
-        description: t`The bid tracks the cheapest ask with enough depth for your target, plus a small premium. Two hard ceilings sit above that so the premium can never run away. Entered in sat/PH/day.`,
+        description: <Trans>The bid tracks the cheapest ask with enough depth for your target, plus a small premium. Two hard ceilings sit above that so the premium can never run away. Entered in <SatSymbol />/PH/day.</Trans>,
         fields: [
           {
             key: 'overpay_sat_per_eh_day',
@@ -225,7 +226,7 @@ function useSections(): Section[] {
             key: 'bid_budget_sat',
             label: t`Per-bid budget`,
             kind: 'integer',
-            unit: 'sat',
+            unit: <SatSymbol />,
             fullWidth: true,
             help: t`0 = use the full available wallet balance each CREATE (clamped to 1 BTC - the Braiins per-bid hard cap). Any positive value pins every new bid to that exact amount regardless of balance.`,
           },
@@ -1157,26 +1158,26 @@ function BidBudgetField({
                 resolvedSat !== null ? (
                   isCapped ? (
                     <Trans>
-                      A bid is currently running (≈ {remainingSatStr} sat left). The next CREATE fires when it finishes - at that point the full available wallet balance (currently ≈ {resolvedSatStr} sat, capped at 1 BTC) will be used.
+                      A bid is currently running (≈ {remainingSatStr} <SatSymbol /> left). The next CREATE fires when it finishes - at that point the full available wallet balance (currently ≈ {resolvedSatStr} <SatSymbol />, capped at 1 BTC) will be used.
                     </Trans>
                   ) : (
                     <Trans>
-                      A bid is currently running (≈ {remainingSatStr} sat left). The next CREATE fires when it finishes - at that point the full available wallet balance (currently ≈ {resolvedSatStr} sat) will be used.
+                      A bid is currently running (≈ {remainingSatStr} <SatSymbol /> left). The next CREATE fires when it finishes - at that point the full available wallet balance (currently ≈ {resolvedSatStr} <SatSymbol />) will be used.
                     </Trans>
                   )
                 ) : (
                   <Trans>
-                    A bid is currently running (≈ {remainingSatStr} sat left). The next CREATE fires when it finishes - at that point the full available wallet balance will be used.
+                    A bid is currently running (≈ {remainingSatStr} <SatSymbol /> left). The next CREATE fires when it finishes - at that point the full available wallet balance will be used.
                   </Trans>
                 )
               ) : resolvedSat !== null ? (
                 isCapped ? (
                   <Trans>
-                    A bid is currently running. The next CREATE fires when it finishes - at that point the full available wallet balance (currently ≈ {resolvedSatStr} sat, capped at 1 BTC) will be used.
+                    A bid is currently running. The next CREATE fires when it finishes - at that point the full available wallet balance (currently ≈ {resolvedSatStr} <SatSymbol />, capped at 1 BTC) will be used.
                   </Trans>
                 ) : (
                   <Trans>
-                    A bid is currently running. The next CREATE fires when it finishes - at that point the full available wallet balance (currently ≈ {resolvedSatStr} sat) will be used.
+                    A bid is currently running. The next CREATE fires when it finishes - at that point the full available wallet balance (currently ≈ {resolvedSatStr} <SatSymbol />) will be used.
                   </Trans>
                 )
               ) : (
@@ -1190,10 +1191,10 @@ function BidBudgetField({
               {resolvedSat !== null ? (
                 isCapped ? (
                   <Trans>
-                    Full wallet balance per bid. Currently ≈ {resolvedSatStr} sat (capped at 1 BTC).
+                    Full wallet balance per bid. Currently ≈ {resolvedSatStr} <SatSymbol /> (capped at 1 BTC).
                   </Trans>
                 ) : (
-                  <Trans>Full wallet balance per bid. Currently ≈ {resolvedSatStr} sat.</Trans>
+                  <Trans>Full wallet balance per bid. Currently ≈ {resolvedSatStr} <SatSymbol />.</Trans>
                 )
               ) : (
                 <Trans>Full wallet balance per bid. Awaiting wallet balance from the daemon.</Trans>
@@ -3569,7 +3570,7 @@ function HistoricalPayoutsControls({
             step="integer"
             locale={locale}
             min={0}
-            suffix="sats"
+            suffix={<SatSymbol />}
           />
         </div>
       </div>
@@ -4195,7 +4196,7 @@ function Field({
     // sat/EH/day = 1000 × sat/PH/day, so divide by 1000 first.
     const satPerUnitDay = raw === null ? 0 : (raw / EH_PER_PH) * unitFactor;
     const displayValue = useBtc ? satPerUnitDay / 100_000_000 : satPerUnitDay;
-    const suffix = useBtc ? `₿/${unit}/day` : `sat/${unit}/day`;
+    const suffix = useBtc ? `₿/${unit}/day` : <><SatSymbol />/{unit}/day</>;
     // BTC needs many decimals to be usable for typical 47k sat/PH/day
     // values (~ 0.00047 ₿/PH/day); sat at TH needs 3 decimals to keep
     // single-tick spreads visible. Otherwise integer.

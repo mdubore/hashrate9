@@ -216,24 +216,44 @@ msgid "A bid in the account that the autopilot did not create. Already triggers 
 msgstr "A bid in the account that the autopilot did not create. Already triggers auto-PAUSE."
 
 #: src/pages/Config.tsx
-msgid "A bid is currently running (≈ {remainingSatStr} sat left). The next CREATE fires when it finishes - at that point the full available wallet balance (currently ≈ {resolvedSatStr} sat, capped at 1 BTC) will be used."
-msgstr "A bid is currently running (≈ {remainingSatStr} sat left). The next CREATE fires when it finishes - at that point the full available wallet balance (currently ≈ {resolvedSatStr} sat, capped at 1 BTC) will be used."
+msgid "A bid is currently running (≈ {remainingSatStr} <0/> left). The next CREATE fires when it finishes - at that point the full available wallet balance (currently ≈ {resolvedSatStr} <1/>, capped at 1 BTC) will be used."
+msgstr "A bid is currently running (≈ {remainingSatStr} <0/> left). The next CREATE fires when it finishes - at that point the full available wallet balance (currently ≈ {resolvedSatStr} <1/>, capped at 1 BTC) will be used."
 
 #: src/pages/Config.tsx
-msgid "A bid is currently running (≈ {remainingSatStr} sat left). The next CREATE fires when it finishes - at that point the full available wallet balance (currently ≈ {resolvedSatStr} sat) will be used."
-msgstr "A bid is currently running (≈ {remainingSatStr} sat left). The next CREATE fires when it finishes - at that point the full available wallet balance (currently ≈ {resolvedSatStr} sat) will be used."
+msgid "A bid is currently running (≈ {remainingSatStr} <0/> left). The next CREATE fires when it finishes - at that point the full available wallet balance (currently ≈ {resolvedSatStr} <1/>) will be used."
+msgstr "A bid is currently running (≈ {remainingSatStr} <0/> left). The next CREATE fires when it finishes - at that point the full available wallet balance (currently ≈ {resolvedSatStr} <1/>) will be used."
 
 #: src/pages/Config.tsx
-msgid "A bid is currently running (≈ {remainingSatStr} sat left). The next CREATE fires when it finishes - at that point the full available wallet balance will be used."
-msgstr "A bid is currently running (≈ {remainingSatStr} sat left). The next CREATE fires when it finishes - at that point the full available wallet balance will be used."
+msgid "A bid is currently running (≈ {remainingSatStr} <0/> left). The next CREATE fires when it finishes - at that point the full available wallet balance will be used."
+msgstr "A bid is currently running (≈ {remainingSatStr} <0/> left). The next CREATE fires when it finishes - at that point the full available wallet balance will be used."
 
 #: src/pages/Config.tsx
-msgid "A bid is currently running. The next CREATE fires when it finishes - at that point the full available wallet balance (currently ≈ {resolvedSatStr} sat, capped at 1 BTC) will be used."
-msgstr "A bid is currently running. The next CREATE fires when it finishes - at that point the full available wallet balance (currently ≈ {resolvedSatStr} sat, capped at 1 BTC) will be used."
+#~ msgid "A bid is currently running (≈ {remainingSatStr} sat left). The next CREATE fires when it finishes - at that point the full available wallet balance (currently ≈ {resolvedSatStr} sat, capped at 1 BTC) will be used."
+#~ msgstr "A bid is currently running (≈ {remainingSatStr} sat left). The next CREATE fires when it finishes - at that point the full available wallet balance (currently ≈ {resolvedSatStr} sat, capped at 1 BTC) will be used."
 
 #: src/pages/Config.tsx
-msgid "A bid is currently running. The next CREATE fires when it finishes - at that point the full available wallet balance (currently ≈ {resolvedSatStr} sat) will be used."
-msgstr "A bid is currently running. The next CREATE fires when it finishes - at that point the full available wallet balance (currently ≈ {resolvedSatStr} sat) will be used."
+#~ msgid "A bid is currently running (≈ {remainingSatStr} sat left). The next CREATE fires when it finishes - at that point the full available wallet balance (currently ≈ {resolvedSatStr} sat) will be used."
+#~ msgstr "A bid is currently running (≈ {remainingSatStr} sat left). The next CREATE fires when it finishes - at that point the full available wallet balance (currently ≈ {resolvedSatStr} sat) will be used."
+
+#: src/pages/Config.tsx
+#~ msgid "A bid is currently running (≈ {remainingSatStr} sat left). The next CREATE fires when it finishes - at that point the full available wallet balance will be used."
+#~ msgstr "A bid is currently running (≈ {remainingSatStr} sat left). The next CREATE fires when it finishes - at that point the full available wallet balance will be used."
+
+#: src/pages/Config.tsx
+msgid "A bid is currently running. The next CREATE fires when it finishes - at that point the full available wallet balance (currently ≈ {resolvedSatStr} <0/>, capped at 1 BTC) will be used."
+msgstr "A bid is currently running. The next CREATE fires when it finishes - at that point the full available wallet balance (currently ≈ {resolvedSatStr} <0/>, capped at 1 BTC) will be used."
+
+#: src/pages/Config.tsx
+msgid "A bid is currently running. The next CREATE fires when it finishes - at that point the full available wallet balance (currently ≈ {resolvedSatStr} <0/>) will be used."
+msgstr "A bid is currently running. The next CREATE fires when it finishes - at that point the full available wallet balance (currently ≈ {resolvedSatStr} <0/>) will be used."
+
+#: src/pages/Config.tsx
+#~ msgid "A bid is currently running. The next CREATE fires when it finishes - at that point the full available wallet balance (currently ≈ {resolvedSatStr} sat, capped at 1 BTC) will be used."
+#~ msgstr "A bid is currently running. The next CREATE fires when it finishes - at that point the full available wallet balance (currently ≈ {resolvedSatStr} sat, capped at 1 BTC) will be used."
+
+#: src/pages/Config.tsx
+#~ msgid "A bid is currently running. The next CREATE fires when it finishes - at that point the full available wallet balance (currently ≈ {resolvedSatStr} sat) will be used."
+#~ msgstr "A bid is currently running. The next CREATE fires when it finishes - at that point the full available wallet balance (currently ≈ {resolvedSatStr} sat) will be used."
 
 #: src/pages/Config.tsx
 msgid "A bid is currently running. The next CREATE fires when it finishes - at that point the full available wallet balance will be used."
@@ -1471,12 +1491,20 @@ msgid "Full wallet balance per bid. Awaiting wallet balance from the daemon."
 msgstr "Full wallet balance per bid. Awaiting wallet balance from the daemon."
 
 #: src/pages/Config.tsx
-msgid "Full wallet balance per bid. Currently ≈ {resolvedSatStr} sat (capped at 1 BTC)."
-msgstr "Full wallet balance per bid. Currently ≈ {resolvedSatStr} sat (capped at 1 BTC)."
+msgid "Full wallet balance per bid. Currently ≈ {resolvedSatStr} <0/> (capped at 1 BTC)."
+msgstr "Full wallet balance per bid. Currently ≈ {resolvedSatStr} <0/> (capped at 1 BTC)."
 
 #: src/pages/Config.tsx
-msgid "Full wallet balance per bid. Currently ≈ {resolvedSatStr} sat."
-msgstr "Full wallet balance per bid. Currently ≈ {resolvedSatStr} sat."
+msgid "Full wallet balance per bid. Currently ≈ {resolvedSatStr} <0/>."
+msgstr "Full wallet balance per bid. Currently ≈ {resolvedSatStr} <0/>."
+
+#: src/pages/Config.tsx
+#~ msgid "Full wallet balance per bid. Currently ≈ {resolvedSatStr} sat (capped at 1 BTC)."
+#~ msgstr "Full wallet balance per bid. Currently ≈ {resolvedSatStr} sat (capped at 1 BTC)."
+
+#: src/pages/Config.tsx
+#~ msgid "Full wallet balance per bid. Currently ≈ {resolvedSatStr} sat."
+#~ msgstr "Full wallet balance per bid. Currently ≈ {resolvedSatStr} sat."
 
 #: src/pages/Config.tsx
 msgid "genesis version"
@@ -3072,8 +3100,12 @@ msgid "The \"Backfill now\" button walks the full address history via Electrs an
 msgstr "The \"Backfill now\" button walks the full address history via Electrs and adds any historical Ocean coinbase payouts that aren't already recorded. Safe to run repeatedly."
 
 #: src/pages/Config.tsx
-msgid "The bid tracks the cheapest ask with enough depth for your target, plus a small premium. Two hard ceilings sit above that so the premium can never run away. Entered in sat/PH/day."
-msgstr "The bid tracks the cheapest ask with enough depth for your target, plus a small premium. Two hard ceilings sit above that so the premium can never run away. Entered in sat/PH/day."
+msgid "The bid tracks the cheapest ask with enough depth for your target, plus a small premium. Two hard ceilings sit above that so the premium can never run away. Entered in <0/>/PH/day."
+msgstr "The bid tracks the cheapest ask with enough depth for your target, plus a small premium. Two hard ceilings sit above that so the premium can never run away. Entered in <0/>/PH/day."
+
+#: src/pages/Config.tsx
+#~ msgid "The bid tracks the cheapest ask with enough depth for your target, plus a small premium. Two hard ceilings sit above that so the premium can never run away. Entered in sat/PH/day."
+#~ msgstr "The bid tracks the cheapest ask with enough depth for your target, plus a small premium. Two hard ceilings sit above that so the premium can never run away. Entered in sat/PH/day."
 
 #: src/pages/Config.tsx
 msgid "The BTC address Ocean TIDES credits payouts to. Editing this auto-updates the worker identity below."

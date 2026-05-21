@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-05-21
+
+### `[UI]` Use Satoshi symbol instead of "sat" text on the Config screen
+
+Replaced all plain "sat" / "sats" text with the Satoshi icon (Font Awesome kit) throughout the Config screen - budget field suffix, pricing field suffixes (sat/PH/day), pre-installation earnings suffix, budget description hints, and the Pricing section description. Matches the Status page's consistent use of the symbol. Updated en/nl/es catalogs.
+
 ## 2026-05-20
 
 ### `[Fix]` "All" shows all data in one click, not progressively
