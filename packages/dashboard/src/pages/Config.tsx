@@ -603,7 +603,7 @@ export function Config() {
       mutation.mutate(draft);
     }, AUTOSAVE_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
-  }, [draft, autoSave, isDirty, mutation]);
+  }, [draft, autoSave, isDirty, mutation.isPending, mutation.isError]);
 
   if (query.isError && query.error instanceof UnauthorizedError) {
     navigate('/login');

@@ -37,6 +37,7 @@ export class BtcPriceRefresher {
   private readonly clearIntervalFn: typeof clearInterval;
   private readonly log: (msg: string) => void;
   private timer: ReturnType<typeof setInterval> | null = null;
+  private inFlight = false;
 
   constructor(
     configRepo: ConfigRepo,
@@ -54,7 +55,9 @@ export class BtcPriceRefresher {
   start(): void {
     if (this.timer) return;
     this.timer = this.setIntervalFn(() => {
-      void this.runOnce();
+      if (this.inFlight) return;
+      this.inFlight = true;
+      this.runOnce().catch(() => {}).finally(() => { this.inFlight = false; });
     }, this.intervalMs);
   }
 

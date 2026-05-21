@@ -1,7 +1,7 @@
 import { Trans } from '@lingui/react/macro';
 import { t } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import type { AlertRow } from '../lib/api';
 
@@ -32,10 +32,12 @@ export function AlertToast({ alert, onDismiss, onActivate }: AlertToastProps) {
   const timeoutMs =
     isRecovery || alert.severity === 'INFO' ? INFO_TIMEOUT_MS : LOUD_TIMEOUT_MS;
 
+  const onDismissRef = useRef(onDismiss);
+  onDismissRef.current = onDismiss;
   useEffect(() => {
-    const handle = setTimeout(onDismiss, timeoutMs);
+    const handle = setTimeout(() => onDismissRef.current(), timeoutMs);
     return () => clearTimeout(handle);
-  }, [onDismiss, timeoutMs]);
+  }, [timeoutMs]);
 
   const borderCls = isRecovery
     ? 'border-l-emerald-500'

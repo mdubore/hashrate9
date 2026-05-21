@@ -199,25 +199,24 @@ export class SoloMinersRepo {
    * feed the Status card and by alert evaluators for the live read.
    */
   async latestSamples(): Promise<Map<number, SoloMinerSampleRow>> {
-    // SQLite + Kysely: subquery picking the max tick_at per device,
-    // then joining back to get the full row. Two queries is simpler
-    // than building a window-function chain.
-    const latestIds = await this.db
-      .selectFrom('solo_miner_samples')
-      .select((eb) => ['device_id', eb.fn.max<number>('tick_at').as('tick_at')])
-      .groupBy('device_id')
+    const rows = await this.db
+      .selectFrom('solo_miner_samples as s')
+      .innerJoin(
+        (eb) =>
+          eb
+            .selectFrom('solo_miner_samples')
+            .select((eb2) => ['device_id', eb2.fn.max<number>('tick_at').as('max_tick')])
+            .groupBy('device_id')
+            .as('latest'),
+        (join) =>
+          join
+            .onRef('s.device_id', '=', 'latest.device_id')
+            .onRef('s.tick_at', '=', 'latest.max_tick'),
+      )
+      .selectAll('s')
       .execute();
-    if (latestIds.length === 0) return new Map();
     const out = new Map<number, SoloMinerSampleRow>();
-    for (const { device_id, tick_at } of latestIds) {
-      const row = await this.db
-        .selectFrom('solo_miner_samples')
-        .selectAll()
-        .where('device_id', '=', device_id)
-        .where('tick_at', '=', tick_at)
-        .executeTakeFirst();
-      if (row) out.set(device_id, toSampleRow(row));
-    }
+    for (const row of rows) out.set(row.device_id, toSampleRow(row));
     return out;
   }
 

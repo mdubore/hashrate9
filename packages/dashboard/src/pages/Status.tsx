@@ -2450,7 +2450,7 @@ function FinancePanel({
     };
   }, [
     status.bids,
-    status.avg_delivered_ph_3h,
+    status.actual_spend_per_day_sat_3h,
     data?.ocean?.daily_estimate_sat,
     rangeData,
   ]);
@@ -3282,6 +3282,9 @@ function LinkRow({ k, v, href }: { k: string; v: string; href: string }) {
  * before shorter ones (bare + sat/PH/day) so we don't half-rewrite a
  * pair.
  */
+const RATE_RE = /(-?[\d,.]+)\s*(?:->|→|→)\s*(-?[\d,.]+)\s*sat\/(PH|EH)\/day|(-?[\d,.]+)\s*sat\/(PH|EH)\/day/g;
+const HR_RE = /(-?[\d,.]+)\s*(?:->|→|→)\s*(-?[\d,.]+)\s*(TH|PH|EH)\/s|(-?[\d,.]+)\s*(TH|PH|EH)\/s/g;
+
 function relabelSummary(
   s: string,
   denomination: ReturnType<typeof useDenomination>,
@@ -3318,8 +3321,9 @@ function relabelSummary(
   // alternative is listed first so the regex engine prefers it
   // when both could match (the engine is left-to-right + greedy
   // within the first alternative).
+  RATE_RE.lastIndex = 0;
   let out = s.replace(
-    /(-?[\d,.]+)\s*(?:->|→|→)\s*(-?[\d,.]+)\s*sat\/(PH|EH)\/day|(-?[\d,.]+)\s*sat\/(PH|EH)\/day/g,
+    RATE_RE,
     (
       _m,
       arrowA: string | undefined,
@@ -3343,8 +3347,9 @@ function relabelSummary(
   );
 
   // Hashrate pass: same idea.
+  HR_RE.lastIndex = 0;
   out = out.replace(
-    /(-?[\d,.]+)\s*(?:->|→|→)\s*(-?[\d,.]+)\s*(TH|PH|EH)\/s|(-?[\d,.]+)\s*(TH|PH|EH)\/s/g,
+    HR_RE,
     (
       _m,
       arrowA: string | undefined,

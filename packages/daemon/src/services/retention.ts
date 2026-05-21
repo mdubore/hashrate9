@@ -47,6 +47,7 @@ export class RetentionService {
   private readonly clearIntervalFn: typeof clearInterval;
   private readonly log: (msg: string) => void;
   private timer: ReturnType<typeof setInterval> | null = null;
+  private inFlight = false;
 
   constructor(
     configRepo: ConfigRepo,
@@ -70,9 +71,9 @@ export class RetentionService {
     if (this.timer) return;
     // Run once on boot so a just-upgraded daemon drops excess rows
     // immediately rather than waiting up to an hour.
-    void this.runOnce();
+    void this.guardedRun();
     this.timer = this.setIntervalFn(() => {
-      void this.runOnce();
+      void this.guardedRun();
     }, this.intervalMs);
   }
 
@@ -81,6 +82,12 @@ export class RetentionService {
       this.clearIntervalFn(this.timer);
       this.timer = null;
     }
+  }
+
+  private async guardedRun(): Promise<void> {
+    if (this.inFlight) return;
+    this.inFlight = true;
+    try { await this.runOnce(); } catch { /* logged inside runOnce */ } finally { this.inFlight = false; }
   }
 
   async runOnce(): Promise<{

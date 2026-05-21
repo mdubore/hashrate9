@@ -64,6 +64,8 @@ export class TelegramReceiver {
   private offset = 0;
   private running = false;
   private stopRequested = false;
+  private loopPromise: Promise<void> | null = null;
+  private abortCtl: AbortController | null = null;
 
   constructor(opts: TelegramReceiverOptions) {
     this.opts = opts;
@@ -73,12 +75,16 @@ export class TelegramReceiver {
     if (this.running) return;
     this.running = true;
     this.stopRequested = false;
-    void this.loop();
+    this.abortCtl = new AbortController();
+    this.loopPromise = this.loop();
   }
 
   async stop(): Promise<void> {
     this.stopRequested = true;
     this.running = false;
+    this.abortCtl?.abort();
+    await this.loopPromise?.catch(() => {});
+    this.loopPromise = null;
   }
 
   private log(msg: string): void {
@@ -114,9 +120,10 @@ export class TelegramReceiver {
     const fetchImpl = this.opts.fetchImpl ?? fetch;
     const url = `${TELEGRAM_API_BASE}/bot${bot_token}/getUpdates?timeout=${POLL_TIMEOUT_S}&offset=${this.offset}&allowed_updates=${encodeURIComponent('["callback_query"]')}`;
     const ctl = new AbortController();
-    // Slightly larger than POLL_TIMEOUT_S so we don't beat Telegram
-    // to the punch when no events are pending.
     const timer = setTimeout(() => ctl.abort(), (POLL_TIMEOUT_S + 5) * 1000);
+    // Link to the instance-level abort so stop() breaks the poll.
+    const onStopAbort = () => ctl.abort();
+    this.abortCtl?.signal.addEventListener('abort', onStopAbort);
     try {
       const res = await fetchImpl(url, { signal: ctl.signal });
       if (!res.ok) throw new Error(`getUpdates HTTP ${res.status}`);
@@ -125,6 +132,7 @@ export class TelegramReceiver {
       return json.result;
     } finally {
       clearTimeout(timer);
+      this.abortCtl?.signal.removeEventListener('abort', onStopAbort);
     }
   }
 

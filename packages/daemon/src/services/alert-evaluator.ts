@@ -944,12 +944,20 @@ export class AlertEvaluator {
     if (!this.axeOSPoller) return;
     const snapshot = this.axeOSPoller.getSnapshot();
     if (!snapshot.enabled) return;
+    const activeIds = new Set<number>();
     for (const entry of snapshot.entries) {
+      activeIds.add(entry.device.id);
       if (!entry.device.enabled) continue;
       await this.evaluateSoloOverheating(state, disabled, entry);
       await this.evaluateSoloZeroHashrate(state, disabled, entry);
       await this.evaluateSoloShareRejection(state, disabled, entry);
       await this.evaluateSoloStratumDrift(state, disabled, entry);
+    }
+    for (const id of this.soloShareHistory.keys()) {
+      if (!activeIds.has(id)) this.soloShareHistory.delete(id);
+    }
+    for (const id of this.soloShareRejectionLastFiredAt.keys()) {
+      if (!activeIds.has(id)) this.soloShareRejectionLastFiredAt.delete(id);
     }
   }
 

@@ -636,8 +636,9 @@ export const PriceChart = memo(function PriceChart({
       ...eventPrices,
     ];
     const hasPrice = priceSample.length > 0;
-    const priceMinRaw = hasPrice ? Math.min(...priceSample) : 0;
-    const priceMaxRaw = hasPrice ? Math.max(...priceSample) : 1;
+    let priceMinRaw = hasPrice ? Infinity : 0;
+    let priceMaxRaw = hasPrice ? -Infinity : 1;
+    if (hasPrice) { for (const v of priceSample) { if (v < priceMinRaw) priceMinRaw = v; if (v > priceMaxRaw) priceMaxRaw = v; } }
     const priceSpan = Math.max(1, priceMaxRaw - priceMinRaw);
 
     const yTicks = niceYTicks(
@@ -822,8 +823,9 @@ export const PriceChart = memo(function PriceChart({
       const valid = rightAxis.values.filter(
         (v): v is number => v !== null && Number.isFinite(v),
       );
-      const rmin = Math.min(...valid);
-      const rmax = Math.max(...valid);
+      let rmin = Infinity;
+      let rmax = -Infinity;
+      for (const v of valid) { if (v < rmin) rmin = v; if (v > rmax) rmax = v; }
       const rawSpan = rmax - rmin;
       // #164: the avg-overpay series can go negative (effective_rate
       // below fillable when the counter is undersettled in the window,

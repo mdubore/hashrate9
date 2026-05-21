@@ -471,13 +471,15 @@ export class PayoutObserver {
     }
   }
 
-  stop(): void {
+  async stop(): Promise<void> {
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
     if (this.rewardsTimer) clearInterval(this.rewardsTimer);
     this.rewardsTimer = null;
     if (this.backfillTimer) clearInterval(this.backfillTimer);
     this.backfillTimer = null;
+    await this.running?.catch(() => {});
+    await this.backfillRunning?.catch(() => {});
   }
 
   /**

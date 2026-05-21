@@ -110,11 +110,17 @@ export async function registerStatsRoute(
   deps: StatsDeps,
 ): Promise<void> {
   const cache = new Map<string, CachedStats>();
+  const CACHE_MAX = 50;
 
   app.get<{ Querystring: { range?: string; since?: string; until?: string } }>(
     '/api/stats',
     async (req): Promise<StatsResponse> => {
       const now = Date.now();
+      if (cache.size > CACHE_MAX) {
+        for (const [k, v] of cache) {
+          if (now - v.fetched_at >= CACHE_TTL_MS || cache.size > CACHE_MAX) cache.delete(k);
+        }
+      }
 
       // #169: arbitrary viewport path
       const parsedSince = Number.parseInt(req.query.since ?? '', 10);
@@ -195,10 +201,9 @@ async function computeMetrics(
   avg_settled_overpay_sat_per_ph_day: number | null;
   tick_count: number;
 }> {
-  // Use Kysely's raw SQL but inline the sinceMs literal so the CTE +
-  // window function works reliably across different SQLite/driver
-  // combos. Bound parameters inside CTEs can trip some prepared-
-  // statement parsers.
+  // Defensive: ensure the inlined values are safe integers.
+  if (!Number.isFinite(sinceMs)) throw new Error('sinceMs must be finite');
+  if (untilMs !== undefined && !Number.isFinite(untilMs)) throw new Error('untilMs must be finite');
   const queryText = `
     SELECT
       COUNT(*) AS tick_count,
@@ -480,24 +485,20 @@ async function computeAvgTimeToFill(
 
   if (events.length === 0) return null;
 
-  // For each event, find the first tick after it with delivered > 0
-  const fillTimes: number[] = [];
-  for (const ev of events) {
-    const firstFill = await db
-      .selectFrom('tick_metrics')
-      .select('tick_at')
-      .where('tick_at', '>', ev.occurred_at)
-      .where('delivered_ph', '>', 0)
-      .orderBy('tick_at', 'asc')
-      .limit(1)
-      .executeTakeFirst();
-
-    if (firstFill) {
-      fillTimes.push(firstFill.tick_at - ev.occurred_at);
-    }
-  }
-
-  return fillTimes.length > 0
-    ? fillTimes.reduce((a, b) => a + b, 0) / fillTimes.length
-    : null;
+  // Single pass: inline event timestamps into a VALUES clause and use
+  // a correlated subquery to find each one's first delivery tick.
+  // Event times are internally computed numbers (safe to interpolate).
+  const eventTimes = events.map((e) => e.occurred_at);
+  const valueRows = eventTimes.map((t) => `(${t})`).join(', ');
+  const raw = `
+    SELECT AVG(fill_ms) AS avg_fill_ms FROM (
+      SELECT ev.column1 AS evt,
+        (SELECT MIN(tick_at) FROM tick_metrics
+         WHERE tick_at > ev.column1 AND delivered_ph > 0) - ev.column1 AS fill_ms
+      FROM (VALUES ${valueRows}) AS ev
+    ) WHERE fill_ms IS NOT NULL
+  `;
+  const result = await sql.raw(raw).execute(db);
+  const row = (result as unknown as { rows: Array<{ avg_fill_ms: number | null }> }).rows?.[0];
+  return row?.avg_fill_ms ?? null;
 }

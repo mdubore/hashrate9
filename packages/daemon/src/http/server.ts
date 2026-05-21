@@ -162,6 +162,7 @@ export async function createHttpServer(deps: HttpServerDeps): Promise<HttpServer
   const rateBuckets = new Map<string, { count: number; resetAt: number }>();
   const RATE_WINDOW_MS = 60_000;
   const RATE_LIMIT = 300;
+  let lastRatePrune = Date.now();
   app.addHook('onRequest', (req, reply, done) => {
     if (!req.url.startsWith('/api/')) return done();
     const ip = req.ip;
@@ -175,6 +176,12 @@ export async function createHttpServer(deps: HttpServerDeps): Promise<HttpServer
     if (bucket.count > RATE_LIMIT) {
       reply.code(429).send({ error: 'too many requests' });
       return;
+    }
+    if (now - lastRatePrune > RATE_WINDOW_MS) {
+      lastRatePrune = now;
+      for (const [k, v] of rateBuckets) {
+        if (now >= v.resetAt) rateBuckets.delete(k);
+      }
     }
     done();
   });

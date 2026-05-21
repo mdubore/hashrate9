@@ -222,6 +222,20 @@ export function DenominationProvider({ children }: { children: ReactNode }) {
       hashrateUnit === 'TH' ? PH_PER_TH : hashrateUnit === 'EH' ? PH_PER_EH : 1;
     const hashrateSuffix = `${hashrateUnit}/s`;
 
+    // Pre-constructed Intl.NumberFormat instances for the default locale.
+    // Construction is ~0.1ms each; reusing avoids that cost on every
+    // formatter call (20+ per render).
+    const nfInt = new Intl.NumberFormat(defaultLocale, { maximumFractionDigits: 0 });
+    const nfUsd = new Intl.NumberFormat(defaultLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const nfBtc8 = new Intl.NumberFormat(defaultLocale, { minimumFractionDigits: 8, maximumFractionDigits: 8 });
+    const nfBtc4 = new Intl.NumberFormat(defaultLocale, { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+    const rateDigits = hashrateUnit === 'TH' ? 3 : 0;
+    const nfRate = new Intl.NumberFormat(defaultLocale, { minimumFractionDigits: rateDigits, maximumFractionDigits: rateDigits });
+    const hrDigits = hashrateUnit === 'TH' ? 1 : hashrateUnit === 'EH' ? 5 : 2;
+    const nfHr = new Intl.NumberFormat(defaultLocale, { minimumFractionDigits: hrDigits, maximumFractionDigits: hrDigits });
+    const pickNf = (fmt: Intl.NumberFormat, locale: string | undefined) =>
+      locale === defaultLocale || locale === undefined ? fmt : null;
+
     // Each formatter's `locale` parameter overrides the contextual
     // default; pass it when you specifically want a different locale
     // (e.g. forcing en-US in a copy-to-clipboard JSON payload).
@@ -230,10 +244,17 @@ export function DenominationProvider({ children }: { children: ReactNode }) {
     const formatSat = (sat: number | null, locale: string | undefined = defaultLocale): string => {
       if (sat === null) return '-';
       if (effectiveMode === 'usd' && btcPrice !== null) {
-        return formatUsd(satToUsd(sat, btcPrice), locale);
+        const n = (pickNf(nfUsd, locale) ?? new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })).format(satToUsd(sat, btcPrice));
+        return `$${n}`;
       }
-      if (effectiveMode === 'btc') return formatBtc(sat, locale);
-      return `${formatSatNumber(sat, locale)} sat`;
+      if (effectiveMode === 'btc') {
+        const btc = sat / SAT_PER_BTC;
+        const fmt = Math.abs(btc) < 1
+          ? (pickNf(nfBtc8, locale) ?? new Intl.NumberFormat(locale, { minimumFractionDigits: 8, maximumFractionDigits: 8 }))
+          : (pickNf(nfBtc4, locale) ?? new Intl.NumberFormat(locale, { minimumFractionDigits: 4, maximumFractionDigits: 4 }));
+        return `${fmt.format(btc)} ₿`;
+      }
+      return `${(pickNf(nfInt, locale) ?? new Intl.NumberFormat(locale, { maximumFractionDigits: 0 })).format(sat)} sat`;
     };
 
     const formatSatPerPhDay = (
@@ -247,24 +268,9 @@ export function DenominationProvider({ children }: { children: ReactNode }) {
       }
       if (effectiveMode === 'btc') {
         const btcRate = scaled / SAT_PER_BTC;
-        // Rates per TH/PH are tiny in BTC; per EH closer to a
-        // legible decimal. Use 8 decimals across the board for
-        // consistency between modes (the operator's eye snaps to
-        // the digit position rather than the magnitude).
-        return `${new Intl.NumberFormat(locale, {
-          minimumFractionDigits: 8,
-          maximumFractionDigits: 8,
-        }).format(btcRate)} ₿/${hashrateUnit}/day`;
+        return `${(pickNf(nfBtc8, locale) ?? new Intl.NumberFormat(locale, { minimumFractionDigits: 8, maximumFractionDigits: 8 })).format(btcRate)} ₿/${hashrateUnit}/day`;
       }
-      // sats: integer for PH/EH (whole-sat precision); for TH (1/1000
-      // of PH) three decimals keep adjacent ticks distinguishable on
-      // the price chart (a single sat/PH/day tick of spread maps to a
-      // 0.001 sat/TH/day step).
-      const fractionDigits = hashrateUnit === 'TH' ? 3 : 0;
-      return `${new Intl.NumberFormat(locale, {
-        minimumFractionDigits: fractionDigits,
-        maximumFractionDigits: fractionDigits,
-      }).format(scaled)} sat/${hashrateUnit}/day`;
+      return `${(pickNf(nfRate, locale) ?? new Intl.NumberFormat(locale, { minimumFractionDigits: rateDigits, maximumFractionDigits: rateDigits })).format(scaled)} sat/${hashrateUnit}/day`;
     };
 
     const formatHashrate = (
@@ -273,14 +279,7 @@ export function DenominationProvider({ children }: { children: ReactNode }) {
     ): string => {
       if (ph === null) return '-';
       const scaled = ph * hashrateMultiplier;
-      // TH wants integer-or-1-decimal (~1000x bigger than PH);
-      // PH wants 2 decimals (operator-native granularity);
-      // EH wants 4-5 decimals to keep small bids visible (1 PH = 0.001 EH).
-      const fractionDigits = hashrateUnit === 'TH' ? 1 : hashrateUnit === 'EH' ? 5 : 2;
-      return `${new Intl.NumberFormat(locale, {
-        minimumFractionDigits: fractionDigits,
-        maximumFractionDigits: fractionDigits,
-      }).format(scaled)} ${hashrateSuffix}`;
+      return `${(pickNf(nfHr, locale) ?? new Intl.NumberFormat(locale, { minimumFractionDigits: hrDigits, maximumFractionDigits: hrDigits })).format(scaled)} ${hashrateSuffix}`;
     };
 
     const rateSuffix =

@@ -36,6 +36,7 @@ export interface BlockVersionLookupOptions {
 }
 
 const NEGATIVE_CACHE_TTL_MS = 5 * 60_000;
+const MEM_CACHE_MAX = 500;
 
 export class BlockVersionService {
   private readonly db: Kysely<Database>;
@@ -83,8 +84,13 @@ export class BlockVersionService {
       this.negCache.set(hash, this.now());
       return null;
     }
+    if (this.memCache.size >= MEM_CACHE_MAX) {
+      const oldest = this.memCache.keys().next().value!;
+      this.memCache.delete(oldest);
+    }
     this.memCache.set(hash, version);
     this.negCache.delete(hash);
+    this.pruneNegCache();
     try {
       await this.db
         .insertInto('block_version_cache')
@@ -114,6 +120,13 @@ export class BlockVersionService {
       }
     }
     return null;
+  }
+
+  private pruneNegCache(): void {
+    const now = this.now();
+    for (const [hash, ts] of this.negCache) {
+      if (now - ts >= NEGATIVE_CACHE_TTL_MS) this.negCache.delete(hash);
+    }
   }
 
   private async warmCacheFromDb(): Promise<void> {
