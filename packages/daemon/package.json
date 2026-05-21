@@ -1,7 +1,7 @@
 {
   "name": "@hashrate-autopilot/daemon",
   "version": "0.1.0",
-  "description": "Control loop, HTTP API, and state store for the Braiins hashrate autopilot",
+  "description": "Control loop, HTTP API, and state store for the Hashrate Autopilot",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",

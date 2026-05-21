@@ -1,7 +1,7 @@
 {
   "name": "@hashrate-autopilot/dashboard",
   "version": "0.1.0",
-  "description": "React SPA for the Braiins hashrate autopilot",
+  "description": "React SPA for the Hashrate Autopilot",
   "private": true,
   "type": "module",
   "scripts": {

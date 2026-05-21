@@ -23,7 +23,7 @@ a complete path.
 ## Naming convention
 
 Every env-var is `BHA_<UPPER_SNAKE_CASE>` of the underlying schema
-field. The `BHA_` (Braiins Hashrate Autopilot) prefix avoids collision
+field. The `BHA_` prefix (historical, from early Braiins-only days) avoids collision
 with the unrelated `BITCOIN_RPC_*` env vars Umbrel and Start9 inject
 for bitcoind discovery - that integration is a separate concern, see
 issue #60.
@@ -179,4 +179,4 @@ prefix - they predate the override layer:
 | `DASHBOARD_STATIC` | `packages/dashboard/dist` | Path to built dashboard assets. |
 | `SECRETS_PATH` | `<repo>/.env.sops.yaml` | Override the SOPS file location. |
 | `DB_PATH` | `<repo>/data/state.db` | Override the SQLite path. |
-| `SOPS_AGE_KEY_FILE` | `~/.config/braiins-hashrate/age.key` | Age private key for SOPS decrypt. |
+| `SOPS_AGE_KEY_FILE` | `~/.config/hashrate-autopilot/age.key` | Age private key for SOPS decrypt. |

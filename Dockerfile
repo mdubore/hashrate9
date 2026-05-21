@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 #
-# Production image for the Braiins Hashrate Autopilot daemon (#58).
+# Production image for the Hashrate Autopilot daemon (#58).
 #
 # Builds the entire workspace (daemon + dashboard + clients) in a
 # builder stage, prunes dev deps, then assembles a minimal runtime

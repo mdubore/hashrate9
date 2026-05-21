@@ -343,7 +343,7 @@ async function getJson(
   const res = await fetchImpl(url, {
     headers: {
       accept: 'application/json',
-      'user-agent': 'braiins-hashrate-autopilot/0.1',
+      'user-agent': 'hashrate-autopilot/1.0',
     },
     signal: AbortSignal.timeout(10_000),
   });

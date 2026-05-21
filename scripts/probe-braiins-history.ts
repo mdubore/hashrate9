@@ -12,7 +12,7 @@
  * (deposits, withdrawals, fees, payouts). No mutations.
  *
  * Usage:
- *   SOPS_AGE_KEY_FILE=~/.config/braiins-hashrate/age.key \
+ *   SOPS_AGE_KEY_FILE=~/.config/hashrate-autopilot/age.key \
  *     pnpm tsx scripts/probe-braiins-history.ts
  */
 

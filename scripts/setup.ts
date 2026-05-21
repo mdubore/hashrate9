@@ -1,5 +1,5 @@
 /**
- * First-run setup CLI for the Braiins Hashrate autopilot.
+ * First-run setup CLI for the Hashrate Autopilot.
  *
  * Walks the operator through: installing the age key, seeding the sops
  * encryption policy, prompting for secrets + core config, and initialising
@@ -48,7 +48,7 @@ function resolvePaths(projectRoot: string): SetupPaths {
   const xdgConfig = process.env['XDG_CONFIG_HOME'] ?? `${homedir()}/.config`;
   return {
     projectRoot,
-    ageKey: `${xdgConfig}/braiins-hashrate/age.key`,
+    ageKey: `${xdgConfig}/hashrate-autopilot/age.key`,
     sopsPolicy: resolve(projectRoot, '.sops.yaml'),
     secretsFile: resolve(projectRoot, '.env.sops.yaml'),
     dbFile: resolve(projectRoot, 'data/state.db'),

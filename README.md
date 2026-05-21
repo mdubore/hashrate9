@@ -678,7 +678,7 @@ After cloning + installing dependencies (see Path C.1-C.2):
 pnpm run setup
 ```
 
-The legacy interactive CLI. Generates an `age` key at `~/.config/braiins-hashrate/age.key`, writes
+The legacy interactive CLI. Generates an `age` key at `~/.config/hashrate-autopilot/age.key`, writes
 a `.sops.yaml` policy, prompts for your tokens + core config, encrypts the secrets to
 `.env.sops.yaml`, and bootstraps `data/state.db`. Refuses to overwrite an existing setup unless you
 pass `--force`.
@@ -699,7 +699,7 @@ straight into operational mode.
 #### D.3. Editing the SOPS file later
 
 ```bash
-SOPS_AGE_KEY_FILE=~/.config/braiins-hashrate/age.key sops .env.sops.yaml
+SOPS_AGE_KEY_FILE=~/.config/hashrate-autopilot/age.key sops .env.sops.yaml
 ```
 
 The explicit `SOPS_AGE_KEY_FILE` is only needed if your `age` key isn't at the default `sops`
@@ -712,7 +712,7 @@ path on purpose so it doesn't collide with other `sops`-encrypted projects on th
 
 1. **Fresh setup on the new host**: clone, `pnpm install && pnpm build && pnpm run setup`. Independent
    `age` key + encrypted file per host.
-2. **Copy the secret bundle**: `scp` both `~/.config/braiins-hashrate/age.key` *and* `.env.sops.yaml`
+2. **Copy the secret bundle**: `scp` both `~/.config/hashrate-autopilot/age.key` *and* `.env.sops.yaml`
    from origin to target. `chmod 600` the age key after the copy.
 
 ## First-run wizard

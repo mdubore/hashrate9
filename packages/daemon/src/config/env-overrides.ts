@@ -14,7 +14,7 @@
  * "just set these env vars and run the container" a complete path.
  *
  * Naming convention: `BHA_<UPPER_SNAKE_FIELD_NAME>` for both config
- * and secret fields. `BHA_` (Braiins Hashrate Autopilot) prefix
+ * and secret fields. The `BHA_` prefix (historical, from early Braiins-only days)
  * keeps these out of collision with the unrelated `BITCOIN_RPC_*`
  * env vars Umbrel / Start9 inject for bitcoind discovery (#60).
  */

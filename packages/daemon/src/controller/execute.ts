@@ -178,7 +178,7 @@ async function executeLive(deps: ExecuteDeps, proposal: Proposal): Promise<Execu
             url: proposal.dest_pool_url,
             identity: proposal.dest_worker_name,
           },
-          memo: 'braiins-hashrate-autopilot',
+          memo: 'hashrate-autopilot',
         });
         await deps.ownedBidsRepo.insert({
           braiins_order_id: res.id,

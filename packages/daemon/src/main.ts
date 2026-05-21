@@ -72,7 +72,7 @@ const DASHBOARD_STATIC = process.env['DASHBOARD_STATIC'] ?? 'packages/dashboard/
 
 function defaultAgeKeyPath(): string {
   const xdg = process.env['XDG_CONFIG_HOME'] ?? `${homedir()}/.config`;
-  return `${xdg}/braiins-hashrate/age.key`;
+  return `${xdg}/hashrate-autopilot/age.key`;
 }
 
 interface BootDeps {

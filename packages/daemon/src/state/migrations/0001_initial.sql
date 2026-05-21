@@ -1,4 +1,4 @@
--- Initial schema for the Braiins Hashrate autopilot.
+-- Initial schema for the Hashrate Autopilot.
 -- Mirrors architecture §5. Applied exactly once; future changes go in
 -- 0002_*.sql and later migration files.
 
