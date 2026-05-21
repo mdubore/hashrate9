@@ -25,6 +25,28 @@ import { useFormatters, useTemperatureUnit } from '../lib/locale';
 
 const REFRESH_INTERVAL_MS = 5_000;
 
+// AxeOS Swarm color scheme, collapsed from device-model to ASIC chip.
+// AxeOS maps: Max(BM1397)=red, Ultra(BM1366)=purple, Supra(BM1368)=blue,
+// Gamma(BM1370)=green. We can't distinguish sub-variants (UltraHex=orange,
+// GammaTurbo=cyan) because we only know the chip, so we use the primary.
+const ASIC_CHIP_STYLE: Record<string, string> = {
+  BM1397: 'border-red-500/50 bg-red-500/10 text-red-400',
+  BM1366: 'border-purple-500/50 bg-purple-500/10 text-purple-400',
+  BM1368: 'border-blue-500/50 bg-blue-500/10 text-blue-400',
+  BM1370: 'border-green-500/50 bg-green-500/10 text-green-400',
+};
+const ASIC_CHIP_FALLBACK = 'border-slate-500/50 bg-slate-500/10 text-slate-400';
+
+function AsicChipBadge({ model }: { model: string | null }) {
+  if (!model) return null;
+  const style = ASIC_CHIP_STYLE[model] ?? ASIC_CHIP_FALLBACK;
+  return (
+    <span className={`ml-2 inline-block border rounded px-1 py-px leading-tight ${style}`}>
+      {model}
+    </span>
+  );
+}
+
 export function SoloMinersCard() {
   const { i18n } = useLingui();
   void i18n;
@@ -271,7 +293,7 @@ function DeviceRow({
         <div className="text-slate-200">{entry.device.label}</div>
         <div className="text-[10px] text-slate-500 font-mono">
           {entry.device.ip}
-          {entry.asic_model && <span className="ml-2">{entry.asic_model}</span>}
+          <AsicChipBadge model={entry.asic_model} />
         </div>
       </td>
       <td className="py-1.5 px-3 text-right font-mono">
@@ -434,7 +456,7 @@ function DeviceMobileCard({
           <div className="text-slate-200 truncate">{entry.device.label}</div>
           <div className="text-[10px] text-slate-500 font-mono truncate">
             {entry.device.ip}
-            {entry.asic_model && <span className="ml-2">{entry.asic_model}</span>}
+            <AsicChipBadge model={entry.asic_model} />
           </div>
         </div>
         <div className="text-[10px] text-slate-500 font-mono whitespace-nowrap">
