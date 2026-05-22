@@ -7,7 +7,7 @@ manifestVersion: 1
 id: rdouma-hashrate-autopilot
 category: bitcoin
 name: Hashrate Autopilot
-version: "1.7.7"
+version: "1.8.0"
 tagline: Autopilot for renting hashrate to mine on Ocean Mining
 icon: https://raw.githubusercontent.com/rdouma/hashrate-autopilot/main/assets/icon-512.png
 # Umbrel renders description literally - no YAML folding of soft
@@ -51,34 +51,26 @@ defaultPassword: ""
 submitter: Remco Douma
 submission: https://github.com/rdouma/hashrate-autopilot
 releaseNotes: |
-  v1.7.7 - chart UX polish, security hardening, major dependency upgrades.
+  v1.8.0 - turnkey Umbrel setup, solo best difficulty tracking, pool luck 30d, auto-cancel on Datum outage.
 
   NEW
-  - Click-to-focus scroll-wheel zoom: scroll wheel no longer hijacks page scrolling when the cursor passes over a chart. Click a chart to activate zoom; click outside or press Escape to deactivate. A subtle blue outline shows the focused chart.
-  - Viewport-scoped Y-axis: the hashrate chart Y-axis now scales to only the visible data, so out-of-view spikes don't inflate the axis and crush the visible detail.
-  - Debug API endpoint: GET /api/debug/dump (behind a Config toggle) returns the full daemon state as JSON for single-curl diagnostics.
-  - Daemon-offline gap bands: hatched overlay on both charts during periods where the daemon was not polling.
-  - Mobile-responsive bids table and improved layout for Config, Alerts, and chart legends on narrow screens.
-
-  SECURITY
-  - CodeQL fixes: prototype-pollution guard, SSRF scheme validation, ReDoS string-method replacements, per-IP rate limiting (100 req/min).
-
-  DEPS
-  - React 18-19, Lingui 5-6, Vite 6-8, Zod 3-4, react-router-dom 6-7, better-sqlite3 11-12, kysely 0.28-0.29, ESLint 9-10, Vitest 3-4, and 5+ other packages.
-
-  No migration; safe to upgrade or revert.
+  - Turnkey Umbrel setup: Bitcoin Core, Electrs, and Datum Gateway are now declared dependencies. All three auto-discover across Umbrel's shared Docker network - the wizard pre-fills every field, so a fresh install goes from zero to live dashboard in under a minute.
+  - Solo fleet best difficulty tracking: new right-axis option on the hashrate chart renders a running-max staircase with trophy markers at each record. Telegram notification on every new all-time high. Localized in EN/NL/ES.
+  - Pool luck 30d: new trailing window option alongside 24h and 7d, plus an all-time pool block count in the Ocean panel.
+  - Auto-cancel bids when Datum stratum is down: after 3 consecutive unreachable ticks the controller cancels active bids to stop spending on hashrate that cannot reach the pool. Resumes automatically on recovery.
+  - Color-coded ASIC chip badges in the Solo Miners section for quick visual identification of device generations.
+  - Drag-to-pan and scroll-wheel zoom on both charts with soft-snap to preset durations.
+  - Daemon-offline gap bands, debug API endpoint, mobile-responsive layout.
 
   FIXES
-  - Chart-marker cap now covers pool blocks and reward events (not just bid events); drops in priority order when over budget.
-  - Pool-block-credited Telegram defers until Ocean's unpaid endpoint catches up (was reporting pre-credit value).
-  - Alerts nav badge no longer counts auto-recovered alerts as unread.
-  - Chart right-axis ticks no longer show scientific notation when the series is flat at zero.
-  - Avg overpay (settled) chart uses the card's delta-weighted formula instead of the biased rate-minus-fillable approach.
-  - Pool URL field warns about dynamic-IP / DDNS implications.
-  - Pool-luck step-marker tooltip now reports the actual step value.
-  - BRAIINS panel keeps row labels visible during API outages. NEXT ACTION panel reserves space so height doesn't jump.
+  - Wizard now respects BHA_* env overrides (payout source, Electrs host/port) so Umbrel installs default to Electrs instead of requiring manual selection.
+  - Chart icons unified to Lucide library (box for pool blocks, pickaxe for retargets, trophy for best difficulty).
+  - Boot-time hashprice fetch retries up to 3 times to prevent false "Waiting for Ocean hashprice" on slow networks.
+  - Human-readable reason strings in bid event tooltips instead of internal enum values.
+  - Duplicate Telegram notification on first alert fire eliminated.
+  - Chart viewport fixes: "All" works in one click, zoom/drag from All no longer collapses, focus activates on click completion.
 
-  Four new migrations (0088-0091). Safe to upgrade.
+  New migrations (0088-0094). Safe to upgrade.
 
   v1.7.3 - Fahrenheit support for solo-miner temperatures.
 

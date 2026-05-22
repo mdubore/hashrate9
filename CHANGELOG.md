@@ -2,6 +2,10 @@
 
 ## 2026-05-22
 
+### `[Release]` v1.8.0
+
+Turnkey Umbrel setup (Bitcoin Core + Electrs + Datum as dependencies with auto-discovery), solo fleet best difficulty tracking with chart overlay and localized Telegram notifications, pool luck 30d window + all-time count, auto-cancel bids when Datum stratum is down, color-coded ASIC chip badges, Lucide icon consistency across all chart markers, drag-to-pan and scroll-wheel zoom, daemon-offline gap bands, debug API, and 20+ bug fixes including chart viewport stability and wizard env override support. New migrations 0088-0094.
+
 ### `[Feature]` Turnkey Umbrel setup: Bitcoin Core + Electrs as dependencies
 
 Declares Bitcoin Core, Electrs, and Datum Gateway as Umbrel app dependencies. On a fresh install Umbrel prompts to install all three, and the docker-compose.yml injects BHA_ELECTRS_HOST, BHA_ELECTRS_PORT, and BHA_PAYOUT_SOURCE=electrs so on-chain payout tracking works on first boot with zero wizard configuration. Bitcoin RPC auto-detects from Umbrel's standard APP_BITCOIN_* env vars, enabling BIP110 signalling detection.
