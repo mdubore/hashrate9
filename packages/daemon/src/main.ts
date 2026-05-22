@@ -662,21 +662,24 @@ async function bootOperational(
   // Boot-time hashprice fetch (issue #28). When the operator has
   // configured both a payout address and the dynamic cap, seed the
   // cache from Ocean before the tick loop starts so decide()'s first
-  // tick has a break-even reference available. If Ocean is down at
-  // boot, we log and continue - the cap gate in decide() will block
-  // trading until a later fetch succeeds, matching the operator's
-  // "until hashprice is known, all trades are off" requirement.
+  // tick has a break-even reference available. Retries up to 3 times
+  // with a 2s delay so a transient Ocean hiccup at boot doesn't leave
+  // the cache cold for the first tick (which fires immediately).
   if (cfg.btc_payout_address && cfg.max_overpay_vs_hashprice_sat_per_eh_day) {
-    try {
-      const stats = await oceanClient.fetchStats(cfg.btc_payout_address);
-      if (stats?.hashprice_sat_per_ph_day != null) {
-        hashpriceCache.set(stats.hashprice_sat_per_ph_day);
-        log(`hashprice: seeded from Ocean at boot (${stats.hashprice_sat_per_ph_day} sat/PH/day)`);
-      } else {
-        log('hashprice: Ocean fetched but returned no hashprice - dynamic cap gate will block trading until next fetch succeeds');
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const stats = await oceanClient.fetchStats(cfg.btc_payout_address);
+        if (stats?.hashprice_sat_per_ph_day != null) {
+          hashpriceCache.set(stats.hashprice_sat_per_ph_day);
+          log(`hashprice: seeded from Ocean at boot (${stats.hashprice_sat_per_ph_day} sat/PH/day)`);
+          break;
+        }
+        log(`hashprice: Ocean returned no hashprice (attempt ${attempt}/3)`);
+      } catch (err) {
+        log(`hashprice: boot fetch failed (attempt ${attempt}/3): ${(err as Error)?.message ?? err}`);
       }
-    } catch (err) {
-      log(`hashprice: boot fetch failed (${(err as Error)?.message ?? err}) - dynamic cap gate will block trading until next fetch succeeds`);
+      if (attempt < 3) await new Promise((r) => setTimeout(r, 2000));
+      else log('hashprice: all boot attempts exhausted - dynamic cap gate will block trading until next fetch succeeds');
     }
   }
 
