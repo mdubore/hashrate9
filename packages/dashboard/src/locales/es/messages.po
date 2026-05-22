@@ -514,10 +514,6 @@ msgstr "mejor oferta"
 msgid "Best diff"
 msgstr "Mejor diff"
 
-#: src/pages/Status.tsx
-msgid "best difficulty"
-msgstr "mejor dificultad"
-
 #: src/pages/Config.tsx
 msgid "Beta-exit detected"
 msgstr "Beta-exit detectado"
@@ -2891,6 +2887,10 @@ msgstr "Señaliza BIP 110 (soft fork de Reduced Data)"
 #: src/pages/Login.tsx
 msgid "signing in…"
 msgstr "iniciando sesión…"
+
+#: src/pages/Status.tsx
+msgid "solo best difficulty"
+msgstr "solo mejor dificultad"
 
 #: src/pages/Status.tsx
 msgid "solo device count"

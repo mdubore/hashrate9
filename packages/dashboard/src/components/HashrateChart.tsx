@@ -642,7 +642,7 @@ export const HashrateChart = memo(function HashrateChart({
               if (v >= 1e3) return `${(v / 1e3).toFixed(1)}K`;
               return v.toFixed(0);
             },
-            axisLabel: 'best difficulty',
+            axisLabel: 'solo best difficulty',
             stroke: '#c084fc',
           };
         }

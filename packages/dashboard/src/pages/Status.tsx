@@ -486,7 +486,7 @@ export function Status() {
                 <option value="solo_hashrate">{t`solo hashrate`}</option>
                 <option value="solo_device_count">{t`solo device count`}</option>
                 <option value="solo_max_temp">{t`solo max temp`}</option>
-                <option value="solo_best_diff">{t`best difficulty`}</option>
+                <option value="solo_best_diff">{t`solo best difficulty`}</option>
               </>
             )}
           </select>
