@@ -2,6 +2,10 @@
 
 ## 2026-05-22
 
+### `[Release]` v1.8.1
+
+Hot-fix on v1.8.0: replace hand-drawn pool-block cube with Lucide box icon on the price chart (the hashrate chart was already fixed in v1.8.0 but the price chart was missed).
+
 ### `[Release]` v1.8.0
 
 Turnkey Umbrel setup (Bitcoin Core + Electrs + Datum as dependencies with auto-discovery), solo fleet best difficulty tracking with chart overlay and localized Telegram notifications, pool luck 30d window + all-time count, auto-cancel bids when Datum stratum is down, color-coded ASIC chip badges, Lucide icon consistency across all chart markers, drag-to-pan and scroll-wheel zoom, daemon-offline gap bands, debug API, and 20+ bug fixes including chart viewport stability and wizard env override support. New migrations 0088-0094.
