@@ -205,7 +205,7 @@ export async function createElectrsClient(config: ElectrsConfig): Promise<Electr
     },
     async getBlockTimeByHeight(height: number): Promise<number> {
       const headerHex = await call<string>('blockchain.block.header', [height]);
-      // 80-byte header layout (Bitcoin core): version(4) + prev_hash(32)
+      // 80-byte block header layout: version(4) + prev_hash(32)
       // + merkle_root(32) + time(4) + bits(4) + nonce(4). Time field
       // sits at byte offset 68, little-endian uint32 (unix epoch).
       if (typeof headerHex !== 'string' || headerHex.length < 160) {
