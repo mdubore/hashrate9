@@ -468,9 +468,10 @@ function MiningStep({
         </div>
       </Section>
       <Section title={t`Pool destination (where Braiins delivers)`}>
-        <Field label={t`Pool URL`} hint={t`Stratum URL for your Datum gateway or pool.`}>
+        <Field label={t`Pool URL`} hint={t`Publicly reachable stratum URL for your Datum gateway or pool (e.g. stratum+tcp://myhost.example.com:23334). If you use a DDNS service, enter your static hostname here - Hashrate Autopilot has built-in DDNS support you can configure later from the Config page.`}>
           <input
             type="text"
+            placeholder="stratum+tcp://your-public-host:23334"
             value={form.destination_pool_url}
             onChange={(e) => update('destination_pool_url', e.target.value)}
             className={textInputCss}
@@ -599,7 +600,7 @@ function MiningStep({
             <p className="text-xs text-slate-500">
               <Trans>
                 Default Electrs port is 50001 (TCP). On Umbrel the in-cluster hostname is typically
-                <code> 10.21.21.10</code> or similar - check the Electrs app's connection details.
+                <code> electrs_electrs_1</code>.
               </Trans>
             </p>
           </div>

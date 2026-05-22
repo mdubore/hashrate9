@@ -116,12 +116,13 @@ export async function createSetupModeServer(
     const envPayoutSource = env['BHA_PAYOUT_SOURCE']?.trim() || null;
     const envElectrsHost = env['BHA_ELECTRS_HOST']?.trim() || null;
     const envElectrsPort = env['BHA_ELECTRS_PORT']?.trim() || null;
+    const envDatumApiUrl = env['BHA_DATUM_API_URL']?.trim() || null;
     return {
       has_existing_config: existing !== null,
       has_existing_secrets: await deps.secretsRepo.exists(),
       defaults: {
         ...APP_CONFIG_DEFAULTS,
-        destination_pool_url: 'stratum+tcp://datum.local:23334',
+        destination_pool_url: '',
         destination_pool_worker_name: '',
         btc_payout_address: '',
         bitcoind_rpc_url: detected.url ?? APP_CONFIG_DEFAULTS.bitcoind_rpc_url,
@@ -130,6 +131,7 @@ export async function createSetupModeServer(
         electrs_host: envElectrsHost ?? APP_CONFIG_DEFAULTS.electrs_host,
         electrs_port: envElectrsPort ? Number(envElectrsPort) : APP_CONFIG_DEFAULTS.electrs_port,
         payout_source: envPayoutSource ?? (detected.url ? 'bitcoind' : APP_CONFIG_DEFAULTS.payout_source),
+        datum_api_url: envDatumApiUrl ?? APP_CONFIG_DEFAULTS.datum_api_url,
       },
       current_config: existing,
       detected_bitcoind: detected,
@@ -148,7 +150,12 @@ export async function createSetupModeServer(
       });
       return;
     }
-    const { config, secrets } = parsed.data;
+    const { config: parsedConfig, secrets } = parsed.data;
+
+    const envDatum = process.env['BHA_DATUM_API_URL']?.trim() || null;
+    const config = envDatum && !parsedConfig.datum_api_url
+      ? { ...parsedConfig, datum_api_url: envDatum }
+      : parsedConfig;
 
     deps.log?.('setup: writing config + secrets to db');
     await deps.configRepo.upsert(config);

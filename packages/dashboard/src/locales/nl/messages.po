@@ -1094,8 +1094,8 @@ msgid "Default 50001."
 msgstr "Standaard 50001."
 
 #: src/pages/Setup.tsx
-msgid "Default Electrs port is 50001 (TCP). On Umbrel the in-cluster hostname is typically<0> 10.21.21.10</0> or similar - check the Electrs app's connection details."
-msgstr "Standaard Electrs-poort is 50001 (TCP). Op Umbrel is de hostnaam binnen het cluster meestal<0> 10.21.21.10</0> of vergelijkbaar - controleer de verbindingsgegevens van de Electrs-app."
+msgid "Default Electrs port is 50001 (TCP). On Umbrel the in-cluster hostname is typically<0> electrs_electrs_1</0>."
+msgstr "Standaard Electrs-poort is 50001 (TCP). Op Umbrel is de hostnaam binnen het cluster meestal<0> electrs_electrs_1</0>."
 
 #: src/pages/Config.tsx
 msgid "Delete this device permanently. To pause without deleting, uncheck the box at the left of the row."
@@ -2998,8 +2998,8 @@ msgid "stratum reachable"
 msgstr "stratum bereikbaar"
 
 #: src/pages/Setup.tsx
-msgid "Stratum URL for your Datum gateway or pool."
-msgstr "Stratum-URL voor je Datum-gateway of pool."
+msgid "Publicly reachable stratum URL for your Datum gateway or pool (e.g. stratum+tcp://myhost.example.com:23334). If you use a DDNS service, enter your static hostname here - Hashrate Autopilot has built-in DDNS support you can configure later from the Config page."
+msgstr "Publiek bereikbare stratum-URL voor je Datum-gateway of pool (bijv. stratum+tcp://mijnhost.voorbeeld.nl:23334). Als je een DDNS-dienst gebruikt, vul hier je vaste hostnaam in - Hashrate Autopilot heeft ingebouwde DDNS-ondersteuning die je later kunt instellen via de Config-pagina."
 
 #: src/pages/Config.tsx
 msgid "Subnet to scan (CIDR). Leave blank to auto-detect from the daemon's interface - required on Umbrel."

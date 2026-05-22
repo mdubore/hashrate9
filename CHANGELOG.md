@@ -14,6 +14,10 @@ Hot-fix on v1.8.0: replace hand-drawn pool-block cube with Lucide box icon on th
 
 Turnkey Umbrel setup (Bitcoin Core + Electrs + Datum as dependencies with auto-discovery), solo fleet best difficulty tracking with chart overlay and localized Telegram notifications, pool luck 30d window + all-time count, auto-cancel bids when Datum stratum is down, color-coded ASIC chip badges, Lucide icon consistency across all chart markers, drag-to-pan and scroll-wheel zoom, daemon-offline gap bands, debug API, and 20+ bug fixes including chart viewport stability and wizard env override support. New migrations 0088-0094.
 
+### `[Fix]` Wizard: fix Electrs help text, blank Pool URL default, auto-configure Datum API
+
+Corrected the Electrs host help text from the wrong IP (10.21.21.10) to the actual Docker hostname (electrs_electrs_1). Changed the Pool URL default from the unreachable datum.local to an empty field with a placeholder and hint explaining that the URL must be publicly reachable, with a note about DDNS support in Config. Added BHA_DATUM_API_URL env override to the wizard - the Datum API URL is now written to the DB during setup so the Datum Gateway panel works on first boot without manual configuration.
+
 ### `[Feature]` Turnkey Umbrel setup: Bitcoin Core + Electrs as dependencies
 
 Declares Bitcoin Core, Electrs, and Datum Gateway as Umbrel app dependencies. On a fresh install Umbrel prompts to install all three, and the docker-compose.yml injects BHA_ELECTRS_HOST, BHA_ELECTRS_PORT, and BHA_PAYOUT_SOURCE=electrs so on-chain payout tracking works on first boot with zero wizard configuration. Bitcoin RPC auto-detects from Umbrel's standard APP_BITCOIN_* env vars, enabling BIP110 signalling detection.
