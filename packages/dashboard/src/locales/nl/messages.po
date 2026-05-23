@@ -336,7 +336,6 @@ msgstr "Altijd dry-run (veiligst)"
 msgid "Always live (for trusted deployments)"
 msgstr "Altijd live (voor vertrouwde installaties)"
 
-#: src/components/HashrateChart.tsx
 #: src/components/PriceChart.tsx
 msgid "amount"
 msgstr "bedrag"
@@ -2174,12 +2173,10 @@ msgstr "Aan"
 msgid "On target - bid at fillable + overpay."
 msgstr "Op doel - bod gelijk aan vulbaar + toeslag."
 
-#: src/components/HashrateChart.tsx
 #: src/components/PriceChart.tsx
 msgid "on-chain payout"
 msgstr "on-chain uitbetaling"
 
-#: src/components/HashrateChart.tsx
 #: src/components/PriceChart.tsx
 msgid "ON-CHAIN PAYOUT"
 msgstr "UITBETALING ON-CHAIN"
