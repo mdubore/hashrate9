@@ -826,12 +826,16 @@ export const PriceChart = memo(function PriceChart({
     let rightYMin = 0;
     let rightYMax = 1;
     if (hasRightAxis && rightAxis) {
-      const valid = rightAxis.values.filter(
-        (v): v is number => v !== null && Number.isFinite(v),
-      );
       let rmin = Infinity;
       let rmax = -Infinity;
-      for (const v of valid) { if (v < rmin) rmin = v; if (v > rmax) rmax = v; }
+      for (let i = 0; i < rightAxis.values.length; i += 1) {
+        const raw = rightAxis.values[i];
+        if (raw === null || raw === undefined || !Number.isFinite(raw)) continue;
+        const t = points[i]!.tick_at;
+        if (t < minX || t > maxX) continue;
+        if (raw < rmin) rmin = raw;
+        if (raw > rmax) rmax = raw;
+      }
       const rawSpan = rmax - rmin;
       // #164: the avg-overpay series can go negative (effective_rate
       // below fillable when the counter is undersettled in the window,

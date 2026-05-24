@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-05-24
+
+### `[Fix]` Chart right-axis scale inflated by out-of-viewport data points
+
+The right-axis Y-domain on both the Price and Hashrate charts was computed from all data points in the dataset, not just those within the visible time window. When earlier points had significantly different values (e.g. unpaid sat before a payout reset), the axis scaled to accommodate invisible data, compressing the visible line into a small band. Both charts now filter to the viewport before computing the right-axis domain, matching how the Hashrate chart already handled its left axis.
+
 ## 2026-05-23
 
 ### `[Feature]` On-chain payout gem markers on the Price chart (#207)

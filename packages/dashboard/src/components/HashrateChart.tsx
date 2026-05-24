@@ -732,12 +732,15 @@ export const HashrateChart = memo(function HashrateChart({
     let shareLogYMin = 0;
     let shareLogYMax = 1;
     if (hasShareLog) {
-      const validShareLogs = shareLogYs.filter(
-        (v): v is number => v !== null && Number.isFinite(v),
-      );
       let slMin = Infinity;
       let slMax = -Infinity;
-      for (const v of validShareLogs) { if (v < slMin) slMin = v; if (v > slMax) slMax = v; }
+      for (let i = 0; i < shareLogYs.length; i += 1) {
+        const raw = shareLogYs[i];
+        if (raw === null || raw === undefined || !Number.isFinite(raw)) continue;
+        if (xs[i]! < minX || xs[i]! > maxX) continue;
+        if (raw < slMin) slMin = raw;
+        if (raw > slMax) slMax = raw;
+      }
       if (rightAxis?.tickHint === 'integer') {
         // Integer-tick path: build the band on integer boundaries so
         // a constant series (e.g. device_count = 3) doesn't collapse
