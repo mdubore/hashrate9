@@ -181,7 +181,7 @@ Full design: [`docs/spec.md`](docs/spec.md) · [`docs/architecture.md`](docs/arc
   renders as a **blue box**. **Difficulty retargets** show a **violet pickaxe**. **Solo fleet best difficulty records** show a **gold trophy** with a dashed vertical line. Tooltip header label and colour follow the same precedence (own > BIP 110 >
   default). Detection happens daemon-side via your bitcoind RPC (`getblockheader`) or Electrs
   (`blockchain.block.header`) - no third-party API. A separate **BIP 110 scan card** on the Status page
-  lets you scan the last N blocks (configurable up to 2016) and see every signaling block with timestamp,
+  lets you scan the last N blocks (window selector: 2016 / 4032 / 8064 / 16128 / 32256) and see every signaling block with timestamp,
   version bits, and explorer link. Block markers and retarget icons are mirrored onto the price chart, so the operator sees these events in
   context on both charts. **On-chain payout gems** (emerald) appear at the top of the Price chart with a dashed vertical line whenever a payout is detected on-chain; clicking opens a tooltip with block height, date, amount, and a block-explorer deep-link. A purple dot on the unpaid-earnings line marks the earlier moment Ocean debited the balance (payout initiated), bridging the visual gap between the unpaid drop and the on-chain confirmation.
 - **Telegram notifications** - three severity tiers across eighteen event classes. **IMPORTANT** (red, with a
@@ -317,7 +317,7 @@ drop, two metallic clanks, an "Ocean mining found a block" voice clip - or uploa
 
 ![Config → Display & Logging tab](docs/images/config-display-and-logging.jpg)
 
-**Display** (number and date format - sticky per browser, independent of the UI language), **Block
+**Display** (number format, date layout, and temperature unit (°C / °F) - sticky per browser, independent of the UI language; database and Telegram stay in °C, conversion at the dashboard boundary only), **Block
 explorer** (separate URL templates for blocks and transactions; preset buttons for mempool.space /
 blockstream.info / blockchair / btcscan / btc.com set both at once, custom self-hosted explorers can fill
 in either independently), **Chart smoothing** (rolling-mean window per-source on the hashrate chart plus

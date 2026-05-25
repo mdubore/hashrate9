@@ -1,4 +1,4 @@
-# Hashrate Autopilot - Architecture (v1.9)
+# Hashrate Autopilot - Architecture (v1.10)
 
 > Concretion of `docs/spec.md` into module boundaries, data flow, deployment shape, and a
 > milestone-ordered build plan.
@@ -17,9 +17,12 @@
 > solo_miner_samples, braiins_deposits, block_version_cache), ~30 new config columns, the /alerts
 > dashboard page, and corrects the retention defaults to match the running schema. v1.8
 > (2026-05-21) adds migrations 0093-0094: pool luck 30d columns on tick_metrics (#201)
-> and the solo_best_difficulty_events table + runtime_state high-water mark (#204). **v1.9** (this
-> revision, 2026-05-22) corrects the §5 DDL for five tables (pool_blocks, bid_events,
+> and the solo_best_difficulty_events table + runtime_state high-water mark (#204). v1.9
+> (2026-05-22) corrects the §5 DDL for five tables (pool_blocks, bid_events,
 > braiins_deposits, solo_miners, solo_miner_samples) that had drifted from the actual migrations.
+> **v1.10** (this revision, 2026-05-25) fixes `tick_metrics.network_difficulty` type (REAL -> INTEGER
+> to match migration 0053), adds missing columns (`paid_total_sat` from 0066, `block_found_sound*`
+> from 0052/0061), and removes the dropped `operator_available` column from `runtime_state`.
 
 ## 1. High-level shape
 
@@ -301,6 +304,11 @@ CREATE TABLE config (
   solo_zero_hashrate_alert_after_minutes INTEGER NOT NULL DEFAULT 5,
   solo_share_rejection_threshold_pct INTEGER NOT NULL DEFAULT 10,
   solo_share_rejection_window_minutes INTEGER NOT NULL DEFAULT 60,
+  -- Block-found sound (#88, migrations 0052/0061)
+  block_found_sound TEXT NOT NULL DEFAULT 'off',                     -- 'off' | bundled name | 'custom'
+  block_found_sound_custom_blob BLOB,                                -- operator-uploaded MP3, <=200 KB
+  block_found_sound_custom_mime TEXT,
+  block_found_sound_custom_filename TEXT,                             -- migration 0061
   -- Debug API (#179, migration 0092)
   debug_api_enabled INTEGER NOT NULL DEFAULT 0,                      -- bool (0 | 1)
   -- Legacy columns still in the table (kept for NOT NULL + historical
@@ -315,7 +323,7 @@ CREATE TABLE runtime_state (
   id INTEGER PRIMARY KEY CHECK (id = 1),
   run_mode TEXT NOT NULL,                 -- 'DRY_RUN' | 'LIVE' | 'PAUSED'
   action_mode TEXT NOT NULL,              -- Legacy v1.0 state - always 'NORMAL' in v2.x
-  operator_available INTEGER NOT NULL,    -- Legacy v1.0 flag - always 0 in v2.x
+  -- operator_available dropped in migration 0083 (#148)
   last_tick_at INTEGER,
   last_api_ok_at INTEGER,
   last_rpc_ok_at INTEGER,                 -- last successful bitcoind RPC call
@@ -383,7 +391,7 @@ CREATE TABLE tick_metrics (
                                           -- drives the per-day P&L panel, the effective-rate line,
                                           -- the UPTIME stat, and counter-derived delivered hashrate
   -- #89 (migrations 0053-0054): extended capture from already-polled sources
-  network_difficulty REAL,                -- Ocean /pool_stat
+  network_difficulty INTEGER,              -- Ocean /pool_stat
   estimated_block_reward_sat INTEGER,     -- subsidy + fees, sat
   pool_hashrate_ph REAL,                  -- Ocean total pool hashrate, PH/s
   pool_active_workers INTEGER,            -- Ocean active worker count
@@ -405,6 +413,7 @@ CREATE TABLE tick_metrics (
   pool_luck_30d REAL,                     -- 30d trailing luck (migration 0093, #201)
   pool_blocks_30d_count INTEGER,          -- pool blocks observed in last 30d
   pool_hashrate_ph_avg_30d REAL,          -- trailing 30d mean of pool_hashrate_ph
+  paid_total_sat INTEGER,                 -- cumulative on-chain payouts to payout address (migration 0066, #102)
   braiins_reachable INTEGER,              -- 1 = API reachable this tick, 0 = unreachable; NULL pre-0091
   run_mode TEXT NOT NULL,
   action_mode TEXT NOT NULL
@@ -816,3 +825,4 @@ Remaining work is tracked in GitHub issues.
 | 1.7     | 2026-05-18 | Comprehensive catch-up with spec v2.5 (two weeks of feature work since v1.6). §1: replaced "no external notification channel" with description of the Telegram subsystem (NotificationSink + TelegramSink + AlertEvaluator + TelegramReceiver inline-ack). §2: added debug-dump, ddns, solo-miners routes; confirmed /alerts in dashboard pages. §4: added /alerts and /setup to routing list. §5 config schema: added ~30 columns (Telegram 9, DDNS 5, solo-mining 5, alert thresholds 3, payout features 2, display/chart 3, debug API 1); fixed retention defaults (tick_metrics and eventful decisions are 0 = forever, not 365). §5 new tables: pool_blocks, bid_events, block_version_cache, braiins_deposits, solo_miners, solo_miner_samples. No control-loop shape changes. |
 | 1.8     | 2026-05-21 | Migrations 0093-0094 catch-up (spec v2.7). §5 tick_metrics: added `pool_luck_30d`, `pool_blocks_30d_count`, `pool_hashrate_ph_avg_30d` (#201). §5 runtime_state: added `solo_best_difficulty_all_time` (#204). §5 new table: `solo_best_difficulty_events` (#204). Migration summary extended with a 0093-0094 paragraph. No control-loop shape changes. |
 | 1.9     | 2026-05-22 | §5 DDL accuracy pass: rewrote `pool_blocks` (height-keyed PK, correct column names), `bid_events` (occurred_at, source, old/new price split, overpay snapshot columns from 0077), `braiins_deposits` (tx_id, integer status, notified_* idempotency flags, address column), `solo_miners` (UNIQUE ip, updated_at), and `solo_miner_samples` (composite PK, 20+ columns from actual migration 0085-0087 including reachable, voltage, current, asic_model, version, stratum_port/user). No code or control-loop shape changes - pure documentation accuracy. |
+| 1.10    | 2026-05-25 | §5 DDL fixes from /check-code audit: `tick_metrics.network_difficulty` type corrected from REAL to INTEGER (matches migration 0053); added missing `paid_total_sat` (0066), `block_found_sound*` (0052/0061) columns; removed dropped `operator_available` from `runtime_state` (0083). No code changes. |
