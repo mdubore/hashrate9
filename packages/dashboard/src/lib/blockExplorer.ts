@@ -28,5 +28,8 @@ export function applyExplorerTemplate(
   if (ctx.height !== undefined) {
     url = url.split('{height}').join(String(ctx.height));
   }
+  if (url && !/^https?:\/\/|^\/\//i.test(url)) {
+    url = `http://${url}`;
+  }
   return url;
 }

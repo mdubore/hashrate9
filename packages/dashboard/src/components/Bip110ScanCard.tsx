@@ -184,16 +184,15 @@ function SignalingBlockTable({
             const totalRewardSat =
               b.total_fees_sat !== null ? b.subsidy_sat + b.total_fees_sat : null;
             return (
-              <tr key={b.hash} className="text-slate-300 border-t border-slate-800">
+              <tr key={b.hash} className="text-slate-300 border-t border-slate-800 align-top">
                 <td className="py-2 pr-4 text-amber-400 font-semibold">
                   {formatNumber(b.height, {}, intlLocale)}
                 </td>
                 <td className="py-2 pr-4">
                   {b.pool_tag ? <PoolBadge tag={b.pool_tag} /> : <span className="text-slate-600">-</span>}
                 </td>
-                <td className="py-2 pr-4">
-                  <div>{fmtTimestamp(b.time_ms)}</div>
-                  <div className="text-slate-500">{formatAgeMinutes(b.time_ms)}</div>
+                <td className="py-2 pr-4" title={formatAgeMinutes(b.time_ms)}>
+                  {fmtTimestamp(b.time_ms)}
                 </td>
                 <td className="py-2 pr-4 text-right">
                   {totalRewardSat !== null ? `₿ ${formatBtc(totalRewardSat)}` : '-'}
