@@ -1431,7 +1431,7 @@ export const PriceChart = memo(function PriceChart({
   }, [chartData, showRewardMarkers, rewardEvents, points]);
 
   const visiblePoolBlockMarkers = useMemo(() => {
-    const empty: Array<{ block: OurBlockMarker; cx: number; cy: number }> = [];
+    const empty: Array<{ block: OurBlockMarker; cx: number; cy: number; blockCx: number }> = [];
     if (!chartData || !showPoolBlockMarkers || !chartData.rightAxis) return empty;
     const { dataMinX, dataMaxX, xScale, rightYScale, rightAxis } = chartData;
     let lastNonNull: number | null = null;
@@ -1442,7 +1442,7 @@ export const PriceChart = memo(function PriceChart({
         break;
       }
     }
-    const out: Array<{ block: OurBlockMarker; cx: number; cy: number }> = [];
+    const out: typeof empty = [];
     // ourBlocks comes from /api/ocean newest-first, so sort ASC so the
     // two-pointer cursor walk lines up with `points` (also ASC).
     const sortedBlocks = [...ourBlocks].sort((a, b) => a.timestamp_ms - b.timestamp_ms);
@@ -1491,7 +1491,7 @@ export const PriceChart = memo(function PriceChart({
       }
       if (v === null) continue;
       const dotX = steppedIdx >= 0 ? points[steppedIdx]!.tick_at : b.timestamp_ms;
-      out.push({ block: b, cx: xScale(dotX), cy: rightYScale(v) });
+      out.push({ block: b, cx: xScale(dotX), cy: rightYScale(v), blockCx: xScale(b.timestamp_ms) });
     }
     return out;
   }, [chartData, showPoolBlockMarkers, ourBlocks, points]);
@@ -2068,7 +2068,7 @@ export const PriceChart = memo(function PriceChart({
         {/* Pool-block dots on the right-axis line. Click opens the
             same rich tooltip the Hashrate chart uses (reward, our
             share, BIP-110 signal, explorer link). */}
-        {visiblePoolBlockMarkers.map(({ block: b, cx, cy }) => {
+        {visiblePoolBlockMarkers.map(({ block: b, cx, cy, blockCx }) => {
           const fill = b.found_by_us ? '#fbbf24' : '#38bdf8';
           return (
             <g
@@ -2078,6 +2078,19 @@ export const PriceChart = memo(function PriceChart({
               onClick={onPoolBlockClick(b)}
               style={{ cursor: 'pointer' }}
             >
+              {Math.abs(cx - blockCx) > 2 && (
+                <line
+                  x1={blockCx}
+                  y1={cy}
+                  x2={cx}
+                  y2={cy}
+                  stroke={fill}
+                  strokeWidth="1"
+                  strokeDasharray="2 3"
+                  opacity="0.5"
+                  pointerEvents="none"
+                />
+              )}
               <circle
                 cx={cx}
                 cy={cy}

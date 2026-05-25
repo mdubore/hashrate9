@@ -978,6 +978,7 @@ export const HashrateChart = memo(function HashrateChart({
       event: PoolLuckStepEvent;
       cx: number;
       cy: number;
+      blockCx: number;
     }> = [];
     if (!chartData) return empty;
     if (
@@ -1054,6 +1055,7 @@ export const HashrateChart = memo(function HashrateChart({
           event: { kind, t, block, luckBefore, luckAfter, windowMs },
           cx: xScale(after.tick_at),
           cy: shareLogYScale(luckAfter),
+          blockCx: xScale(t),
         });
       }
     }
@@ -1371,7 +1373,7 @@ export const HashrateChart = memo(function HashrateChart({
             kinds use the same shape per operator preference; the
             tooltip tells direction. */}
         {rightAxis &&
-          visibleLuckStepMarkers.map(({ event, cx, cy }) => (
+          visibleLuckStepMarkers.map(({ event, cx, cy, blockCx }) => (
             <g
               key={`luckstep-${event.kind}-${event.block.height}`}
               onMouseEnter={onStepEnter(event)}
@@ -1379,6 +1381,19 @@ export const HashrateChart = memo(function HashrateChart({
               onClick={onStepClick(event)}
               style={{ cursor: 'pointer' }}
             >
+              {Math.abs(cx - blockCx) > 2 && (
+                <line
+                  x1={blockCx}
+                  y1={cy}
+                  x2={cx}
+                  y2={cy}
+                  stroke={rightAxis.stroke}
+                  strokeWidth="1"
+                  strokeDasharray="2 3"
+                  opacity="0.5"
+                  pointerEvents="none"
+                />
+              )}
               <circle
                 cx={cx}
                 cy={cy}
