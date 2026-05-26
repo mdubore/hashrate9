@@ -318,7 +318,7 @@ export function Bip110ScanCard(): React.JSX.Element {
         <>
           <div className="mt-4 flex items-baseline flex-wrap gap-y-1 rounded-lg border border-slate-700/50 bg-slate-800/40 px-4 py-2.5 text-sm font-mono">
             <span className="text-slate-500 text-xs mr-1.5">{t`tip`}</span>
-            <span className="text-amber-400 font-semibold">
+            <span className="text-slate-200 font-semibold">
               {data.tip_height !== null ? formatNumber(data.tip_height, {}, intlLocale) : '-'}
             </span>
             <Divider />
@@ -327,7 +327,7 @@ export function Bip110ScanCard(): React.JSX.Element {
             </span>
             <span className="text-slate-500 text-xs ml-1.5">{t`scanned`}</span>
             <Divider />
-            <span className={data.signaling_count > 0 ? 'text-emerald-400' : 'text-slate-200'}>
+            <span className="text-amber-400">
               {formatNumber(data.signaling_count, {}, intlLocale)}
             </span>
             <span className="text-slate-500 text-xs ml-1.5">{t`signaling`}</span>
@@ -341,15 +341,15 @@ export function Bip110ScanCard(): React.JSX.Element {
             {data.deployment ? (
               <>
                 <Divider />
-                <span className="text-sky-400">{data.deployment.status ?? '-'}</span>
-                {data.deployment.statistics && (
-                  <span className="text-slate-500 text-xs ml-1.5">
-                    {formatNumber(data.deployment.statistics.count, {}, intlLocale)}/
-                    {formatNumber(data.deployment.statistics.threshold, {}, intlLocale)}
-                    {data.deployment.bit !== null && (
-                      <> - {t`bit`} {data.deployment.bit}</>
-                    )}
+                {data.deployment.statistics ? (
+                  <span className="text-slate-200 text-xs">
+                    {formatNumber(data.deployment.statistics.count, {}, intlLocale)}{' '}
+                    <Trans>of</Trans>{' '}
+                    {formatNumber(data.deployment.statistics.threshold, {}, intlLocale)}{' '}
+                    <Trans>needed</Trans>
                   </span>
+                ) : (
+                  <span className="text-slate-200">{data.deployment.status ?? '-'}</span>
                 )}
               </>
             ) : (

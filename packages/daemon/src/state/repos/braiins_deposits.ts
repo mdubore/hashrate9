@@ -76,7 +76,7 @@ export class BraiinsDepositsRepo {
           address: args.address,
           tx_timestamp_ms: args.tx_timestamp_ms,
           credited_at_ms: creditedNow !== null
-            ? sql`COALESCE(braiins_deposits.credited_at_ms, ${creditedNow})`
+            ? sql`COALESCE(braiins_deposits.credited_at_ms, CASE WHEN braiins_deposits.last_seen_status = 1 THEN COALESCE(braiins_deposits.tx_timestamp_ms, ${creditedNow}) ELSE ${creditedNow} END)`
             : sql`braiins_deposits.credited_at_ms`,
         }),
       )

@@ -123,6 +123,7 @@ describe('openDatabase - migrations', () => {
       '0095_tick_metrics_total_balance.sql',
       '0096_deposits_tx_timestamp.sql',
       '0097_deposits_credited_at.sql',
+      '0098_fix_credited_at_backfill.sql',
     ]);
     expect(handle.migrations.skipped).toEqual([]);
   });

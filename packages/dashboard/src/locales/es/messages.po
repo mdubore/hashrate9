@@ -560,10 +560,6 @@ msgstr "Escaneo BIP 110"
 msgid "BIP 110 SIGNAL"
 msgstr "SEÑAL BIP 110"
 
-#: src/components/Bip110ScanCard.tsx
-msgid "bit"
-msgstr "bit"
-
 #: src/pages/Setup.tsx
 msgid "Bitcoin Knots (bitcoind RPC)"
 msgstr "Bitcoin Knots (bitcoind RPC)"
@@ -1920,6 +1916,10 @@ msgstr "Debe ser accesible desde internet (Braiins se conecta a ella). Puedes ca
 msgid "must contain a period - without it shares are uncredited on Ocean"
 msgstr "debe contener un punto - sin él las shares no se acreditan en Ocean"
 
+#: src/components/Bip110ScanCard.tsx
+msgid "needed"
+msgstr "necesarios"
+
 #: src/pages/Status.tsx
 msgid "net"
 msgstr "neto"
@@ -2140,6 +2140,10 @@ msgstr "La propia estimación de Ocean - el pool extrapola desde el hashrate de 
 #: src/pages/Status.tsx
 msgid "Ocean's Unpaid Earnings - what will land on-chain at the next payout. Threshold: {0} sat (~0.01 BTC)."
 msgstr "Ganancias no pagadas de Ocean - lo que llegará on-chain en el próximo pago. Umbral: {0} sat (~0.01 BTC)."
+
+#: src/components/Bip110ScanCard.tsx
+msgid "of"
+msgstr "de"
 
 #: src/pages/Config.tsx
 msgid "Off"
