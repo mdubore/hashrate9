@@ -9,7 +9,7 @@
  * the Price chart's deposit markers (#211).
  */
 
-import type { Kysely } from 'kysely';
+import { type Kysely, sql } from 'kysely';
 
 import type { Database } from '../types.js';
 
@@ -24,6 +24,7 @@ export interface BraiinsDepositRow {
   readonly first_seen_at_ms: number;
   readonly updated_at_ms: number;
   readonly tx_timestamp_ms: number | null;
+  readonly credited_at_ms: number | null;
   readonly notified_detected: boolean;
   readonly notified_available: boolean;
   readonly notified_returned: boolean;
@@ -49,6 +50,7 @@ export class BraiinsDepositsRepo {
    * CONFLICT DO UPDATE).
    */
   async upsertSeen(args: UpsertSeenArgs): Promise<BraiinsDepositRow> {
+    const creditedNow = args.status === 1 ? args.observed_at_ms : null;
     await this.db
       .insertInto('braiins_deposits')
       .values({
@@ -60,6 +62,7 @@ export class BraiinsDepositsRepo {
         first_seen_at_ms: args.observed_at_ms,
         updated_at_ms: args.observed_at_ms,
         tx_timestamp_ms: args.tx_timestamp_ms,
+        credited_at_ms: creditedNow,
         notified_detected: 0,
         notified_available: 0,
         notified_returned: 0,
@@ -72,6 +75,9 @@ export class BraiinsDepositsRepo {
           amount_sat: args.amount_sat,
           address: args.address,
           tx_timestamp_ms: args.tx_timestamp_ms,
+          credited_at_ms: creditedNow !== null
+            ? sql`COALESCE(braiins_deposits.credited_at_ms, ${creditedNow})`
+            : sql`braiins_deposits.credited_at_ms`,
         }),
       )
       .execute();
@@ -108,6 +114,7 @@ export class BraiinsDepositsRepo {
       first_seen_at_ms: row.first_seen_at_ms,
       updated_at_ms: row.updated_at_ms,
       tx_timestamp_ms: row.tx_timestamp_ms ?? null,
+      credited_at_ms: row.credited_at_ms ?? null,
       notified_detected: row.notified_detected === 1,
       notified_available: row.notified_available === 1,
       notified_returned: row.notified_returned === 1,
