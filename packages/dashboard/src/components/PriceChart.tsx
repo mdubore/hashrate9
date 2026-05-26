@@ -2267,6 +2267,7 @@ export const PriceChart = memo(function PriceChart({
 
         {deposits
           .filter((d) => d.first_seen_at_ms >= dataMinX && d.first_seen_at_ms <= dataMaxX)
+          .filter((d, i, arr) => i === 0 || Math.round(xScale(d.first_seen_at_ms)) !== Math.round(xScale(arr[i - 1]!.first_seen_at_ms)))
           .map((d) => {
             const x = xScale(d.first_seen_at_ms);
             return (
@@ -2295,7 +2296,7 @@ export const PriceChart = memo(function PriceChart({
                   opacity="0.85"
                 >
                   <path d="M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 4 0v-6.998a2 2 0 0 0-.59-1.42L18 5" />
-                  <path d="M14 21V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v16" fill={COLOR_DEPOSIT} fillOpacity="0.25" />
+                  <path d="M14 21V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v16" />
                   <path d="M2 21h13" />
                   <path d="M3 9h11" />
                 </svg>
