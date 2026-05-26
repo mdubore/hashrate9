@@ -14,9 +14,9 @@
   },
   "dependencies": {
     "@hashrate-autopilot/shared": "workspace:*",
-    "@lingui/core": "^6.0.1",
-    "@lingui/react": "^6.0.1",
-    "@tanstack/react-query": "^5.100.11",
+    "@lingui/core": "^6.1.0",
+    "@lingui/react": "^6.1.0",
+    "@tanstack/react-query": "^5.100.14",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-router-dom": "^7.15.1"
