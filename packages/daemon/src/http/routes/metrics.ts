@@ -109,6 +109,13 @@ export interface MetricPoint {
   readonly pool_blocks_30d_count: number | null;
   readonly pool_hashrate_ph_avg_30d: number | null;
   readonly braiins_reachable: number | null;
+  /**
+   * #224 (#222): bid_edit_deadband_pct in effect at this tick. Used by
+   * the EDIT_PRICE event tooltip to render the historical value via
+   * nearest-tick lookup on the visible points array. Backfilled to 20
+   * by migration 0100 for rows that pre-date the column.
+   */
+  readonly bid_edit_deadband_pct: number;
 }
 
 export async function registerMetricsRoute(
@@ -206,6 +213,7 @@ function toMetricPoint(r: {
   pool_blocks_30d_count: number | null;
   pool_hashrate_ph_avg_30d: number | null;
   braiins_reachable: number | null;
+  bid_edit_deadband_pct: number;
 }): MetricPoint {
   return {
     tick_at: r.tick_at,
@@ -254,6 +262,7 @@ function toMetricPoint(r: {
     pool_blocks_30d_count: r.pool_blocks_30d_count,
     pool_hashrate_ph_avg_30d: r.pool_hashrate_ph_avg_30d,
     braiins_reachable: r.braiins_reachable,
+    bid_edit_deadband_pct: r.bid_edit_deadband_pct,
   };
 }
 

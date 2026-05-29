@@ -1101,6 +1101,10 @@ msgstr "Stratum de Datum no accesible durante"
 msgid "days"
 msgstr "días"
 
+#: src/components/PriceChart.tsx
+msgid "deadband"
+msgstr "deadband"
+
 #: src/pages/Config.tsx
 msgid "Debug API"
 msgstr "API de depuracion"

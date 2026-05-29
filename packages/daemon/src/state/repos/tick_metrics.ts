@@ -52,6 +52,8 @@ export interface InsertTickMetricArgs {
   readonly primary_bid_last_pause_reason: string | null;
   readonly primary_bid_fee_paid_sat: number | null;
   readonly primary_bid_fee_rate_pct: number | null;
+  /** #224 (#222): config.bid_edit_deadband_pct snapshot at this tick. */
+  readonly bid_edit_deadband_pct: number;
   /** #92: pool block counts per tick (input to historical luck plot). */
   readonly pool_blocks_24h_count: number | null;
   readonly pool_blocks_7d_count: number | null;
@@ -118,6 +120,8 @@ export interface AggregatedTickMetricRow {
   pool_blocks_30d_count: number | null;
   pool_hashrate_ph_avg_30d: number | null;
   braiins_reachable: number | null;
+  /** #224 (#222): config.bid_edit_deadband_pct at the tick. */
+  bid_edit_deadband_pct: number;
 }
 
 export class TickMetricsRepo {
@@ -195,6 +199,7 @@ export class TickMetricsRepo {
         pool_blocks_30d_count: r.pool_blocks_30d_count,
         pool_hashrate_ph_avg_30d: r.pool_hashrate_ph_avg_30d,
         braiins_reachable: r.braiins_reachable,
+        bid_edit_deadband_pct: r.bid_edit_deadband_pct,
       }));
     }
 
@@ -280,6 +285,11 @@ export class TickMetricsRepo {
         sql<number | null>`AVG(pool_luck_7d)`.as('pool_luck_7d'),
         sql<number | null>`AVG(pool_luck_30d)`.as('pool_luck_30d'),
         sql<number | null>`AVG(pool_blocks_30d_count)`.as('pool_blocks_30d_count'),
+        // #224: snapshot column. AVG smooths to the mean if the
+        // operator changes the knob mid-bucket; the tooltip's
+        // nearest-tick lookup picks the closest row so the rendered
+        // value is still per-event-accurate even when bucketed.
+        sql<number>`AVG(bid_edit_deadband_pct)`.as('bid_edit_deadband_pct'),
         sql<number | null>`AVG(pool_hashrate_ph_avg_30d)`.as('pool_hashrate_ph_avg_30d'),
         sql<number | null>`MIN(braiins_reachable)`.as('braiins_reachable'),
       ])

@@ -179,6 +179,10 @@ export class Controller {
         pool_blocks_30d_count: state.pool_blocks_30d_count,
         pool_hashrate_ph_avg_30d: state.pool_hashrate_ph_avg_30d,
         braiins_reachable: state.market !== null ? 1 : 0,
+        // #224 (#222): per-tick snapshot of the operator's deadband
+        // setting so the EDIT_PRICE tooltip can render the value that
+        // was in effect at each historical edit.
+        bid_edit_deadband_pct: state.config.bid_edit_deadband_pct,
         run_mode: state.run_mode,
         action_mode: 'NORMAL' as const,
       });

@@ -726,7 +726,7 @@ msgstr "Braiins staat niet toe dat je de destination-URL van een lopende bid wij
 
 #: src/pages/Status.tsx
 msgid "Braiins fee above your threshold"
-msgstr ""
+msgstr "Braiins-fee boven je drempel"
 
 #: src/pages/Config.tsx
 msgid "Braiins marketplace"
@@ -1100,6 +1100,10 @@ msgstr "Datum stratum onbereikbaar gedurende"
 #: src/pages/Config.tsx
 msgid "days"
 msgstr "dagen"
+
+#: src/components/PriceChart.tsx
+msgid "deadband"
+msgstr "deadband"
 
 #: src/pages/Config.tsx
 msgid "Debug API"

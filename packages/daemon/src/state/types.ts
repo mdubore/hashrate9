@@ -394,6 +394,15 @@ export interface TickMetricsTable {
   primary_bid_fee_paid_sat: number | null;
   /** Primary owned bid's fee rate at creation, percent. */
   primary_bid_fee_rate_pct: number | null;
+  /**
+   * #224 (#222): config.bid_edit_deadband_pct at this tick. Snapshot,
+   * not derived - the operator can change this knob mid-run, so the
+   * tooltip on a historical EDIT_PRICE event needs to know which
+   * value was in effect. Migration 0100 backfills 20 (the legacy
+   * hard-coded `/5` default) so historical rows render the right
+   * number.
+   */
+  bid_edit_deadband_pct: number;
   /** #92: pool blocks observed in the last 24h at tick time. */
   pool_blocks_24h_count: number | null;
   /** #92: pool blocks observed in the last 7d at tick time. */

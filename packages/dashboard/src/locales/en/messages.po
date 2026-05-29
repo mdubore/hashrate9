@@ -1101,6 +1101,10 @@ msgstr "Datum stratum unreachable for"
 msgid "days"
 msgstr "days"
 
+#: src/components/PriceChart.tsx
+msgid "deadband"
+msgstr "deadband"
+
 #: src/pages/Config.tsx
 msgid "Debug API"
 msgstr "Debug API"

@@ -170,6 +170,13 @@ export interface MetricPoint {
   pool_blocks_30d_count: number | null;
   pool_hashrate_ph_avg_30d: number | null;
   braiins_reachable: number | null;
+  /**
+   * #224 (#222): bid_edit_deadband_pct in effect at this tick.
+   * Read by the EDIT_PRICE event tooltip to show the historical
+   * deadband value via nearest-tick lookup. Backfilled to 20 by
+   * migration 0100 for pre-existing rows.
+   */
+  bid_edit_deadband_pct: number;
 }
 
 export interface BidEventView {

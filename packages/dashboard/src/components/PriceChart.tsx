@@ -3154,6 +3154,19 @@ function EventTooltip({
               value={`${formatNumber(Math.round(effectiveCapAtEvent))} sat/PH/day`}
             />
           )}
+          {/* #224 (#222): deadband at the tick. Shown as a percentage
+              with the equivalent sat/PH/day floor in parentheses, so
+              the operator can sanity-check "did this edit clear the
+              threshold?" without doing the math in their head. Pre-
+              migration rows render as 20% (the backfilled value). */}
+          {marketAtEvent.bid_edit_deadband_pct !== null && overpayAtEvent !== null && (
+            <Row
+              label={t`deadband`}
+              value={`${formatNumber(marketAtEvent.bid_edit_deadband_pct)} % (≈ ${formatNumber(
+                Math.round((overpayAtEvent * marketAtEvent.bid_edit_deadband_pct) / 100),
+              )} sat/PH/day)`}
+            />
+          )}
         </div>
       )}
 
