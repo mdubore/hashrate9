@@ -2,9 +2,9 @@
 
 ## 2026-05-29
 
-### `[Fix]` Pool-block dots on the unpaid line no longer collide when blocks share an Ocean refresh (#221)
+### `[Fix]` Pool-block dots on the unpaid line now correctly match distinct Ocean refresh steps (#221)
 
-When two pool blocks were found within Ocean's ~5 min `unpaid_sat` refresh cadence, both blocks' TIDES credit appeared as a single observed step on the unpaid line, and both block markers projected to the exact same `(cx, cy)` on the chart - the topmost circle obscured the other and ate every pointer event, so only one dot was visible and only one tooltip was reachable. Now: when multiple blocks share a step, each gets an 8-pixel horizontal stagger along the post-step segment of the line, with its own dashed connector back to its own block timestamp. Three-or-more-blocks case fans out correspondingly. Single-block case is unchanged.
+When two pool blocks were found close together (within ~10 minutes), the per-block dot-projection loop on the Price chart's unpaid line restarted its baseline read from `cursor - 1` for every block. Block 2's scan would re-find the same first step block 1 had already claimed - so both dots projected to the same `(cx, cy)` even when the unpaid line had two distinct step-ups (e.g. `970k → 1.00M` for block 1, then `1.00M → 1.04M` for block 2). On the chart this looked like a single dot at the wrong (intermediate) height, and the second block's tooltip was unreachable. Now: the scan tracks a `scanFromIdx` that advances past each block's claimed step, so block N+1's baseline starts from the post-step plateau of block N. Distinct steps each get their own dot at the correct post-step Y. The genuine Ocean-batched case (block N+1's forward scan finds no further step) still inherits block N's anchor, with an 8-pixel horizontal stagger so multiple dots at one step remain individually hoverable.
 
 ## 2026-05-27
 

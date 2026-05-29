@@ -1711,23 +1711,48 @@ export const PriceChart = memo(function PriceChart({
     // moves off the pre-event baseline (bounded to 15 ticks ≈ 15 min)
     // and place the marker at that post-step value. Same structural fix
     // as #161 in HashrateChart's pool-luck step markers.
+    //
+    // #221: blocks must each match a *distinct* step when distinct
+    // steps exist. The original code restarted its baseline read from
+    // `cursor - 1` for every block, so two blocks 4 min apart whose
+    // credits surfaced as two separate Ocean refreshes (970k → 1.00M
+    // then 1.00M → 1.04M) would both project to the first step at
+    // 1.00M because block 2's baseline was still being read from the
+    // pre-block tick (still 970k at that moment) and the scan stopped
+    // at the first non-baseline value. The fix: track a `scanFromIdx`
+    // that advances past the previous block's claimed step, so block 2
+    // scans from inside the 1.00M plateau and finds 1.04M as its step.
+    // When Ocean genuinely batched both credits into a single observed
+    // step (block 2's forward scan finds no further step), block 2
+    // inherits block 1's anchor and the stagger pass below visually
+    // separates the two dots.
     const MAX_LAG_TICKS = 15;
     let cursor = 0;
+    let scanFromIdx = 0;
+    let lastClaimedSteppedIdx = -1;
+    let lastClaimedValue: number | null = null;
     for (const b of sortedBlocks) {
       if (b.timestamp_ms < dataMinX || b.timestamp_ms > dataMaxX) continue;
       while (cursor < points.length && points[cursor]!.tick_at < b.timestamp_ms) {
         cursor += 1;
       }
+      // Scan must not revisit a step already claimed by an earlier
+      // block - hence the max(cursor, scanFromIdx).
+      const scanFrom = Math.max(cursor, scanFromIdx);
       let v: number | null = null;
       let steppedIdx = -1;
-      if (cursor < points.length) {
-        const baseline = cursor > 0 ? rightAxis.values[cursor - 1] : null;
+      if (scanFrom < points.length) {
+        // Baseline = value at the tick just before scanFrom. For block
+        // 1 this is the pre-block tick. For block N+1 this is the
+        // post-step value of block N's claimed step (because scanFrom
+        // was advanced to lastClaimedSteppedIdx + 1).
+        const baseline = scanFrom > 0 ? rightAxis.values[scanFrom - 1] : null;
         const baselineIsNum =
           typeof baseline === 'number' && Number.isFinite(baseline);
-        const scanEnd = Math.min(points.length, cursor + MAX_LAG_TICKS);
+        const scanEnd = Math.min(points.length, scanFrom + MAX_LAG_TICKS);
         let stepped: number | null = null;
         if (baselineIsNum) {
-          for (let i = cursor; i < scanEnd; i += 1) {
+          for (let i = scanFrom; i < scanEnd; i += 1) {
             const c = rightAxis.values[i];
             if (typeof c !== 'number' || !Number.isFinite(c)) continue;
             if (c !== baseline) {
@@ -1739,6 +1764,15 @@ export const PriceChart = memo(function PriceChart({
         }
         if (stepped !== null) {
           v = stepped;
+          scanFromIdx = steppedIdx + 1;
+          lastClaimedSteppedIdx = steppedIdx;
+          lastClaimedValue = stepped;
+        } else if (lastClaimedSteppedIdx >= 0 && lastClaimedValue !== null) {
+          // No further step found - Ocean batched this block's credit
+          // into the previous step. Share the previous anchor; stagger
+          // pass below pulls the dots apart visually.
+          steppedIdx = lastClaimedSteppedIdx;
+          v = lastClaimedValue;
         } else {
           const c = rightAxis.values[cursor];
           if (typeof c === 'number' && Number.isFinite(c)) v = c;
@@ -1756,26 +1790,14 @@ export const PriceChart = memo(function PriceChart({
         steppedIdx,
       });
     }
-    // #221: collision pass. When two pool blocks land within Ocean's
-    // ~5 min unpaid_sat refresh cadence, they both project to the same
-    // steppedIdx (Ocean batched both credits into one observed step).
-    // Without staggering, both circles paint at identical (cx, cy);
-    // the topmost obscures the other and its hit-rect eats every
-    // pointer event so the second block's tooltip is unreachable.
-    //
-    // Stagger overlapping markers horizontally along the post-step
-    // segment of the line: first block stays at its computed cx,
-    // each subsequent block in the same step gets +STAGGER_PX. Order
-    // is timestamp-ascending (the projected[] order), so the leftmost
-    // dot corresponds to the earliest block. blockCx (connector
-    // origin) is unchanged - each block keeps its own dashed line
-    // back to its own timestamp on the X-axis.
-    //
-    // Single-block steps (steppedIdx === -1 covers the no-step fallback;
-    // distinct steppedIdx values are inherently non-colliding) are
-    // unchanged. The -1 sentinel intentionally is not bucketed by key
-    // since those projections sit at b.timestamp_ms which is already
-    // unique per block.
+    // #221: shared-step stagger. After the scan-advancing pass above,
+    // distinct-step cases naturally produce distinct (cx, cy) per
+    // block - no stagger needed. The only remaining collision is the
+    // genuine batched case where block N+1 inherited block N's anchor.
+    // Group by steppedIdx; for groups of 2+, shift second-and-later
+    // entries +STAGGER_PX right per rank along the post-step segment.
+    // Each block keeps its own blockCx connector back to its own
+    // timestamp.
     const STAGGER_PX = 8;
     const stepCounts = new Map<number, number>();
     const out: typeof empty = [];
