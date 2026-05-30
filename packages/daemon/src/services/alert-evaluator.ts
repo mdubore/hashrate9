@@ -44,6 +44,16 @@ import type { RewardEventsRepo } from '../state/repos/reward_events.js';
 import type { TickMetricsRepo } from '../state/repos/tick_metrics.js';
 import type { State } from '../controller/types.js';
 import { getAlertCopy } from '../i18n/alert-copy.js';
+// #227: locale-aware number formatting. Every body string used to
+// hard-code en-US thousand / decimal separators; these helpers thread
+// state.config.notification_locale through Intl.NumberFormat so a
+// Dutch / Spanish operator sees the conventions they expect.
+import {
+  formatBtc,
+  formatFixed,
+  formatInteger,
+  formatPct,
+} from '../i18n/format-numbers.js';
 
 const HOURS_3_MS = 3 * 60 * 60 * 1000;
 // Ocean's on-chain payout threshold per the TIDES + payouts mechanic.
@@ -75,13 +85,10 @@ function copyFor(state: State): ReturnType<typeof getAlertCopy> {
  * for ergonomics; below it stays in sat for legibility on small
  * deposits.
  */
-const SAT_PER_BTC = 100_000_000;
-function formatSatAsBtc(sat: number): string {
-  if (sat >= SAT_PER_BTC) {
-    return `${(sat / SAT_PER_BTC).toFixed(8)} BTC (${sat.toLocaleString('en-US')} sat)`;
-  }
-  return `${sat.toLocaleString('en-US')} sat`;
-}
+// #227: the local `formatSatAsBtc` helper was dead code in this file
+// (only defined, never called). braiins-deposit-watcher.ts has its
+// own copy that *is* called; it now lives centrally in
+// `format-numbers.ts` as `formatSatAmount`. Removed here entirely.
 
 interface EventState {
   readonly bad_since_ms: number | null;
@@ -391,8 +398,8 @@ export class AlertEvaluator {
       bodyForFiring: (durMs) =>
         copyFor(state).hashrate_below_floor_body({
           duration: formatDuration(durMs),
-          actual_ph: state.actual_hashrate.total_ph.toFixed(2),
-          floor_ph: state.config.minimum_floor_hashrate_ph.toFixed(2),
+          actual_ph: formatFixed(state.actual_hashrate.total_ph, 2, state.config.notification_locale),
+          floor_ph: formatFixed(state.config.minimum_floor_hashrate_ph, 2, state.config.notification_locale),
         }),
       bodyForRecovery: (durMs) =>
         copyFor(state).hashrate_below_floor_body_recovery({ duration: formatDuration(durMs) }),
@@ -591,23 +598,23 @@ export class AlertEvaluator {
       currentState: this.wallet_runway,
       disabledClasses,
       title: copyFor(state).wallet_runway_title({
-        runway_days: runwayDays.toFixed(1),
-        threshold_days: thresholdDays.toFixed(1),
+        runway_days: formatFixed(runwayDays, 1, state.config.notification_locale),
+        threshold_days: formatFixed(thresholdDays, 1, state.config.notification_locale),
       }),
       titleForRecovery: copyFor(state).wallet_runway_title_recovery({
-        runway_days: runwayDays.toFixed(1),
-        threshold_days: thresholdDays.toFixed(1),
+        runway_days: formatFixed(runwayDays, 1, state.config.notification_locale),
+        threshold_days: formatFixed(thresholdDays, 1, state.config.notification_locale),
       }),
       bodyForFiring: () =>
         copyFor(state).wallet_runway_body({
-          balance_sat: balanceSat.toLocaleString('en-US'),
-          burn_per_day_sat: Math.round(burnPerDaySat).toLocaleString('en-US'),
-          runway_days: runwayDays.toFixed(1),
+          balance_sat: formatInteger(balanceSat, state.config.notification_locale),
+          burn_per_day_sat: formatInteger(Math.round(burnPerDaySat), state.config.notification_locale),
+          runway_days: formatFixed(runwayDays, 1, state.config.notification_locale),
           threshold_days: thresholdDays,
         }),
       bodyForRecovery: () =>
         copyFor(state).wallet_runway_body_recovery({
-          runway_days: runwayDays.toFixed(1),
+          runway_days: formatFixed(runwayDays, 1, state.config.notification_locale),
           threshold_days: thresholdDays,
         }),
     });
@@ -748,15 +755,18 @@ export class AlertEvaluator {
         sharePct !== null && sharePct > 0
           ? Math.round((blk.total_reward_sat * sharePct) / 100)
           : null;
-      const heightStr = blk.height.toLocaleString('en-US');
-      const rewardBtc = (blk.total_reward_sat / 1e8).toFixed(8);
-      const sharePctStr = sharePct !== null ? `${sharePct.toFixed(4)}%` : 'unknown';
+      const locale = state.config.notification_locale;
+      const heightStr = formatInteger(blk.height, locale);
+      const rewardBtc = formatBtc(blk.total_reward_sat, locale);
+      const sharePctStr = sharePct !== null ? formatPct(sharePct, 4, locale) : 'unknown';
       const creditStr =
-        ourCreditSat !== null ? `~${ourCreditSat.toLocaleString('en-US')} sat` : 'unknown (no nearby tick captured share_log)';
+        ourCreditSat !== null
+          ? `~${formatInteger(ourCreditSat, locale)} sat`
+          : 'unknown (no nearby tick captured share_log)';
       const unpaidSat = state.ocean_unpaid_sat;
       const unpaidStr =
         unpaidSat !== null
-          ? `${unpaidSat.toLocaleString('en-US')} sat (${((unpaidSat / OCEAN_PAYOUT_THRESHOLD_SAT) * 100).toFixed(1)}% of ${OCEAN_PAYOUT_THRESHOLD_SAT.toLocaleString('en-US')}-sat payout)`
+          ? `${formatInteger(unpaidSat, locale)} sat (${formatPct((unpaidSat / OCEAN_PAYOUT_THRESHOLD_SAT) * 100, 1, locale)} of ${formatInteger(OCEAN_PAYOUT_THRESHOLD_SAT, locale)}-sat payout)`
           : 'unknown';
       // #171: detect if this block triggered an on-chain payout.
       // payout_amount = what was unpaid before + our share - what's unpaid now.
@@ -772,8 +782,8 @@ export class AlertEvaluator {
       ) {
         const payoutAmountSat = entry.noticed_unpaid_sat + ourCreditSat - unpaidSat;
         if (payoutAmountSat >= 65_536) {
-          payoutSatStr = payoutAmountSat.toLocaleString('en-US');
-          payoutBtcStr = (payoutAmountSat / 1e8).toFixed(8);
+          payoutSatStr = formatInteger(payoutAmountSat, locale);
+          payoutBtcStr = formatBtc(payoutAmountSat, locale);
         }
       }
       await this.alertManager.recordAlert({
@@ -868,11 +878,12 @@ export class AlertEvaluator {
       return;
     }
     // All gates passed - fire once, advance the baseline.
+    const locale = state.config.notification_locale;
     const payoutAmountSat = drop;
-    const payoutBtc = (payoutAmountSat / 1e8).toFixed(8);
-    const preDropStr = `${prev.toLocaleString('en-US')} sat`;
-    const residualStr = `${cur.toLocaleString('en-US')} sat`;
-    const payoutSatStr = payoutAmountSat.toLocaleString('en-US');
+    const payoutBtc = formatBtc(payoutAmountSat, locale);
+    const preDropStr = `${formatInteger(prev, locale)} sat`;
+    const residualStr = `${formatInteger(cur, locale)} sat`;
+    const payoutSatStr = formatInteger(payoutAmountSat, locale);
     await this.alertManager.recordAlert({
       severity: 'INFO',
       title: copyFor(state).payout_initiated_title({ payout_btc: payoutBtc }),
@@ -919,10 +930,11 @@ export class AlertEvaluator {
     const newRows = await repo
       .sinceId(this.lastNotifiedRewardEventId)
       .catch(() => [] as Awaited<ReturnType<typeof repo.sinceId>>);
+    const locale = state.config.notification_locale;
     for (const row of newRows) {
-      const valueSatStr = row.value_sat.toLocaleString('en-US');
-      const valueBtcStr = (row.value_sat / 1e8).toFixed(8);
-      const heightStr = row.block_height.toLocaleString('en-US');
+      const valueSatStr = formatInteger(row.value_sat, locale);
+      const valueBtcStr = formatBtc(row.value_sat, locale);
+      const heightStr = formatInteger(row.block_height, locale);
       // #226 follow-up: txid intentionally omitted from the body for
       // operator privacy. The chart already deep-links each payout
       // marker to a block explorer; surfacing the txid in Telegram
@@ -1141,7 +1153,7 @@ export class AlertEvaluator {
       disabledClasses: disabled,
       title: copyFor(state).solo_overheating_title({
         label: entry.device.label,
-        temp_c: reportedTemp.toFixed(1),
+        temp_c: formatFixed(reportedTemp, 1, state.config.notification_locale),
         ceiling_c: reportedCeiling.toString(),
       }),
       titleForRecovery: copyFor(state).solo_overheating_title_recovery({
@@ -1150,7 +1162,7 @@ export class AlertEvaluator {
       bodyForFiring: (durMs) =>
         copyFor(state).solo_overheating_body({
           label: entry.device.label,
-          temp_c: reportedTemp.toFixed(1),
+          temp_c: formatFixed(reportedTemp, 1, state.config.notification_locale),
           ceiling_c: reportedCeiling.toString(),
           duration: formatDuration(durMs),
         }),
@@ -1267,7 +1279,7 @@ export class AlertEvaluator {
       title: copyFor(state).solo_share_rejection_title({ label: entry.device.label }),
       body: copyFor(state).solo_share_rejection_body({
         label: entry.device.label,
-        rate_pct: ratePct.toFixed(2),
+        rate_pct: formatFixed(ratePct, 2, state.config.notification_locale),
         rejected: dRejected.toString(),
         total: total.toString(),
         window_min: state.config.solo_share_rejection_window_minutes.toString(),
@@ -1320,10 +1332,10 @@ export class AlertEvaluator {
     if (!result.isNewRecord || result.fleetMax === null) return;
     const prev = result.previousRecord;
     const copy = copyFor(state);
-    const diffStr = formatDifficultyCompact(result.fleetMax);
-    const prevStr = prev !== null ? formatDifficultyCompact(prev) : null;
+    const diffStr = formatDifficultyCompact(result.fleetMax, state.config.notification_locale);
+    const prevStr = prev !== null ? formatDifficultyCompact(prev, state.config.notification_locale) : null;
     const improvementStr = prev !== null && prev > 0
-      ? (result.fleetMax / prev).toFixed(1)
+      ? formatFixed(result.fleetMax / prev, 1, state.config.notification_locale)
       : null;
     await this.alertManager.recordAlert({
       severity: 'INFO',
@@ -1348,14 +1360,17 @@ function pickLiveHashrate(entry: SoloMinerSnapshotEntry): number | null {
   return null;
 }
 
-function formatDifficultyCompact(v: number): string {
-  if (v >= 1e18) return `${(v / 1e18).toFixed(2)}E`;
-  if (v >= 1e15) return `${(v / 1e15).toFixed(2)}P`;
-  if (v >= 1e12) return `${(v / 1e12).toFixed(2)}T`;
-  if (v >= 1e9) return `${(v / 1e9).toFixed(2)}G`;
-  if (v >= 1e6) return `${(v / 1e6).toFixed(2)}M`;
-  if (v >= 1e3) return `${(v / 1e3).toFixed(2)}K`;
-  return v.toFixed(0);
+function formatDifficultyCompact(v: number, locale: string | null | undefined): string {
+  // SI-style prefix scaling. The trailing letter (E/P/T/G/M/K) is a
+  // unit suffix and stays the same across locales; only the numeric
+  // formatting differs.
+  if (v >= 1e18) return `${formatFixed(v / 1e18, 2, locale)}E`;
+  if (v >= 1e15) return `${formatFixed(v / 1e15, 2, locale)}P`;
+  if (v >= 1e12) return `${formatFixed(v / 1e12, 2, locale)}T`;
+  if (v >= 1e9) return `${formatFixed(v / 1e9, 2, locale)}G`;
+  if (v >= 1e6) return `${formatFixed(v / 1e6, 2, locale)}M`;
+  if (v >= 1e3) return `${formatFixed(v / 1e3, 2, locale)}K`;
+  return formatFixed(v, 0, locale);
 }
 
 function formatDuration(ms: number): string {

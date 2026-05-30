@@ -2,6 +2,10 @@
 
 ## 2026-05-30
 
+### `[Fix]` Telegram messages now use the operator's notification_locale for number formatting (#227)
+
+Every Telegram alert body used to hard-code `toLocaleString('en-US')` and bare `.toFixed(N)`, so a Dutch or Spanish operator running with `notification_locale: 'nl' | 'es'` received numbers with English thousand-and-decimal separators regardless of preference. Centralised the formatting in a new `packages/daemon/src/i18n/format-numbers.ts` module with locale-aware `formatInteger` / `formatBtc` / `formatSat` / `formatSatAmount` / `formatFixed` / `formatPct` helpers backed by `Intl.NumberFormat`, threaded through every alert body (~25 sites across `alert-evaluator.ts` and `braiins-deposit-watcher.ts`). The two duplicate `formatSatAsBtc` helpers (one in each file) collapsed into a single central `formatSatAmount`. EN output unchanged (comma thousands, period decimal); NL and ES now correctly render period thousands and comma decimal. 18-test isolated coverage of the helpers; existing alert-evaluator tests still pass.
+
 ### `[UI]` Payout-lifecycle Telegram message wording (#226 follow-up)
 
 Operator review of #226's first cut: the `payout_initiated` body claimed the payout was "now committed to the coinbase of the next block Ocean finds." Empirically operators see payouts confirm in non-Ocean blocks too, so the language overcommits. Reworded to "A payout has been initiated. On-chain confirmation follows; you'll get a second message when the transaction lands." — sticks to what we can actually prove from the data (the balance dropped). The `payout_confirmed` body also dropped its "Coinbase payout of …" prefix in favour of plain "Payout of …" for the same reason, and the truncated tx id was removed entirely for operator privacy (the chart already deep-links each payout to a block explorer; broadcasting tx ids through Telegram chat history is more exposure than the event warrants). en + nl + es bodies updated symmetrically.
