@@ -896,6 +896,14 @@ msgstr "Kies bestand…"
 msgid "click outside to close"
 msgstr "klik buiten om te sluiten"
 
+#: src/components/Bip110ScanCard.tsx
+msgid "Click to collapse"
+msgstr "Klik om in te klappen"
+
+#: src/components/Bip110ScanCard.tsx
+msgid "Click to expand"
+msgstr "Klik om uit te klappen"
+
 #: src/components/HashrateChart.tsx
 #: src/components/PriceChart.tsx
 msgid "close"
@@ -2128,10 +2136,6 @@ msgstr "Op dit moment geen hashrate beschikbaar op de markt."
 #: src/pages/Config.tsx
 msgid "No on-chain balance tracking. The Profit & Loss panel won't show collected BTC."
 msgstr "Geen on-chain saldo-tracking. Het Profit & Loss-paneel toont geen ontvangen BTC."
-
-#: src/components/Bip110ScanCard.tsx
-msgid "No signaling blocks in this window."
-msgstr "Geen signalerende blokken in dit venster."
 
 #: src/components/Bip110ScanCard.tsx
 msgid "node does not track BIP 110 as a named softfork"

@@ -383,39 +383,14 @@ export function Bip110ScanCard(): React.JSX.Element {
           </div>
 
           {data.epochs && data.epochs.length > 0 && (
-            <EpochBreakdown epochs={data.epochs} intlLocale={intlLocale} />
-          )}
-
-          {sortedBlocks.length === 0 ? (
-            <p className="mt-4 text-sm text-slate-500">
-              <Trans>No signaling blocks in this window.</Trans>
-            </p>
-          ) : (
-            <>
-              {/* Desktop: table */}
-              <div className="hidden lg:block">
-                <SignalingBlockTable
-                  blocks={sortedBlocks}
-                  tipHeight={data.tip_height}
-                  explorerTemplate={explorerTemplate}
-                  intlLocale={intlLocale}
-                  fmtTimestamp={fmt.timestamp}
-                />
-              </div>
-              {/* Mobile: cards */}
-              <div className="lg:hidden mt-4 grid gap-3 sm:grid-cols-2">
-                {sortedBlocks.map((b) => (
-                  <SignalingBlockCard
-                    key={b.hash}
-                    block={b}
-                    tipHeight={data.tip_height}
-                    explorerTemplate={explorerTemplate}
-                    intlLocale={intlLocale}
-                    fmtTimestamp={fmt.timestamp}
-                  />
-                ))}
-              </div>
-            </>
+            <EpochBreakdown
+              epochs={data.epochs}
+              signalingBlocks={sortedBlocks}
+              tipHeight={data.tip_height}
+              explorerTemplate={explorerTemplate}
+              intlLocale={intlLocale}
+              fmtTimestamp={fmt.timestamp}
+            />
           )}
         </>
       )}
@@ -513,23 +488,53 @@ function Divider(): React.JSX.Element {
 }
 
 /**
- * #231: per-epoch breakdown. One row per epoch in scope, latest at
- * the top (matches the signaling-blocks list below). Each row shows
- * height range, scanned count, signaling count + percentage, and a
- * 55%-MASF-threshold indicator (the percentage column is green at or
- * above 55%, slate below). The current (in-progress) epoch is
- * tagged so the operator can see at a glance which row is the live
- * one — its percentage is a partial reading and may still climb.
+ * #231 / follow-up: per-epoch breakdown with expandable rows. One row
+ * per epoch in scope, latest at the top. Each row shows height range,
+ * scanned count, signaling count + percentage, and a 55%-MASF-threshold
+ * indicator (percentage is green at or above 55%, slate below). The
+ * current (in-progress) epoch is tagged so the operator can see at a
+ * glance which row is the live one — its percentage is partial and
+ * may still climb.
+ *
+ * Follow-up: rows with at least one signaling block can be expanded
+ * to show those blocks inline (desktop table / mobile cards). Replaces
+ * the previous "table-of-epochs + separate table-of-blocks-below"
+ * layout. Default state: all collapsed. Click anywhere on the row to
+ * toggle. Rows with zero signaling blocks are visually muted and not
+ * clickable.
  */
 function EpochBreakdown({
   epochs,
+  signalingBlocks,
+  tipHeight,
+  explorerTemplate,
   intlLocale,
+  fmtTimestamp,
 }: {
   epochs: readonly Bip110EpochBucket[];
+  signalingBlocks: readonly Bip110ScanSignalingBlock[];
+  tipHeight: number | null;
+  explorerTemplate: string;
   intlLocale: string | undefined;
+  fmtTimestamp: (ms: number | null | undefined) => string;
 }): React.JSX.Element {
-  // Render latest-first so it lines up with the signaling-block list below.
+  // Latest-first ordering — the in-progress epoch sits at the top, which is
+  // what the operator is usually checking on.
   const ordered = [...epochs].sort((a, b) => b.start_height - a.start_height);
+  const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set());
+
+  const blocksForEpoch = (e: Bip110EpochBucket): Bip110ScanSignalingBlock[] =>
+    signalingBlocks.filter((b) => b.height >= e.start_height && b.height <= e.end_height);
+
+  const toggle = (start: number) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(start)) next.delete(start);
+      else next.add(start);
+      return next;
+    });
+  };
+
   return (
     <div className="mt-4">
       <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
@@ -539,6 +544,7 @@ function EpochBreakdown({
         <table className="w-full text-sm font-mono">
           <thead className="bg-slate-800/40">
             <tr className="text-xs text-slate-500 uppercase tracking-wider">
+              <th className="px-3 py-2 text-left font-semibold w-6"></th>
               <th className="px-3 py-2 text-left font-semibold"><Trans>Epoch</Trans></th>
               <th className="px-3 py-2 text-left font-semibold"><Trans>Block range</Trans></th>
               <th className="px-3 py-2 text-right font-semibold"><Trans>Scanned</Trans></th>
@@ -549,44 +555,90 @@ function EpochBreakdown({
           <tbody>
             {ordered.map((e) => {
               const crossed = e.signaling_pct >= MASF_THRESHOLD_PCT;
+              const isOpen = expanded.has(e.start_height);
+              const canExpand = e.signaling_count > 0;
+              const epochBlocks = isOpen ? blocksForEpoch(e) : [];
               return (
-                <tr
-                  key={e.start_height}
-                  className="border-t border-slate-800/60"
-                >
-                  <td className="px-3 py-2 text-slate-300">
-                    {e.in_progress ? (
-                      <span className="inline-flex items-center gap-1.5">
-                        <span className="bg-amber-400/20 text-amber-300 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider">
-                          <Trans>In progress</Trans>
-                        </span>
-                      </span>
-                    ) : (
-                      <span className="text-slate-500"><Trans>Completed</Trans></span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 text-slate-300">
-                    {formatNumber(e.start_height, {}, intlLocale)} – {formatNumber(e.end_height, {}, intlLocale)}
-                  </td>
-                  <td className="px-3 py-2 text-right text-slate-300">
-                    {formatNumber(e.scanned, {}, intlLocale)}
-                  </td>
-                  <td className="px-3 py-2 text-right text-slate-300">
-                    {formatNumber(e.signaling_count, {}, intlLocale)}
-                  </td>
-                  <td
-                    className={`px-3 py-2 text-right font-semibold ${
-                      crossed ? 'text-emerald-400' : 'text-slate-400'
+                <React.Fragment key={e.start_height}>
+                  <tr
+                    className={`border-t border-slate-800/60 ${
+                      canExpand ? 'cursor-pointer hover:bg-slate-800/30' : ''
                     }`}
-                    title={crossed ? t`At or above the 55% MASF threshold` : t`Below the 55% MASF threshold`}
+                    onClick={canExpand ? () => toggle(e.start_height) : undefined}
+                    title={canExpand ? (isOpen ? t`Click to collapse` : t`Click to expand`) : undefined}
                   >
-                    {formatNumber(
-                      e.signaling_pct,
-                      { minimumFractionDigits: 2, maximumFractionDigits: 2 },
-                      intlLocale,
-                    )}%
-                  </td>
-                </tr>
+                    <td className="px-3 py-2 text-slate-500 select-none">
+                      {canExpand ? (
+                        <span className="inline-block w-3 text-center" aria-hidden>
+                          {isOpen ? '▼' : '▶'}
+                        </span>
+                      ) : (
+                        <span className="inline-block w-3" aria-hidden />
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-slate-300">
+                      {e.in_progress ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="bg-amber-400/20 text-amber-300 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider">
+                            <Trans>In progress</Trans>
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="text-slate-500"><Trans>Completed</Trans></span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-slate-300">
+                      {formatNumber(e.start_height, {}, intlLocale)} – {formatNumber(e.end_height, {}, intlLocale)}
+                    </td>
+                    <td className="px-3 py-2 text-right text-slate-300">
+                      {formatNumber(e.scanned, {}, intlLocale)}
+                    </td>
+                    <td className="px-3 py-2 text-right text-slate-300">
+                      {formatNumber(e.signaling_count, {}, intlLocale)}
+                    </td>
+                    <td
+                      className={`px-3 py-2 text-right font-semibold ${
+                        crossed ? 'text-emerald-400' : 'text-slate-400'
+                      }`}
+                      title={crossed ? t`At or above the 55% MASF threshold` : t`Below the 55% MASF threshold`}
+                    >
+                      {formatNumber(
+                        e.signaling_pct,
+                        { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+                        intlLocale,
+                      )}%
+                    </td>
+                  </tr>
+                  {isOpen && epochBlocks.length > 0 && (
+                    <tr className="border-t border-slate-800/60 bg-slate-950/60">
+                      <td colSpan={6} className="px-3 py-3">
+                        {/* Desktop: table */}
+                        <div className="hidden lg:block">
+                          <SignalingBlockTable
+                            blocks={epochBlocks}
+                            tipHeight={tipHeight}
+                            explorerTemplate={explorerTemplate}
+                            intlLocale={intlLocale}
+                            fmtTimestamp={fmtTimestamp}
+                          />
+                        </div>
+                        {/* Mobile: cards */}
+                        <div className="lg:hidden grid gap-3 sm:grid-cols-2">
+                          {epochBlocks.map((b) => (
+                            <SignalingBlockCard
+                              key={b.hash}
+                              block={b}
+                              tipHeight={tipHeight}
+                              explorerTemplate={explorerTemplate}
+                              intlLocale={intlLocale}
+                              fmtTimestamp={fmtTimestamp}
+                            />
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               );
             })}
           </tbody>
