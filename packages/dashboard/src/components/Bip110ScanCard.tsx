@@ -11,14 +11,29 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import React, { useState } from 'react';
 
 import { api } from '../lib/api';
-import type { Bip110ScanDeployment, Bip110ScanResponse, Bip110ScanSignalingBlock } from '../lib/api';
+import type {
+  Bip110EpochBucket,
+  Bip110ScanDeployment,
+  Bip110ScanResponse,
+  Bip110ScanSignalingBlock,
+} from '../lib/api';
 import { applyExplorerTemplate } from '../lib/blockExplorer';
 import { formatAgeMinutes, formatNumber } from '../lib/format';
 import { useFormatters, useLocale } from '../lib/locale';
 import { Tooltip } from './Tooltip';
 
-const WINDOWS = [2016, 4032, 8064, 16128, 32256] as const;
-type ScanWindow = (typeof WINDOWS)[number];
+/**
+ * #231: range options are number of past epochs in addition to the
+ * current (in-progress) one. 0 means "current only". MASF activation
+ * evaluates per epoch, so an epoch-aligned scan window is the only
+ * one whose percentages are directly comparable to the 55%
+ * activation threshold.
+ */
+const PAST_EPOCH_OPTIONS = [0, 1, 3, 6, 12] as const;
+type PastEpochs = (typeof PAST_EPOCH_OPTIONS)[number];
+
+/** BIP 110 MASF activation threshold: 55% of an epoch's blocks. */
+const MASF_THRESHOLD_PCT = 55;
 
 const BIP110_REFERENCE_URL = 'https://bip110.org/';
 
@@ -229,7 +244,7 @@ export function Bip110ScanCard(): React.JSX.Element {
   const { intlLocale } = useLocale();
   const fmt = useFormatters();
 
-  const [window, setWindow] = useState<ScanWindow>(2016);
+  const [pastEpochs, setPastEpochs] = useState<PastEpochs>(0);
 
   const configQuery = useQuery({
     queryKey: ['config'],
@@ -240,8 +255,15 @@ export function Bip110ScanCard(): React.JSX.Element {
     'https://mempool.space/block/{hash}';
 
   const scan = useMutation({
-    mutationFn: (blocks: number) => api.bip110Scan(blocks),
+    mutationFn: (epochs: number) => api.bip110Scan(epochs),
   });
+
+  const epochLabel = (n: number): string =>
+    n === 0
+      ? t`Current epoch`
+      : n === 1
+        ? t`Current + last 1 epoch`
+        : t`Current + last ${n} epochs`;
 
   const data: Bip110ScanResponse | undefined = scan.data;
   const sortedBlocks = data
@@ -273,20 +295,20 @@ export function Bip110ScanCard(): React.JSX.Element {
 
         <div className="flex items-center gap-2">
           <select
-            value={window}
-            onChange={(e) => setWindow(Number(e.target.value) as ScanWindow)}
+            value={pastEpochs}
+            onChange={(e) => setPastEpochs(Number(e.target.value) as PastEpochs)}
             className="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-sm text-slate-200"
             disabled={scan.isPending}
           >
-            {WINDOWS.map((w) => (
-              <option key={w} value={w}>
-                {w} {t`blocks`}
+            {PAST_EPOCH_OPTIONS.map((n) => (
+              <option key={n} value={n}>
+                {epochLabel(n)}
               </option>
             ))}
           </select>
           <button
             type="button"
-            onClick={() => scan.mutate(window)}
+            onClick={() => scan.mutate(pastEpochs)}
             disabled={scan.isPending}
             className="px-4 py-1.5 text-sm rounded bg-amber-400 text-slate-900 font-medium hover:bg-amber-300 disabled:opacity-50"
           >
@@ -359,6 +381,10 @@ export function Bip110ScanCard(): React.JSX.Element {
               </>
             )}
           </div>
+
+          {data.epochs && data.epochs.length > 0 && (
+            <EpochBreakdown epochs={data.epochs} intlLocale={intlLocale} />
+          )}
 
           {sortedBlocks.length === 0 ? (
             <p className="mt-4 text-sm text-slate-500">
@@ -484,4 +510,88 @@ function DeploymentProgressBar({
 
 function Divider(): React.JSX.Element {
   return <span className="mx-3 text-slate-700 select-none">|</span>;
+}
+
+/**
+ * #231: per-epoch breakdown. One row per epoch in scope, latest at
+ * the top (matches the signaling-blocks list below). Each row shows
+ * height range, scanned count, signaling count + percentage, and a
+ * 55%-MASF-threshold indicator (the percentage column is green at or
+ * above 55%, slate below). The current (in-progress) epoch is
+ * tagged so the operator can see at a glance which row is the live
+ * one — its percentage is a partial reading and may still climb.
+ */
+function EpochBreakdown({
+  epochs,
+  intlLocale,
+}: {
+  epochs: readonly Bip110EpochBucket[];
+  intlLocale: string | undefined;
+}): React.JSX.Element {
+  // Render latest-first so it lines up with the signaling-block list below.
+  const ordered = [...epochs].sort((a, b) => b.start_height - a.start_height);
+  return (
+    <div className="mt-4">
+      <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+        <Trans>Per-epoch breakdown</Trans>
+      </h3>
+      <div className="overflow-x-auto rounded-lg border border-slate-700/50">
+        <table className="w-full text-sm font-mono">
+          <thead className="bg-slate-800/40">
+            <tr className="text-xs text-slate-500 uppercase tracking-wider">
+              <th className="px-3 py-2 text-left font-semibold"><Trans>Epoch</Trans></th>
+              <th className="px-3 py-2 text-left font-semibold"><Trans>Block range</Trans></th>
+              <th className="px-3 py-2 text-right font-semibold"><Trans>Scanned</Trans></th>
+              <th className="px-3 py-2 text-right font-semibold"><Trans>Signaling</Trans></th>
+              <th className="px-3 py-2 text-right font-semibold">%</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ordered.map((e) => {
+              const crossed = e.signaling_pct >= MASF_THRESHOLD_PCT;
+              return (
+                <tr
+                  key={e.start_height}
+                  className="border-t border-slate-800/60"
+                >
+                  <td className="px-3 py-2 text-slate-300">
+                    {e.in_progress ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="bg-amber-400/20 text-amber-300 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider">
+                          <Trans>In progress</Trans>
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="text-slate-500"><Trans>Completed</Trans></span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-slate-300">
+                    {formatNumber(e.start_height, {}, intlLocale)} – {formatNumber(e.end_height, {}, intlLocale)}
+                  </td>
+                  <td className="px-3 py-2 text-right text-slate-300">
+                    {formatNumber(e.scanned, {}, intlLocale)}
+                  </td>
+                  <td className="px-3 py-2 text-right text-slate-300">
+                    {formatNumber(e.signaling_count, {}, intlLocale)}
+                  </td>
+                  <td
+                    className={`px-3 py-2 text-right font-semibold ${
+                      crossed ? 'text-emerald-400' : 'text-slate-400'
+                    }`}
+                    title={crossed ? t`At or above the 55% MASF threshold` : t`Below the 55% MASF threshold`}
+                  >
+                    {formatNumber(
+                      e.signaling_pct,
+                      { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+                      intlLocale,
+                    )}%
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
 }

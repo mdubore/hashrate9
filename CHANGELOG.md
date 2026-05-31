@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-05-31
+
+### `[UI]` BIP 110 scanner ranges by difficulty epoch, not block count (#231)
+
+The scanner's range dropdown used to offer arbitrary block counts (2016 / 4032 / 8064 / 16128 / 32256) and report a single sliding-window percentage that didn't correspond to anything activation-relevant — BIP 9 / MASF evaluates signaling per difficulty epoch, so a 2016-block window that straddles two epochs produces a number with no meaning for activation. Replaced with epoch-aligned options: `Current epoch`, `Current + last 1`, `Current + last 3`, `Current + last 6`, `Current + last 12`. Backend computes the range as `floor(tip / 2016) * 2016 - N * 2016` through `tip` and returns a new `epochs[]` array with one bucket per epoch (start/end height, scanned, signaling count, signaling pct, in_progress flag). UI renders a per-epoch breakdown table above the existing signaling-blocks list — green percentage when an epoch is at or above the 55% MASF threshold, slate when below; the current (in-progress) epoch is tagged so it's clear the percentage is partial. The legacy `?blocks=N` query param is honored best-effort by rounding up to whole epochs so older callers don't break. en + nl + es translations updated.
+
 ## 2026-05-30
 
 ### `[Fix]` Boot-time backfill of historical network difficulty from bitcoind (#230)

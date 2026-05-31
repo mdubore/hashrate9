@@ -1,10 +1,19 @@
 /**
- * GET /api/bip110/scan?blocks=N
+ * GET /api/bip110/scan?epochs=N
  *
- * Scans the most recent N blocks for BIP 110 (Reduced Data Temporary
- * Softfork) signaling and returns deployment-level state plus the list
- * of signaling block hashes for the operator to verify the crown
- * marker (#94) renders correctly.
+ * Scans recent blocks for BIP 110 (Reduced Data Temporary Softfork)
+ * signaling and returns deployment-level state plus the list of
+ * signaling block hashes for the operator to verify the crown marker
+ * (#94) renders correctly.
+ *
+ * Range semantics (#231): the scan is anchored to difficulty epochs
+ * (2016-block boundaries), not arbitrary block counts. `?epochs=N`
+ * scans the in-progress current epoch plus the last N completed
+ * epochs. Aligned via `floor(tip / 2016) * 2016 - N * 2016` to
+ * `tip`. This matches how BIP 9 / MASF activation evaluates
+ * signaling — per epoch, not over a sliding window — so the
+ * per-epoch percentages in the response are directly comparable to
+ * the 55% MASF threshold.
  *
  * Detection (BIP 9-style):
  *   isBip110Signal = ((version & 0xe0000000) === 0x20000000)  // top 3 bits = 001
@@ -22,12 +31,13 @@ import { createBitcoindClient } from '@hashrate-autopilot/bitcoind-client';
 
 import type { ConfigRepo } from '../../state/repos/config.js';
 
-const DEFAULT_BLOCKS = 2016;
-// 32256 = 16 retarget periods (~7-8 months at 10-minute target spacing).
-// 16 batches of getblockhash + 16 of getblockheader at BATCH_SIZE=200 is
-// 32 HTTP round-trips total to bitcoind, well within the 300 s default
-// timeout on the bitcoind client.
-const MAX_BLOCKS = 32256;
+const BLOCKS_PER_EPOCH = 2016;
+const DEFAULT_PAST_EPOCHS = 0;
+// 12 past epochs + current = 13 epochs ≈ 26208 blocks, ~6 months at
+// 10-minute target spacing. 13 batches of getblockhash + 13 of
+// getblockheader at BATCH_SIZE=200 is 26 HTTP round-trips, well
+// within the 300s bitcoind client timeout.
+const MAX_PAST_EPOCHS = 12;
 const BATCH_SIZE = 200;
 
 export interface Bip110ScanDeps {
@@ -73,12 +83,32 @@ export interface Bip110Deployment {
   } | null;
 }
 
+/**
+ * Per-epoch signaling bucket. `start_height` is always a multiple of
+ * 2016. For completed epochs, `end_height` is `start_height + 2015`
+ * (and `in_progress` is false). For the current (in-progress) epoch,
+ * `end_height` is the chain tip and `in_progress` is true; `scanned`
+ * is therefore < 2016 and the percentage is "progress so far"
+ * (directly comparable to the 55% MASF threshold).
+ */
+export interface Bip110EpochBucket {
+  readonly start_height: number;
+  readonly end_height: number;
+  readonly scanned: number;
+  readonly signaling_count: number;
+  readonly signaling_pct: number;
+  readonly in_progress: boolean;
+}
+
 export interface Bip110ScanResponse {
   readonly rpc_available: boolean;
   readonly tip_height: number | null;
   readonly scanned: number;
   readonly signaling_count: number;
   readonly signaling_pct: number;
+  /** #231: per-epoch breakdown so the UI can show which epochs crossed
+   *  the 55% MASF threshold. Ordered from earliest to latest. */
+  readonly epochs: readonly Bip110EpochBucket[];
   readonly deployment: Bip110Deployment | null;
   readonly softfork_keys: readonly string[] | null;
   readonly signaling_blocks: readonly Bip110SignalingBlock[];
@@ -197,11 +227,79 @@ function extractDeployment(key: string, entry: SoftforkEntry | undefined): Bip11
   };
 }
 
+/**
+ * Resolve `?epochs=N` query param + tip height to the inclusive
+ * height range to scan. Always aligned to epoch boundaries: the lower
+ * bound is `currentEpochStart - pastEpochs * 2016`, the upper bound
+ * is the tip. Returns `{ startHeight, currentEpochStart }` so the
+ * caller can slice the per-epoch buckets without recomputing.
+ *
+ * Exported for testing.
+ */
+export function computeScanRange(
+  tipHeight: number,
+  pastEpochs: number,
+): { startHeight: number; currentEpochStart: number } {
+  const currentEpochStart = Math.floor(tipHeight / BLOCKS_PER_EPOCH) * BLOCKS_PER_EPOCH;
+  const startHeight = Math.max(0, currentEpochStart - pastEpochs * BLOCKS_PER_EPOCH);
+  return { startHeight, currentEpochStart };
+}
+
+/**
+ * Bucket the scanned headers into per-epoch tallies. Iterates the
+ * heights once and snaps each into `floor(height / 2016) * 2016`.
+ * The bucket whose start equals `currentEpochStart` is marked
+ * `in_progress`. Returned earliest-first.
+ *
+ * Exported for testing.
+ */
+export function bucketByEpoch(
+  headers: readonly { height: number; version: number }[],
+  startHeight: number,
+  currentEpochStart: number,
+  tipHeight: number,
+): Bip110EpochBucket[] {
+  const buckets = new Map<
+    number,
+    { signaling: number; scanned: number }
+  >();
+  for (const h of headers) {
+    const epochStart = Math.floor(h.height / BLOCKS_PER_EPOCH) * BLOCKS_PER_EPOCH;
+    const slot = buckets.get(epochStart) ?? { signaling: 0, scanned: 0 };
+    slot.scanned += 1;
+    if (isBip110Signal(h.version)) slot.signaling += 1;
+    buckets.set(epochStart, slot);
+  }
+  // Seed any epoch starts that produced zero headers (defensive — a
+  // healthy node shouldn't drop blocks but the bucket structure
+  // shouldn't have holes).
+  for (
+    let start = Math.floor(startHeight / BLOCKS_PER_EPOCH) * BLOCKS_PER_EPOCH;
+    start <= currentEpochStart;
+    start += BLOCKS_PER_EPOCH
+  ) {
+    if (!buckets.has(start)) buckets.set(start, { signaling: 0, scanned: 0 });
+  }
+  const sorted = Array.from(buckets.entries()).sort(([a], [b]) => a - b);
+  return sorted.map(([start, { signaling, scanned }]) => {
+    const isCurrent = start === currentEpochStart;
+    const endHeight = isCurrent ? tipHeight : start + BLOCKS_PER_EPOCH - 1;
+    return {
+      start_height: start,
+      end_height: endHeight,
+      scanned,
+      signaling_count: signaling,
+      signaling_pct: scanned > 0 ? (signaling / scanned) * 100 : 0,
+      in_progress: isCurrent,
+    };
+  });
+}
+
 export async function registerBip110ScanRoute(
   app: FastifyInstance,
   deps: Bip110ScanDeps,
 ): Promise<void> {
-  app.get<{ Querystring: { blocks?: string } }>(
+  app.get<{ Querystring: { epochs?: string; blocks?: string } }>(
     '/api/bip110/scan',
     async (req): Promise<Bip110ScanResponse> => {
       // Read the live config row at request time - saved Config edits
@@ -221,6 +319,7 @@ export async function registerBip110ScanRoute(
         scanned: 0,
         signaling_count: 0,
         signaling_pct: 0,
+        epochs: [],
         deployment: null,
         softfork_keys: null,
         signaling_blocks: [],
@@ -233,10 +332,30 @@ export async function registerBip110ScanRoute(
 
       const client = createBitcoindClient({ url, username: user, password });
 
-      const requested = Number.parseInt(req.query.blocks ?? String(DEFAULT_BLOCKS), 10);
-      const blocks = Number.isFinite(requested) && requested > 0
-        ? Math.min(requested, MAX_BLOCKS)
-        : DEFAULT_BLOCKS;
+      // #231: `?epochs=N` is the canonical knob (past epochs in
+      // addition to the current). Legacy `?blocks=N` is honored
+      // best-effort by rounding up to whole epochs so old callers
+      // don't break — but the response is still epoch-aligned, which
+      // is the whole point.
+      let pastEpochs: number;
+      if (req.query.epochs !== undefined) {
+        const parsed = Number.parseInt(req.query.epochs, 10);
+        pastEpochs = Number.isFinite(parsed) && parsed >= 0
+          ? Math.min(parsed, MAX_PAST_EPOCHS)
+          : DEFAULT_PAST_EPOCHS;
+      } else if (req.query.blocks !== undefined) {
+        const parsed = Number.parseInt(req.query.blocks, 10);
+        const blocks = Number.isFinite(parsed) && parsed > 0 ? parsed : BLOCKS_PER_EPOCH;
+        // Round up: a "2016 blocks" request becomes the current
+        // epoch (in progress) plus 0 past ones; "4032" becomes
+        // current + 1 past; etc. Capped at MAX_PAST_EPOCHS.
+        pastEpochs = Math.min(
+          Math.max(0, Math.ceil(blocks / BLOCKS_PER_EPOCH) - 1),
+          MAX_PAST_EPOCHS,
+        );
+      } else {
+        pastEpochs = DEFAULT_PAST_EPOCHS;
+      }
 
       let info;
       try {
@@ -246,7 +365,7 @@ export async function registerBip110ScanRoute(
       }
 
       const tip = info.blocks;
-      const start = Math.max(0, tip - blocks + 1);
+      const { startHeight: start, currentEpochStart } = computeScanRange(tip, pastEpochs);
       const heights = Array.from({ length: tip - start + 1 }, (_, i) => start + i);
 
       let deploymentSource: Record<string, unknown> | undefined = info.softforks;
@@ -362,12 +481,15 @@ export async function registerBip110ScanRoute(
         };
       });
 
+      const epochs = bucketByEpoch(headers, start, currentEpochStart, tip);
+
       return {
         rpc_available: true,
         tip_height: tip,
         scanned: headers.length,
         signaling_count: signaling.length,
         signaling_pct: headers.length > 0 ? (signaling.length / headers.length) * 100 : 0,
+        epochs,
         deployment,
         softfork_keys,
         signaling_blocks: signaling,

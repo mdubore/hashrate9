@@ -785,8 +785,10 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ url }),
     }),
-  bip110Scan: (blocks: number) =>
-    request<Bip110ScanResponse>(`/api/bip110/scan?blocks=${encodeURIComponent(String(blocks))}`),
+  /** #231: epoch-aligned scan. `pastEpochs` = number of completed
+   *  epochs before the current (in-progress) one. 0 = current only. */
+  bip110Scan: (pastEpochs: number) =>
+    request<Bip110ScanResponse>(`/api/bip110/scan?epochs=${encodeURIComponent(String(pastEpochs))}`),
   bitcoindTest: (creds: { url: string; user: string; password: string }) =>
     request<BitcoindTestResponse>('/api/bitcoind/test', {
       method: 'POST',
@@ -950,12 +952,31 @@ export interface Bip110ScanDeployment {
   } | null;
 }
 
+/**
+ * #231: per-epoch signaling bucket. `start_height` is always a
+ * multiple of 2016. For completed epochs, `end_height` is
+ * `start_height + 2015` and `in_progress` is false. For the
+ * current epoch, `end_height` is the chain tip and `in_progress`
+ * is true; `signaling_pct` is therefore "progress so far" and is
+ * directly comparable to the 55% MASF activation threshold.
+ */
+export interface Bip110EpochBucket {
+  start_height: number;
+  end_height: number;
+  scanned: number;
+  signaling_count: number;
+  signaling_pct: number;
+  in_progress: boolean;
+}
+
 export interface Bip110ScanResponse {
   rpc_available: boolean;
   tip_height: number | null;
   scanned: number;
   signaling_count: number;
   signaling_pct: number;
+  /** #231: per-epoch breakdown, ordered earliest-first. */
+  epochs: Bip110EpochBucket[];
   deployment: Bip110ScanDeployment | null;
   softfork_keys: string[] | null;
   signaling_blocks: Bip110ScanSignalingBlock[];

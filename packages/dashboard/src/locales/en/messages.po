@@ -402,6 +402,10 @@ msgstr "At least one placeholder ({hash} or {height}) is required. Example custo
 msgid "At least one placeholder ({txid} or {hash}) is required. Auto-populated when you click a preset above; override here for custom self-hosted explorers (e.g. http://umbrel.local:3006/tx/{txid})."
 msgstr "At least one placeholder ({txid} or {hash}) is required. Auto-populated when you click a preset above; override here for custom self-hosted explorers (e.g. http://umbrel.local:3006/tx/{txid})."
 
+#: src/components/Bip110ScanCard.tsx
+msgid "At or above the 55% MASF threshold"
+msgstr "At or above the 55% MASF threshold"
+
 #: src/pages/Alerts.tsx
 msgid "Audit trail for every notification the daemon recorded - sent, failed, muted, or given-up. Configure the Telegram destination on Config → Notifications."
 msgstr "Audit trail for every notification the daemon recorded - sent, failed, muted, or given-up. Configure the Telegram destination on Config → Notifications."
@@ -510,6 +514,10 @@ msgstr "Balance-check backend"
 #: src/pages/Status.tsx
 msgid "below floor since {0}"
 msgstr "below floor since {0}"
+
+#: src/components/Bip110ScanCard.tsx
+msgid "Below the 55% MASF threshold"
+msgstr "Below the 55% MASF threshold"
 
 #: src/pages/Setup.tsx
 msgid "Below this triggers an alert. ≤ target."
@@ -628,6 +636,10 @@ msgstr "block height"
 msgid "Block landed - pool luck went from {0} to {1}× (rolling-{windowLabel} window)."
 msgstr "Block landed - pool luck went from {0} to {1}× (rolling-{windowLabel} window)."
 
+#: src/components/Bip110ScanCard.tsx
+msgid "Block range"
+msgstr "Block range"
+
 #: src/pages/Status.tsx
 msgid "block reward"
 msgstr "block reward"
@@ -648,7 +660,6 @@ msgstr "blocked"
 msgid "blocked - update abuse detected"
 msgstr "blocked - update abuse detected"
 
-#: src/components/Bip110ScanCard.tsx
 #: src/pages/Config.tsx
 msgid "blocks"
 msgstr "blocks"
@@ -920,6 +931,10 @@ msgstr "Compact numeric time series - one row per tick (~1,440/day) with hashrat
 msgid "Complete setup"
 msgstr "Complete setup"
 
+#: src/components/Bip110ScanCard.tsx
+msgid "Completed"
+msgstr "Completed"
+
 #: src/pages/Status.tsx
 msgid "computing…"
 msgstr "computing…"
@@ -1020,6 +1035,14 @@ msgstr "Current {current} - tracking fillable + overpay (clamped)."
 msgid "Current {current} - tracking fillable + overpay."
 msgstr "Current {current} - tracking fillable + overpay."
 
+#: src/components/Bip110ScanCard.tsx
+msgid "Current + last {n} epochs"
+msgstr "Current + last {n} epochs"
+
+#: src/components/Bip110ScanCard.tsx
+msgid "Current + last 1 epoch"
+msgstr "Current + last 1 epoch"
+
 #: src/pages/Status.tsx
 msgid "current bid"
 msgstr "current bid"
@@ -1032,6 +1055,10 @@ msgstr "current bid · primary of {0}"
 #: src/components/StaleUrlBanner.tsx
 msgid "Current config:"
 msgstr "Current config:"
+
+#: src/components/Bip110ScanCard.tsx
+msgid "Current epoch"
+msgstr "Current epoch"
 
 #: src/pages/Status.tsx
 msgid "Current owned-bid price (sat/PH/day). Under pay-your-bid this is exactly what Braiins charges per delivered EH-day - the live price you're paying. The plus/minus next to it is the spread vs Ocean's spot hashprice (positive = paying above break-even, negative = below). For the spend-weighted average paid across the selected chart range (handy when the bid moved during the window), see the AVG COST / PH DELIVERED stats card."
@@ -1364,6 +1391,10 @@ msgstr "Enable debug API endpoint"
 msgid "Enable solo-mining monitoring"
 msgstr "Enable solo-mining monitoring"
 
+#: src/components/Bip110ScanCard.tsx
+msgid "Epoch"
+msgstr "Epoch"
+
 #: src/pages/Status.tsx
 msgid "Escalation in"
 msgstr "Escalation in"
@@ -1663,6 +1694,10 @@ msgstr "important"
 #: src/pages/Config.tsx
 msgid "IMPORTANT"
 msgstr "IMPORTANT"
+
+#: src/components/Bip110ScanCard.tsx
+msgid "In progress"
+msgstr "In progress"
 
 #: src/pages/Config.tsx
 msgid "Include historical Ocean payouts in lifetime earnings"
@@ -2477,6 +2512,10 @@ msgstr "Pending 2FA"
 msgid "Per-bid budget"
 msgstr "Per-bid budget"
 
+#: src/components/Bip110ScanCard.tsx
+msgid "Per-epoch breakdown"
+msgstr "Per-epoch breakdown"
+
 #: src/pages/Config.tsx
 msgid "Per-event-class opt-outs live on the Notifications tab. Per-ASIC-model thermal ceilings are picked automatically; the override below applies a single global ceiling across every device."
 msgstr "Per-event-class opt-outs live on the Notifications tab. Per-ASIC-model thermal ceilings are picked automatically; the override below applies a single global ceiling across every device."
@@ -2911,6 +2950,10 @@ msgstr "Scan results"
 msgid "scanned"
 msgstr "scanned"
 
+#: src/components/Bip110ScanCard.tsx
+msgid "Scanned"
+msgstr "Scanned"
+
 #. placeholder {0}: r.tx_seen
 #. placeholder {1}: r.coinbase_seen
 #. placeholder {2}: r.inserted
@@ -3008,6 +3051,10 @@ msgstr "sign out"
 #: src/components/Bip110ScanCard.tsx
 msgid "signaling"
 msgstr "signaling"
+
+#: src/components/Bip110ScanCard.tsx
+msgid "Signaling"
+msgstr "Signaling"
 
 #: src/components/HashrateChart.tsx
 msgid "Signaling BIP 110"
