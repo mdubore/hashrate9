@@ -257,6 +257,18 @@ export class AlertEvaluator {
    */
   private payoutPrevUnpaidSat: number | null = null;
   /**
+   * #239: unpaid_sat captured at the moment the previous
+   * `pool_block_credited` alert fired. The delta against the current
+   * unpaid is the operator's actual TIDES credit for this block - the
+   * share_log_pct × reward estimate computed below diverges from
+   * Ocean's real ledger when hashrate fluctuates inside the ~80-min
+   * TIDES window. The actual delta replaces the estimate in the
+   * single-alert-this-tick happy path; multi-block ticks and the
+   * first alert after a daemon restart fall back to the estimate
+   * with a "~" prefix.
+   */
+  private lastPoolBlockUnpaidSat: number | null = null;
+  /**
    * #226: highest `reward_events.id` we've already considered for the
    * `payout_confirmed` Telegram. Hydrated at boot from
    * `rewardEventsRepo.maxId()` so the boot-time backfill of historical
@@ -746,6 +758,26 @@ export class AlertEvaluator {
     // Fire any entries whose deferral condition is satisfied.
     const fireFailsafeMs = 10 * 60 * 1000;
     const stillPending: typeof this.pendingPoolBlockCredits = [];
+    // #239: count how many pending entries will actually fire this
+    // round - the actual-delta path only kicks in when exactly one
+    // alert is being emitted (a multi-block tick would have to
+    // apportion the delta across N blocks, which we don't try).
+    const readyEntries = this.pendingPoolBlockCredits.filter((e) => {
+      const oceanCaughtUp =
+        state.ocean_unpaid_sat !== null &&
+        e.noticed_unpaid_sat !== null &&
+        state.ocean_unpaid_sat > e.noticed_unpaid_sat;
+      const failsafeReached = state.tick_at - e.noticed_at_ms >= fireFailsafeMs;
+      const unpaidNowAvailable =
+        e.noticed_unpaid_sat === null && state.ocean_unpaid_sat !== null;
+      return oceanCaughtUp || failsafeReached || unpaidNowAvailable;
+    });
+    const singleAlertThisTick = readyEntries.length === 1;
+    // Capture the previous anchor BEFORE the loop so the single-alert
+    // path sees the value at the moment the last alert fired (not a
+    // value updated mid-loop). On a multi-alert tick we don't use it
+    // anyway.
+    const prevAnchorUnpaidSat = this.lastPoolBlockUnpaidSat;
     for (const entry of this.pendingPoolBlockCredits) {
       const oceanCaughtUp =
         state.ocean_unpaid_sat !== null &&
@@ -767,7 +799,7 @@ export class AlertEvaluator {
             .nearestShareLogPct(blk.timestamp_ms, SHARE_LOG_AT_BLOCK_TOLERANCE_MS)
             .catch(() => null)
         : null;
-      const ourCreditSat =
+      const estimatedCreditSat =
         sharePct !== null && sharePct > 0
           ? Math.round((blk.total_reward_sat * sharePct) / 100)
           : null;
@@ -775,11 +807,39 @@ export class AlertEvaluator {
       const heightStr = formatInteger(blk.height, locale);
       const rewardBtc = formatBtc(blk.total_reward_sat, locale);
       const sharePctStr = sharePct !== null ? formatPct(sharePct, 4, locale) : 'unknown';
-      const creditStr =
-        ourCreditSat !== null
-          ? `~${formatInteger(ourCreditSat, locale)} sat`
-          : 'unknown (no nearby tick captured share_log)';
       const unpaidSat = state.ocean_unpaid_sat;
+      // #239: prefer the actual unpaid_sat delta as the credit
+      // number. Falls back to share_log_pct × reward estimate when:
+      //   - multiple alerts are being emitted this tick (can't
+      //     apportion the delta across N blocks)
+      //   - first alert (no previous anchor — daemon just restarted
+      //     or this is the first pool_block_credited ever)
+      //   - delta is negative (payout happened between alerts, or
+      //     Ocean's accounting did something the operator doesn't
+      //     want us to mis-attribute)
+      let actualCreditSat: number | null = null;
+      if (
+        singleAlertThisTick &&
+        prevAnchorUnpaidSat !== null &&
+        unpaidSat !== null &&
+        unpaidSat >= prevAnchorUnpaidSat
+      ) {
+        actualCreditSat = unpaidSat - prevAnchorUnpaidSat;
+      }
+      // Display string: actual = no tilde, estimate = "~" prefix.
+      // The presence/absence of the tilde signals to the operator
+      // whether the math should reconcile against unpaid_sat.
+      const creditStr =
+        actualCreditSat !== null
+          ? `${formatInteger(actualCreditSat, locale)} sat`
+          : estimatedCreditSat !== null
+            ? `~${formatInteger(estimatedCreditSat, locale)} sat`
+            : 'unknown (no nearby tick captured share_log)';
+      // The estimated credit is still what the payout-detection
+      // heuristic below uses (it predates this fix and asks "how
+      // much did unpaid drop vs what we expected to add"); fall
+      // back to the share_log estimate if we computed one.
+      const ourCreditSat = estimatedCreditSat;
       const unpaidStr =
         unpaidSat !== null
           ? `${formatInteger(unpaidSat, locale)} sat (${formatPct((unpaidSat / OCEAN_PAYOUT_THRESHOLD_SAT) * 100, 1, locale)} of ${formatInteger(OCEAN_PAYOUT_THRESHOLD_SAT, locale)}-sat payout)`
@@ -818,6 +878,14 @@ export class AlertEvaluator {
       });
       if (blk.height > this.lastNotifiedBlockHeight) {
         this.lastNotifiedBlockHeight = blk.height;
+      }
+      // #239: anchor moves to the post-alert unpaid value so the next
+      // pool_block_credited can compute its delta. Updated inside
+      // the loop (rather than once after) so the multi-alert case
+      // still leaves a sensible anchor for the following tick — the
+      // last alert in this tick anchors to the current unpaid.
+      if (unpaidSat !== null) {
+        this.lastPoolBlockUnpaidSat = unpaidSat;
       }
     }
     this.pendingPoolBlockCredits = stillPending;

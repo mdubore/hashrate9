@@ -254,7 +254,7 @@ const EN: AlertCopy = {
       ? `Pool block credited + ON-CHAIN PAYOUT - #${height}`
       : `Pool block credited - #${height}`,
   pool_block_credited_body: ({ height, reward_btc, share_pct, credit, payout_sat, payout_btc, unpaid }) =>
-    `Ocean found pool block #${height} (reward ${reward_btc} BTC). Your share: ${share_pct} → ${credit}.${payout_sat && payout_btc ? ` Paid out: ${payout_sat} sat / ${payout_btc} BTC to your payout address.` : ''} Unpaid total: ${unpaid}.`,
+    `Ocean found pool block #${height} (reward ${reward_btc} BTC). Credited to you: ${credit} (~${share_pct} pool share at the time).${payout_sat && payout_btc ? ` Paid out: ${payout_sat} sat / ${payout_btc} BTC to your payout address.` : ''} Unpaid total: ${unpaid}.`,
 
   payout_initiated_title: ({ payout_btc }) =>
     `Payout initiated - ${payout_btc} BTC`,
@@ -382,7 +382,7 @@ const NL: AlertCopy = {
       ? `Pool block bijgeschreven + ON-CHAIN UITBETALING - #${height}`
       : `Pool block bijgeschreven - #${height}`,
   pool_block_credited_body: ({ height, reward_btc, share_pct, credit, payout_sat, payout_btc, unpaid }) =>
-    `Ocean vond pool block #${height} (reward ${reward_btc} BTC). Jouw aandeel: ${share_pct} → ${credit}.${payout_sat && payout_btc ? ` Uitbetaald: ${payout_sat} sat / ${payout_btc} BTC naar je payout-adres.` : ''} Unpaid totaal: ${unpaid}.`,
+    `Ocean vond pool block #${height} (reward ${reward_btc} BTC). Bijgeschreven: ${credit} (~${share_pct} pool-aandeel op dat moment).${payout_sat && payout_btc ? ` Uitbetaald: ${payout_sat} sat / ${payout_btc} BTC naar je payout-adres.` : ''} Unpaid totaal: ${unpaid}.`,
 
   payout_initiated_title: ({ payout_btc }) =>
     `Uitbetaling gestart - ${payout_btc} BTC`,
@@ -511,7 +511,7 @@ const ES: AlertCopy = {
       ? `Bloque de pool acreditado + PAGO ON-CHAIN - #${height}`
       : `Bloque de pool acreditado - #${height}`,
   pool_block_credited_body: ({ height, reward_btc, share_pct, credit, payout_sat, payout_btc, unpaid }) =>
-    `Ocean encontró el bloque de pool #${height} (recompensa ${reward_btc} BTC). Tu parte: ${share_pct} → ${credit}.${payout_sat && payout_btc ? ` Pagado: ${payout_sat} sat / ${payout_btc} BTC a tu dirección de pago.` : ''} Total no pagado: ${unpaid}.`,
+    `Ocean encontró el bloque de pool #${height} (recompensa ${reward_btc} BTC). Acreditado: ${credit} (~${share_pct} de la participación del pool en ese momento).${payout_sat && payout_btc ? ` Pagado: ${payout_sat} sat / ${payout_btc} BTC a tu dirección de pago.` : ''} Total no pagado: ${unpaid}.`,
 
   payout_initiated_title: ({ payout_btc }) =>
     `Pago iniciado - ${payout_btc} BTC`,
