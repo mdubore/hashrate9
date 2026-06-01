@@ -23,13 +23,14 @@
     "daemon": "tsx packages/daemon/src/main.ts"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@hashrate-autopilot/braiins-client": "workspace:*",
     "@hashrate-autopilot/daemon": "workspace:*",
     "@hashrate-autopilot/shared": "workspace:*",
-    "@eslint/js": "^10.0.1",
     "@inquirer/prompts": "^8.5.0",
     "@types/node": "^25.9.1",
     "eslint": "^10.4.0",
+    "playwright": "^1.60.0",
     "prettier": "^3.8.3",
     "tsx": "^4.22.3",
     "typescript": "^5.9.3",
