@@ -873,6 +873,21 @@ export const HashrateChart = memo(function HashrateChart({
       }
       shareLogYMin = shareLogYTicks[0] ?? 0;
       shareLogYMax = shareLogYTicks[shareLogYTicks.length - 1] ?? 1;
+      // #236: when every tick in the visible range renders to the same
+      // formatted label (constant data within the formatter's display
+      // precision - e.g. network difficulty over a 24h window where
+      // niceYTicks pads ±0.0001 around the central value but the
+      // trillion-scale "X.XX T" formatter rounds them all to the same
+      // string) collapse to a single midpoint label. The line still
+      // draws at the correct vertical position because shareLogYMin /
+      // shareLogYMax stay at the full padded extent; the user just sees
+      // one honest label instead of 5 lying ones.
+      if (rightAxis) {
+        const labels = new Set(shareLogYTicks.map((v) => rightAxis.formatTick(v)));
+        if (labels.size === 1 && shareLogYTicks.length > 1) {
+          shareLogYTicks = [(shareLogYMin + shareLogYMax) / 2];
+        }
+      }
     }
     const shareLogYScale = (y: number): number => {
       const usable = chartHeight - PADDING.top - PADDING.bottom;

@@ -908,6 +908,20 @@ export const PriceChart = memo(function PriceChart({
       rightYTicks = niceYTicks(yFloor, yCeiling, 5);
       rightYMin = rightYTicks[0] ?? 0;
       rightYMax = rightYTicks[rightYTicks.length - 1] ?? 1;
+      // #236: collapse to a single midpoint label when every tick
+      // renders to the same string at the formatter's display
+      // precision (e.g. constant-over-the-window data padded by a
+      // sub-precision amount). The line still draws at the correct
+      // vertical position because rightYMin / rightYMax stay at the
+      // padded extent; the operator just sees one honest label
+      // instead of N identical ones.
+      if (rightAxis) {
+        const span = rightYMax - rightYMin;
+        const labels = new Set(rightYTicks.map((v) => rightAxis.formatTick(v, span)));
+        if (labels.size === 1 && rightYTicks.length > 1) {
+          rightYTicks = [(rightYMin + rightYMax) / 2];
+        }
+      }
     }
     const rightYScale = (v: number): number => {
       const usable = chartHeight - PADDING.top - PADDING.bottom;

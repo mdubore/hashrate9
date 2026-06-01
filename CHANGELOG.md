@@ -2,6 +2,10 @@
 
 ## 2026-06-01
 
+### `[Fix]` Right-axis collapses to a single label when all ticks render identically (#236)
+
+Charts with constant data over the visible window would render N right-axis tick labels that all show the same string — most visible on the Hashrate chart's `network difficulty` series at 24h, where the entire window sits inside one difficulty epoch (no retarget) and the 2-decimal "X.XX T" formatter rounds every tick to the same value. Post-processed `niceYTicks` output: render each tick value through the formatter, dedupe by string, and collapse to a single midpoint label when only one unique label remains. Y-scale extent stays at the original padded range so the line still draws at the correct vertical position. Applied symmetrically to HashrateChart and PriceChart. Multi-tick rendering for series with genuine variance is unchanged.
+
 ### `[UI]` BIP 110 deployment tooltip: lifecycle-aware copy for LOCKED_IN / ACTIVE / past-UASF SIGNALING (#235)
 
 The deployment-status tooltip now reads sensibly across the full BIP 9 lifecycle, not just the current SIGNALING window. **LOCKED_IN** includes the next-boundary block height and an estimated activation date (`floor(tip / 2016) × 2016 + 2016`, formatted as a date via `now + (next - tip) × 600s`). **ACTIVE** distinguishes MASF vs UASF activation using bitcoind's `bip9.since` field (added to `Bip110Deployment` as `since: number | null`): `since < 965_664` → MASF path ("Activated via the 55% miner-activation threshold at block X on DATE"); `since >= 965_664` → UASF path ("Activated at the UASF flag-day block 965,664 on DATE"); falls back to the short text when `since` is missing. **SIGNALING** tense-switches its UASF clause from "begin enforcing" to "began enforcing" defensively if tip ≥ 965,664 — shouldn't naturally happen (Knots would flip to ACTIVE) but the framing is now safe regardless. en + nl + es translations for five new strings.
