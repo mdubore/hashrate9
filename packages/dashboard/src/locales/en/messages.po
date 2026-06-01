@@ -329,6 +329,10 @@ msgstr "Alert thresholds"
 msgid "Alerts"
 msgstr "Alerts"
 
+#: src/components/Bip110ScanCard.tsx
+msgid "All"
+msgstr "All"
+
 #: src/pages/Config.tsx
 msgid "already added"
 msgstr "already added"
@@ -578,6 +582,10 @@ msgstr "BIP 110 (Reduced Data Temporary Softfork) activation happens in two phas
 #: src/components/Bip110ScanCard.tsx
 msgid "BIP 110 scan"
 msgstr "BIP 110 scan"
+
+#: src/components/Bip110ScanCard.tsx
+msgid "BIP 110 scan range"
+msgstr "BIP 110 scan range"
 
 #: src/components/HashrateChart.tsx
 msgid "BIP 110 SIGNAL"
@@ -1042,14 +1050,6 @@ msgstr "Current {current} - tracking fillable + overpay (clamped)."
 #: src/pages/Status.tsx
 msgid "Current {current} - tracking fillable + overpay."
 msgstr "Current {current} - tracking fillable + overpay."
-
-#: src/components/Bip110ScanCard.tsx
-msgid "Current + last {n} epochs"
-msgstr "Current + last {n} epochs"
-
-#: src/components/Bip110ScanCard.tsx
-msgid "Current + last 1 epoch"
-msgstr "Current + last 1 epoch"
 
 #: src/pages/Status.tsx
 msgid "current bid"

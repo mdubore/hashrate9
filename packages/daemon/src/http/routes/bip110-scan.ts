@@ -1,19 +1,24 @@
 /**
- * GET /api/bip110/scan?epochs=N
+ * GET /api/bip110/scan?range=current|all
  *
- * Scans recent blocks for BIP 110 (Reduced Data Temporary Softfork)
+ * Scans blocks for BIP 110 (Reduced Data Temporary Softfork)
  * signaling and returns deployment-level state plus the list of
  * signaling block hashes for the operator to verify the crown marker
  * (#94) renders correctly.
  *
- * Range semantics (#231): the scan is anchored to difficulty epochs
- * (2016-block boundaries), not arbitrary block counts. `?epochs=N`
- * scans the in-progress current epoch plus the last N completed
- * epochs. Aligned via `floor(tip / 2016) * 2016 - N * 2016` to
- * `tip`. This matches how BIP 9 / MASF activation evaluates
- * signaling — per epoch, not over a sliding window — so the
- * per-epoch percentages in the response are directly comparable to
- * the 55% MASF threshold.
+ * Range semantics (#231 follow-up #3):
+ *   - `current` (default): scan the in-progress difficulty epoch
+ *     (from `floor(tip / 2016) * 2016` through `tip`). The
+ *     signaling percentage is directly comparable to the 55% MASF
+ *     activation threshold.
+ *   - `all`: scan from BIP110_FIRST_SIGNALING_BLOCK_HEIGHT (the
+ *     first known BIP 110 signaling block, height 938,903, found
+ *     2026-03-01) through `tip`. Operator's explicit "show me
+ *     everything" opt-in; ~13k blocks today, single-digit seconds.
+ *
+ * Both ranges always epoch-align: the response's per-epoch buckets
+ * snap to multiples of 2016 so each row's percentage maps cleanly
+ * to "this epoch's MASF progress."
  *
  * Detection (BIP 9-style):
  *   isBip110Signal = ((version & 0xe0000000) === 0x20000000)  // top 3 bits = 001
@@ -32,13 +37,16 @@ import { createBitcoindClient } from '@hashrate-autopilot/bitcoind-client';
 import type { ConfigRepo } from '../../state/repos/config.js';
 
 const BLOCKS_PER_EPOCH = 2016;
-const DEFAULT_PAST_EPOCHS = 0;
-// 12 past epochs + current = 13 epochs ≈ 26208 blocks, ~6 months at
-// 10-minute target spacing. 13 batches of getblockhash + 13 of
-// getblockheader at BATCH_SIZE=200 is 26 HTTP round-trips, well
-// within the 300s bitcoind client timeout.
-const MAX_PAST_EPOCHS = 12;
+/**
+ * Height of the first known BIP 110 signaling block — found
+ * 2026-03-01 on the mainnet. Anchors the `range=all` scan so the
+ * historical view is bounded (instead of starting at genesis and
+ * scanning ~1M empty blocks).
+ */
+export const BIP110_FIRST_SIGNALING_BLOCK_HEIGHT = 938_903;
 const BATCH_SIZE = 200;
+
+export type Bip110ScanRange = 'current' | 'all';
 
 export interface Bip110ScanDeps {
   readonly configRepo: ConfigRepo;
@@ -239,20 +247,27 @@ function extractDeployment(key: string, entry: SoftforkEntry | undefined): Bip11
 }
 
 /**
- * Resolve `?epochs=N` query param + tip height to the inclusive
- * height range to scan. Always aligned to epoch boundaries: the lower
- * bound is `currentEpochStart - pastEpochs * 2016`, the upper bound
- * is the tip. Returns `{ startHeight, currentEpochStart }` so the
+ * Resolve `?range=current|all` + tip height to the inclusive height
+ * range to scan. Returns `{ startHeight, currentEpochStart }` so the
  * caller can slice the per-epoch buckets without recomputing.
+ *
+ * - `current`: startHeight = currentEpochStart (the in-progress epoch).
+ * - `all`: startHeight = BIP110_FIRST_SIGNALING_BLOCK_HEIGHT, then
+ *   snapped down to its epoch boundary so the leftmost per-epoch
+ *   bucket starts on a multiple of 2016 (the bucketing function
+ *   floors heights into their epoch).
  *
  * Exported for testing.
  */
 export function computeScanRange(
   tipHeight: number,
-  pastEpochs: number,
+  range: Bip110ScanRange,
 ): { startHeight: number; currentEpochStart: number } {
   const currentEpochStart = Math.floor(tipHeight / BLOCKS_PER_EPOCH) * BLOCKS_PER_EPOCH;
-  const startHeight = Math.max(0, currentEpochStart - pastEpochs * BLOCKS_PER_EPOCH);
+  const startHeight =
+    range === 'all'
+      ? Math.floor(BIP110_FIRST_SIGNALING_BLOCK_HEIGHT / BLOCKS_PER_EPOCH) * BLOCKS_PER_EPOCH
+      : currentEpochStart;
   return { startHeight, currentEpochStart };
 }
 
@@ -331,7 +346,7 @@ export async function registerBip110ScanRoute(
   app: FastifyInstance,
   deps: Bip110ScanDeps,
 ): Promise<void> {
-  app.get<{ Querystring: { epochs?: string; blocks?: string } }>(
+  app.get<{ Querystring: { range?: string } }>(
     '/api/bip110/scan',
     async (req): Promise<Bip110ScanResponse> => {
       // Read the live config row at request time - saved Config edits
@@ -364,30 +379,12 @@ export async function registerBip110ScanRoute(
 
       const client = createBitcoindClient({ url, username: user, password });
 
-      // #231: `?epochs=N` is the canonical knob (past epochs in
-      // addition to the current). Legacy `?blocks=N` is honored
-      // best-effort by rounding up to whole epochs so old callers
-      // don't break — but the response is still epoch-aligned, which
-      // is the whole point.
-      let pastEpochs: number;
-      if (req.query.epochs !== undefined) {
-        const parsed = Number.parseInt(req.query.epochs, 10);
-        pastEpochs = Number.isFinite(parsed) && parsed >= 0
-          ? Math.min(parsed, MAX_PAST_EPOCHS)
-          : DEFAULT_PAST_EPOCHS;
-      } else if (req.query.blocks !== undefined) {
-        const parsed = Number.parseInt(req.query.blocks, 10);
-        const blocks = Number.isFinite(parsed) && parsed > 0 ? parsed : BLOCKS_PER_EPOCH;
-        // Round up: a "2016 blocks" request becomes the current
-        // epoch (in progress) plus 0 past ones; "4032" becomes
-        // current + 1 past; etc. Capped at MAX_PAST_EPOCHS.
-        pastEpochs = Math.min(
-          Math.max(0, Math.ceil(blocks / BLOCKS_PER_EPOCH) - 1),
-          MAX_PAST_EPOCHS,
-        );
-      } else {
-        pastEpochs = DEFAULT_PAST_EPOCHS;
-      }
+      // #231 follow-up #3: range is now a two-option choice —
+      // `current` (in-progress epoch) or `all` (everything since the
+      // first known BIP 110 signaling block, 938,903). Anything else
+      // resolves to `current` so a bad query param can't blow up
+      // the scan.
+      const range: Bip110ScanRange = req.query.range === 'all' ? 'all' : 'current';
 
       let info;
       try {
@@ -397,7 +394,7 @@ export async function registerBip110ScanRoute(
       }
 
       const tip = info.blocks;
-      const { startHeight: start, currentEpochStart } = computeScanRange(tip, pastEpochs);
+      const { startHeight: start, currentEpochStart } = computeScanRange(tip, range);
       const heights = Array.from({ length: tip - start + 1 }, (_, i) => start + i);
 
       let deploymentSource: Record<string, unknown> | undefined = info.softforks;

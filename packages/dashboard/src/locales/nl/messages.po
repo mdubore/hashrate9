@@ -329,6 +329,10 @@ msgstr "Alarmdrempels"
 msgid "Alerts"
 msgstr "Meldingen"
 
+#: src/components/Bip110ScanCard.tsx
+msgid "All"
+msgstr "Alles"
+
 #: src/pages/Config.tsx
 msgid "already added"
 msgstr "al toegevoegd"
@@ -578,6 +582,10 @@ msgstr "BIP 110 (Reduced Data Temporary Softfork) activering verloopt in twee fa
 #: src/components/Bip110ScanCard.tsx
 msgid "BIP 110 scan"
 msgstr "BIP 110 scan"
+
+#: src/components/Bip110ScanCard.tsx
+msgid "BIP 110 scan range"
+msgstr "BIP 110-scanbereik"
 
 #: src/components/HashrateChart.tsx
 msgid "BIP 110 SIGNAL"
@@ -1042,14 +1050,6 @@ msgstr "Nu {current} - volgt vulbaar + overbod (geklemd)."
 #: src/pages/Status.tsx
 msgid "Current {current} - tracking fillable + overpay."
 msgstr "Nu {current} - volgt vulbaar + overbod."
-
-#: src/components/Bip110ScanCard.tsx
-msgid "Current + last {n} epochs"
-msgstr "Huidige + laatste {n} epochs"
-
-#: src/components/Bip110ScanCard.tsx
-msgid "Current + last 1 epoch"
-msgstr "Huidige + laatste epoch"
 
 #: src/pages/Status.tsx
 msgid "current bid"

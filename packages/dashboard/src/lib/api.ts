@@ -785,10 +785,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ url }),
     }),
-  /** #231: epoch-aligned scan. `pastEpochs` = number of completed
-   *  epochs before the current (in-progress) one. 0 = current only. */
-  bip110Scan: (pastEpochs: number) =>
-    request<Bip110ScanResponse>(`/api/bip110/scan?epochs=${encodeURIComponent(String(pastEpochs))}`),
+  /** #231 follow-up #3: two-option range — `current` (in-progress
+   *  epoch) or `all` (everything since the first known BIP 110
+   *  signaling block, height 938,903 on 2026-03-01). */
+  bip110Scan: (range: 'current' | 'all') =>
+    request<Bip110ScanResponse>(`/api/bip110/scan?range=${encodeURIComponent(range)}`),
   bitcoindTest: (creds: { url: string; user: string; password: string }) =>
     request<BitcoindTestResponse>('/api/bitcoind/test', {
       method: 'POST',

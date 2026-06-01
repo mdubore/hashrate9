@@ -329,6 +329,10 @@ msgstr "Umbrales de alerta"
 msgid "Alerts"
 msgstr "Alertas"
 
+#: src/components/Bip110ScanCard.tsx
+msgid "All"
+msgstr "Todo"
+
 #: src/pages/Config.tsx
 msgid "already added"
 msgstr "ya anadido"
@@ -578,6 +582,10 @@ msgstr "La activacion de BIP 110 (Reduced Data Temporary Softfork) ocurre en dos
 #: src/components/Bip110ScanCard.tsx
 msgid "BIP 110 scan"
 msgstr "Escaneo BIP 110"
+
+#: src/components/Bip110ScanCard.tsx
+msgid "BIP 110 scan range"
+msgstr "Rango de escaneo BIP 110"
 
 #: src/components/HashrateChart.tsx
 msgid "BIP 110 SIGNAL"
@@ -1042,14 +1050,6 @@ msgstr "Actual {current} - siguiendo llenable + sobrepago (limitado)."
 #: src/pages/Status.tsx
 msgid "Current {current} - tracking fillable + overpay."
 msgstr "Actual {current} - siguiendo llenable + sobrepago."
-
-#: src/components/Bip110ScanCard.tsx
-msgid "Current + last {n} epochs"
-msgstr "Actual + últimas {n} épocas"
-
-#: src/components/Bip110ScanCard.tsx
-msgid "Current + last 1 epoch"
-msgstr "Actual + última época"
 
 #: src/pages/Status.tsx
 msgid "current bid"

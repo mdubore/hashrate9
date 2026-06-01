@@ -2,6 +2,10 @@
 
 ## 2026-05-31
 
+### `[UI]` BIP 110 scanner range: two-option toggle (`Current epoch` / `All`) (#231 follow-up #3)
+
+The five-option epoch-count dropdown collapses to a two-option segmented toggle: `Current epoch` (in-progress epoch only) or `All` (every epoch since the first known BIP 110 signaling block, height 938,903 on 2026-03-01). `All` is the explicit "show me the historical view" opt-in — a bounded ~13k-block scan that takes single-digit seconds on a healthy node. Backend takes `?range=current|all`; the old `?epochs=N` / `?blocks=N` params are dropped (no external callers). Dashboard radio buttons reuse the existing TH/PH/EH segmented-toggle styling. Obsolete dropdown labels removed from the i18n catalogs by extract --clean; the two new strings (`All`, `BIP 110 scan range`) translated for NL + ES.
+
 ### `[Fix]` Right-axis solo-mining lines truncated to 24h at All chart range (#232)
 
 At the `All` chart range, the right-axis solo-power / solo-hashrate / device-count / max-temp / max-best-difficulty lines silently rendered only the trailing 24h of data — narrower presets worked fine. `Status.tsx`'s `Date.now() - (CHART_RANGE_SPECS[preset].windowMs ?? 24*60*60_000)` fell through to the 24h fallback when `windowMs` is null (the All sentinel), so the solo-series query asked for `since = now - 24h`. Fixed with explicit All handling (`since = 0`) plus a backend tweak to honor `since=0` as "everything" instead of the previous `> 0` guard that quietly degraded it to 24h. Custom panned viewports now also use `vp.since_ms` directly instead of anchoring to "now", so a panned past window returns the correct slice.

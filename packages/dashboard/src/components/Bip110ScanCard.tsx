@@ -48,14 +48,13 @@ function formatEpochDateRange(
 }
 
 /**
- * #231: range options are number of past epochs in addition to the
- * current (in-progress) one. 0 means "current only". MASF activation
- * evaluates per epoch, so an epoch-aligned scan window is the only
- * one whose percentages are directly comparable to the 55%
- * activation threshold.
+ * #231 follow-up #3: range is a two-option choice. `current` shows
+ * the in-progress difficulty epoch (live MASF window). `all` shows
+ * every difficulty epoch since the first known BIP 110 signaling
+ * block (height 938,903, 2026-03-01) — a bounded ~13k-block scan
+ * that takes single-digit seconds on a healthy node.
  */
-const PAST_EPOCH_OPTIONS = [0, 1, 3, 6, 12] as const;
-type PastEpochs = (typeof PAST_EPOCH_OPTIONS)[number];
+type ScanRange = 'current' | 'all';
 
 /** BIP 110 MASF activation threshold: 55% of an epoch's blocks. */
 const MASF_THRESHOLD_PCT = 55;
@@ -269,7 +268,7 @@ export function Bip110ScanCard(): React.JSX.Element {
   const { intlLocale } = useLocale();
   const fmt = useFormatters();
 
-  const [pastEpochs, setPastEpochs] = useState<PastEpochs>(0);
+  const [range, setRange] = useState<ScanRange>('current');
 
   const configQuery = useQuery({
     queryKey: ['config'],
@@ -280,15 +279,8 @@ export function Bip110ScanCard(): React.JSX.Element {
     'https://mempool.space/block/{hash}';
 
   const scan = useMutation({
-    mutationFn: (epochs: number) => api.bip110Scan(epochs),
+    mutationFn: (r: ScanRange) => api.bip110Scan(r),
   });
-
-  const epochLabel = (n: number): string =>
-    n === 0
-      ? t`Current epoch`
-      : n === 1
-        ? t`Current + last 1 epoch`
-        : t`Current + last ${n} epochs`;
 
   const data: Bip110ScanResponse | undefined = scan.data;
   const sortedBlocks = data
@@ -319,21 +311,38 @@ export function Bip110ScanCard(): React.JSX.Element {
         </div>
 
         <div className="flex items-center gap-2">
-          <select
-            value={pastEpochs}
-            onChange={(e) => setPastEpochs(Number(e.target.value) as PastEpochs)}
-            className="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-sm text-slate-200"
-            disabled={scan.isPending}
+          <div
+            className="inline-flex items-center border border-slate-700 rounded-md overflow-hidden text-xs leading-none"
+            role="radiogroup"
+            aria-label={t`BIP 110 scan range`}
           >
-            {PAST_EPOCH_OPTIONS.map((n) => (
-              <option key={n} value={n}>
-                {epochLabel(n)}
-              </option>
-            ))}
-          </select>
+            {(['current', 'all'] as const).map((option, i) => {
+              const selected = range === option;
+              const label = option === 'current' ? t`Current epoch` : t`All`;
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  onClick={() => setRange(option)}
+                  disabled={scan.isPending}
+                  className={
+                    'px-3 py-1.5 transition ' +
+                    (i > 0 ? 'border-l border-slate-700 ' : '') +
+                    (selected
+                      ? 'bg-amber-400 text-slate-900 font-medium'
+                      : 'text-slate-400 hover:bg-slate-800')
+                  }
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
           <button
             type="button"
-            onClick={() => scan.mutate(pastEpochs)}
+            onClick={() => scan.mutate(range)}
             disabled={scan.isPending}
             className="px-4 py-1.5 text-sm rounded bg-amber-400 text-slate-900 font-medium hover:bg-amber-300 disabled:opacity-50"
           >

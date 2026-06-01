@@ -9,38 +9,48 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { bucketByEpoch, computeScanRange } from './bip110-scan.js';
+import {
+  BIP110_FIRST_SIGNALING_BLOCK_HEIGHT,
+  bucketByEpoch,
+  computeScanRange,
+} from './bip110-scan.js';
 
 const EPOCH = 2016;
 
 describe('computeScanRange', () => {
-  it('current epoch only (pastEpochs=0): aligns startHeight to floor(tip/2016)*2016', () => {
-    const r = computeScanRange(951_700, 0);
-    expect(r.currentEpochStart).toBe(Math.floor(951_700 / EPOCH) * EPOCH);
-    expect(r.startHeight).toBe(r.currentEpochStart);
-  });
-
-  it('current + 3 past: walks back 3 epoch lengths from the current-epoch start', () => {
-    const tip = 951_700;
-    const r = computeScanRange(tip, 3);
-    const expectedCurrent = Math.floor(tip / EPOCH) * EPOCH;
+  it('range=current: startHeight equals the current epoch start (floor of tip)', () => {
+    const r = computeScanRange(951_700, 'current');
+    const expectedCurrent = Math.floor(951_700 / EPOCH) * EPOCH;
     expect(r.currentEpochStart).toBe(expectedCurrent);
-    expect(r.startHeight).toBe(expectedCurrent - 3 * EPOCH);
+    expect(r.startHeight).toBe(expectedCurrent);
   });
 
-  it('clamps startHeight at 0 when requested range walks past genesis', () => {
-    const r = computeScanRange(EPOCH + 10, 12);
-    expect(r.startHeight).toBe(0);
+  it('range=all: startHeight snaps to the epoch boundary at or below the first BIP 110 block', () => {
+    const r = computeScanRange(951_700, 'all');
+    const expectedStart = Math.floor(BIP110_FIRST_SIGNALING_BLOCK_HEIGHT / EPOCH) * EPOCH;
+    expect(r.startHeight).toBe(expectedStart);
+    expect(r.startHeight % EPOCH).toBe(0);
+    // currentEpochStart unaffected by the range — always the floor of tip.
+    expect(r.currentEpochStart).toBe(Math.floor(951_700 / EPOCH) * EPOCH);
   });
 
-  it('tip exactly on an epoch boundary: current epoch is empty (in_progress, 0 scanned)', () => {
-    // tip = 2016k - 1 means the last block of an epoch; tip = 2016k
-    // means the first block of the next epoch. Range still aligns to
-    // the new epoch start.
-    const tip = 5 * EPOCH; // first block of epoch 5
-    const r = computeScanRange(tip, 0);
-    expect(r.currentEpochStart).toBe(5 * EPOCH);
-    expect(r.startHeight).toBe(5 * EPOCH);
+  it('range=all spans many epochs (sanity check on bucket count)', () => {
+    const tip = 951_700;
+    const r = computeScanRange(tip, 'all');
+    const epochsCovered = (r.currentEpochStart - r.startHeight) / EPOCH + 1;
+    // ~6-7 epochs from BIP110_FIRST_SIGNALING_BLOCK_HEIGHT (938_903)
+    // through current as of the spec date. The exact count depends
+    // on tip — just confirm we're in the right order of magnitude.
+    expect(epochsCovered).toBeGreaterThanOrEqual(5);
+    expect(epochsCovered).toBeLessThanOrEqual(20);
+  });
+
+  it('tip exactly on an epoch boundary: current epoch starts at the new boundary', () => {
+    const tip = (BIP110_FIRST_SIGNALING_BLOCK_HEIGHT + 10 * EPOCH); // pick a far-enough tip
+    const epochStart = Math.floor(tip / EPOCH) * EPOCH;
+    const r = computeScanRange(epochStart, 'current');
+    expect(r.currentEpochStart).toBe(epochStart);
+    expect(r.startHeight).toBe(epochStart);
   });
 });
 
