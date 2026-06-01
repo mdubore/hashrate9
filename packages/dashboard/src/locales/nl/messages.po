@@ -1014,10 +1014,6 @@ msgstr "Bepaalt hoe het P&L-paneel het \"uitgegeven\"-bedrag berekent dat het ne
 msgid "Cooldown clears in"
 msgstr "Cooldown loopt af over"
 
-#: src/components/ChartColorPicker.tsx
-msgid "Copied"
-msgstr "Gekopieerd"
-
 #: src/pages/Status.tsx
 msgid "copied bid ID"
 msgstr "bod-ID gekopieerd"
@@ -1031,8 +1027,8 @@ msgid "copied URL"
 msgstr "URL gekopieerd"
 
 #: src/components/ChartColorPicker.tsx
-msgid "Copy"
-msgstr "Kopiëren"
+msgid "Copied!"
+msgstr "Gekopieerd!"
 
 #: src/pages/Status.tsx
 msgid "copy bid ID"
@@ -1124,13 +1120,13 @@ msgstr "Huidig: geüpload bestand ({blobKb} KB)"
 msgid "custom"
 msgstr "aangepast"
 
-#: src/components/ChartColorPicker.tsx
-msgid "Custom"
-msgstr "Aangepast"
-
 #: src/pages/Config.tsx
 msgid "Custom (uploaded)"
 msgstr "Eigen (geüpload)"
+
+#: src/components/ChartColorPicker.tsx
+msgid "Custom color picker"
+msgstr "Aangepaste kleurkiezer"
 
 #: src/pages/Setup.tsx
 msgid "Daemon did not return to OPERATIONAL within 90 seconds."
@@ -1710,6 +1706,10 @@ msgstr "headers"
 #: src/components/Bip110ScanCard.tsx
 msgid "height"
 msgstr "hoogte"
+
+#: src/components/ChartColorPicker.tsx
+msgid "Hex color (paste or type)"
+msgstr "Hex-kleur (plakken of typen)"
 
 #: src/pages/Setup.tsx
 msgid "Hide"
@@ -2554,14 +2554,6 @@ msgstr "Wachtwoord"
 #: src/pages/Setup.tsx
 msgid "passwords don't match"
 msgstr "wachtwoorden komen niet overeen"
-
-#: src/components/ChartColorPicker.tsx
-msgid "Paste"
-msgstr "Plakken"
-
-#: src/components/ChartColorPicker.tsx
-msgid "Paste hex from clipboard"
-msgstr "Hex plakken vanuit klembord"
 
 #: src/pages/Status.tsx
 msgid "Patience clears in"

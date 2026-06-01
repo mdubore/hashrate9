@@ -19,6 +19,50 @@ import { copyToClipboard } from '../lib/clipboard';
 
 const HEX_PATTERN = /^#[0-9a-f]{6}$/i;
 
+/**
+ * Inline Lucide `Copy` icon. The project's convention is to inline
+ * Lucide SVG paths rather than import them; see the icons-from-lucide
+ * memory. Sized 14×14 to sit comfortably on a small button.
+ */
+function CopyIcon({ className = '' }: { className?: string }): React.JSX.Element {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+      <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+    </svg>
+  );
+}
+
+function CheckIcon({ className = '' }: { className?: string }): React.JSX.Element {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
+}
+
 export interface ChartColorPickerProps {
   /** Current effective color: override if set, else default. */
   value: string;
@@ -63,34 +107,44 @@ export function ChartColorPicker({
     onChange(color);
     close();
   };
-  // #238 follow-up: Copy / Paste so the operator can mirror a hex
-  // from one slot to another without retyping. `copyOk` flashes a
-  // brief checkmark on the button after a successful copy.
+  // #238 follow-up #2: cross-slot color sharing.
+  //
+  // - Copy: writes the current hex to the clipboard via the existing
+  //   `copyToClipboard` helper (handles insecure LAN-HTTP contexts via
+  //   execCommand fallback). Button flashes a check icon on success.
+  // - Paste: the previous "Paste" button used `navigator.clipboard.readText()`
+  //   which is undefined in non-secure contexts (LAN HTTP), and even
+  //   in secure contexts requires an explicit permission grant - so it
+  //   silently failed for the operator. Replaced with a hex text input
+  //   the operator can paste into (Ctrl+V / Cmd+V) or hand-edit. Valid
+  //   `#RRGGBB` (or bare `RRGGBB`) applies immediately.
   const [copyOk, setCopyOk] = useState(false);
+  const [hexDraft, setHexDraft] = useState(value);
+  // Re-sync the draft to the prop whenever the prop changes (e.g. a
+  // preset swatch was clicked) so the input always shows the current
+  // effective color when the popover opens fresh.
+  useEffect(() => {
+    setHexDraft(value);
+  }, [value]);
+
   const handleCopy = async () => {
     try {
       await copyToClipboard(value);
       setCopyOk(true);
       setTimeout(() => setCopyOk(false), 1200);
     } catch {
-      // copyToClipboard throws on failure (insecure context with
-      // no execCommand fallback either). Silent no-op; operator
-      // can copy the hex text manually.
+      // copyToClipboard throws on failure (insecure context with no
+      // execCommand fallback either). Silent no-op; operator can
+      // hand-copy from the hex input below.
     }
   };
-  const handlePaste = async () => {
-    try {
-      const text = (await navigator.clipboard.readText()).trim();
-      // Accept "#RRGGBB" exactly. Some clipboards return "RRGGBB"
-      // (no leading #), so we accept that too and add the prefix.
-      const candidate = text.startsWith('#') ? text : `#${text}`;
-      if (HEX_PATTERN.test(candidate)) {
-        onChange(candidate.toLowerCase());
-        close();
-      }
-    } catch {
-      // Clipboard read denied (browser permission, file://, etc.).
-      // Silent no-op; operator can use Custom picker instead.
+
+  const handleHexChange = (next: string) => {
+    setHexDraft(next);
+    const trimmed = next.trim();
+    const candidate = trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
+    if (HEX_PATTERN.test(candidate)) {
+      onChange(candidate.toLowerCase());
     }
   };
 
@@ -130,35 +184,39 @@ export function ChartColorPicker({
             />
           ))}
         </div>
-        <label className="flex items-center justify-between text-xs text-slate-400 mb-2">
-          <span><Trans>Custom</Trans></span>
+        {/* #238 follow-up #2: Custom row combines the native picker,
+            an editable hex input (paste target — works on LAN HTTP
+            where navigator.clipboard.readText doesn't), and a Copy
+            button with a Lucide icon. The hex input applies immediately
+            once a valid `#RRGGBB` is typed or pasted. */}
+        <div className="flex items-center gap-2 mb-2">
           <input
             type="color"
             value={value}
             onChange={(e) => onChange(e.target.value.toLowerCase())}
-            className="w-12 h-7 rounded border border-slate-700 bg-transparent cursor-pointer"
+            className="w-9 h-7 rounded border border-slate-700 bg-transparent cursor-pointer shrink-0"
+            title={t`Custom color picker`}
+            aria-label={t`Custom color picker`}
           />
-        </label>
-        {/* #238 follow-up: Copy / Paste row. Operator can grab a hex
-            from one slot and paste it into another without retyping
-            (the common case being "use the same color on both
-            charts' right axis"). */}
-        <div className="flex items-center gap-2 mb-2 text-xs">
+          <input
+            type="text"
+            value={hexDraft}
+            onChange={(e) => handleHexChange(e.target.value)}
+            placeholder="#RRGGBB"
+            spellCheck={false}
+            autoCapitalize="off"
+            autoCorrect="off"
+            className="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-xs font-mono text-slate-200 focus:border-amber-400 focus:outline-none"
+            aria-label={t`Hex color (paste or type)`}
+          />
           <button
             type="button"
             onClick={handleCopy}
-            className="px-2 py-1 rounded border border-slate-700 hover:border-slate-500 text-slate-300"
-            title={t`Copy hex to clipboard`}
+            className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded border border-slate-700 hover:border-slate-400 text-slate-300 hover:text-slate-100 transition"
+            title={copyOk ? t`Copied!` : t`Copy hex to clipboard`}
+            aria-label={t`Copy hex to clipboard`}
           >
-            {copyOk ? <Trans>Copied</Trans> : <Trans>Copy</Trans>}
-          </button>
-          <button
-            type="button"
-            onClick={handlePaste}
-            className="px-2 py-1 rounded border border-slate-700 hover:border-slate-500 text-slate-300"
-            title={t`Paste hex from clipboard`}
-          >
-            <Trans>Paste</Trans>
+            {copyOk ? <CheckIcon className="text-emerald-400" /> : <CopyIcon />}
           </button>
         </div>
         <button

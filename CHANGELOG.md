@@ -2,6 +2,10 @@
 
 ## 2026-06-02
 
+### `[Fix]` Chart-color picker: hex input replaces broken Paste button + Copy icon (#238 follow-up #2)
+
+The Paste button shipped in the first follow-up used `navigator.clipboard.readText()`, which is undefined on LAN-HTTP contexts (the operator's `http://clarent:3010`) and gated by an explicit permission grant even in secure contexts — net effect: clicking Paste did nothing. Replaced with a hex text input next to the native color picker; operator pastes (`Ctrl+V` / `Cmd+V`) or hand-types and a valid `#RRGGBB` (or bare `RRGGBB`) applies immediately. Copy button now carries a Lucide `Copy` SVG icon (inlined per the icons-from-lucide memory) and briefly flashes a check icon on success instead of relying on a text label swap. en + nl + es translations updated.
+
 ### `[UI]` Copy / Paste hex in the chart-color picker (#238 follow-up)
 
 Each `ChartColorPicker` popover gains a Copy / Paste row so the operator can mirror a hex from one slot to another without retyping — handy for "use the same color on both charts' right axis" or any cross-series matching. Copy uses the existing `copyToClipboard` helper (which already handles insecure LAN-HTTP contexts via `document.execCommand` fallback). Paste reads from `navigator.clipboard`, accepts `#RRGGBB` or bare `RRGGBB`, and validates against the same hex pattern the picker uses elsewhere; non-hex paste is a silent no-op. Copy button shows a brief "Copied" confirmation for 1.2s on success. en + nl + es translations added.

@@ -1014,10 +1014,6 @@ msgstr "Controla cómo el panel de P&L calcula la cifra \"gastado\" que alimenta
 msgid "Cooldown clears in"
 msgstr "El cooldown se libera en"
 
-#: src/components/ChartColorPicker.tsx
-msgid "Copied"
-msgstr "Copiado"
-
 #: src/pages/Status.tsx
 msgid "copied bid ID"
 msgstr "ID de oferta copiado"
@@ -1031,8 +1027,8 @@ msgid "copied URL"
 msgstr "URL copiada"
 
 #: src/components/ChartColorPicker.tsx
-msgid "Copy"
-msgstr "Copiar"
+msgid "Copied!"
+msgstr "¡Copiado!"
 
 #: src/pages/Status.tsx
 msgid "copy bid ID"
@@ -1124,13 +1120,13 @@ msgstr "Actual: archivo subido ({blobKb} KB)"
 msgid "custom"
 msgstr "personalizado"
 
-#: src/components/ChartColorPicker.tsx
-msgid "Custom"
-msgstr "Personalizado"
-
 #: src/pages/Config.tsx
 msgid "Custom (uploaded)"
 msgstr "Personalizado (subido)"
+
+#: src/components/ChartColorPicker.tsx
+msgid "Custom color picker"
+msgstr "Selector de color personalizado"
 
 #: src/pages/Setup.tsx
 msgid "Daemon did not return to OPERATIONAL within 90 seconds."
@@ -1710,6 +1706,10 @@ msgstr "encabezados"
 #: src/components/Bip110ScanCard.tsx
 msgid "height"
 msgstr "altura"
+
+#: src/components/ChartColorPicker.tsx
+msgid "Hex color (paste or type)"
+msgstr "Color hex (pegar o escribir)"
 
 #: src/pages/Setup.tsx
 msgid "Hide"
@@ -2554,14 +2554,6 @@ msgstr "Contraseña"
 #: src/pages/Setup.tsx
 msgid "passwords don't match"
 msgstr "las contraseñas no coinciden"
-
-#: src/components/ChartColorPicker.tsx
-msgid "Paste"
-msgstr "Pegar"
-
-#: src/components/ChartColorPicker.tsx
-msgid "Paste hex from clipboard"
-msgstr "Pegar hex desde el portapapeles"
 
 #: src/pages/Status.tsx
 msgid "Patience clears in"
