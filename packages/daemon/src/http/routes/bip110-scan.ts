@@ -451,7 +451,7 @@ export async function registerBip110ScanRoute(
           const depInfo = await client.getDeploymentInfo();
           deploymentSource = depInfo.deployments;
         } catch {
-          // getdeploymentinfo unavailable (old Core); proceed without.
+          // getdeploymentinfo unavailable (older bitcoind build); proceed without.
         }
       }
       const deployment = findBip110Deployment(deploymentSource);

@@ -49,11 +49,10 @@ export interface BlockchainInfo {
   readonly verificationprogress: number;
   readonly pruned: boolean;
   /**
-   * Soft-fork deployment table. Vanilla Core reports a known set
-   * (taproot, etc); Knots-patched builds add `bip110` (or similarly
-   * named) when the BIP 110 patch is applied. Optional because the
-   * shape varies and we only consume it as opaque data in the
-   * BIP 110 scan route.
+   * Soft-fork deployment table. Stock bitcoind reports a known set
+   * (taproot, etc); Knots adds `bip110` (or similarly named) when
+   * the BIP 110 patch is applied. Optional because the shape varies
+   * and we only consume it as opaque data in the BIP 110 scan route.
    */
   readonly softforks?: Record<string, unknown>;
 }

@@ -773,9 +773,9 @@ function MasfProgress({
  * shows just the status label (Signaling / Locked in / Active) with
  * a plain-English tooltip per state.
  *
- * #233 follow-up: explanation text is per-status and never mentions
- * "Bitcoin Core" — the operator runs Bitcoin Knots, and the project's
- * convention is to say "your Bitcoin node" generically (see the
+ * #233 follow-up: explanation text is per-status and uses the
+ * project's neutral "your Bitcoin node" / "Bitcoin Knots" phrasing
+ * — never the C-word that we don't say (see the
  * never-say-bitcoin-core-in-ui feedback memory).
  */
 function DeploymentStatusBadge({
