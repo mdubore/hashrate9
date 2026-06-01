@@ -859,6 +859,52 @@ async function bootOperational(
         log('[ddns] config changed, kicking immediate tick');
         void ddnsUpdater.tick();
       }
+      // #240: when the payout address changes, the existing
+      // reward_events rows belong to the old address and the
+      // tick_metrics.paid_total_sat values were derived from those.
+      // Wipe both and kick an immediate backfill so the dashboard
+      // reflects the new address's history within the next tick.
+      // historical_payouts_offset_sat is operator-set and stays
+      // (separate concern - operator updates it on the new address
+      // if they had pre-installation income there).
+      const addressChanged =
+        prevCfg !== null &&
+        prevCfg.btc_payout_address !== newCfg.btc_payout_address &&
+        newCfg.btc_payout_address !== '';
+      if (addressChanged) {
+        log(
+          `[payout] address changed from ${prevCfg!.btc_payout_address} to ` +
+            `${newCfg.btc_payout_address}; clearing reward_events and ` +
+            `nulling tick_metrics.paid_total_sat across history`,
+        );
+        void (async () => {
+          try {
+            await handle.db.deleteFrom('reward_events').execute();
+            await handle.db
+              .updateTable('tick_metrics')
+              .set({ paid_total_sat: null })
+              .execute();
+            if (payoutObserver) {
+              log('[payout] kicking historical backfill against new address');
+              // runHistoricalBackfill fires onRewardsChanged when any
+              // rows insert, and that callback already kicks
+              // pool-luck-recompute (which regenerates the
+              // tick_metrics.paid_total_sat we just nulled). No
+              // explicit recompute needed here.
+              const r = await payoutObserver.runHistoricalBackfill();
+              log(
+                `[payout] post-address-change backfill: ${r.txSeen} txs, ` +
+                  `${r.withMatchingOutputs} with matching outputs, ` +
+                  `${r.inserted} inserted${r.error ? `, error: ${r.error}` : ''}`,
+              );
+            }
+          } catch (err) {
+            log(
+              `[payout] address-change refresh failed: ${(err as Error).message}`,
+            );
+          }
+        })();
+      }
     },
   });
   const addr = await httpServer.start(HTTP_PORT, HTTP_HOST);

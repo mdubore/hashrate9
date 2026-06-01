@@ -2,6 +2,10 @@
 
 ## 2026-06-02
 
+### `[Feature]` Payout-address change refreshes on-chain payout history (#240)
+
+When the operator changes `btc_payout_address` on Config, the existing `reward_events` rows belong to the old address and the `tick_metrics.paid_total_sat` values were derived from those — they're now stale. The `onConfigSaved` hook detects the change and (a) clears the `reward_events` table, (b) sets `tick_metrics.paid_total_sat = NULL` across history, then (c) immediately kicks `runHistoricalBackfill` against the new address. The backfill's existing `onRewardsChanged` callback re-runs `runPoolLuckRecompute` automatically, so the dashboard's collected-on-chain card reflects the new address within one tick. `historical_payouts_offset_sat` is operator-set and untouched — separate concern.
+
 ### `[Fix]` Drop coinbase-only filter in historical payout backfill (#240)
 
 The historical-backfill electrs path silently dropped any non-coinbase transaction at the configured payout address, on the assumption that Ocean's "non-custodial coinbase-direct" payout model meant every payout would be a coinbase. Empirically false: a user-submitted issue (#240, build 556) surfaced an Ocean payout via a 170-output batched sweep from Ocean's pool wallet (P2SH `37dvwZZoT3D7RXpTCpN2yKzMmNs2i2Fd1n`), funded by Ocean coinbase outputs but one hop removed when reaching the operator's address. The `if (!isCoinbase) continue;` gate at `payout-observer.ts:610` rejected it — backfill reported "0 coinbase, 0 new reward_events row(s)" and the dashboard's collected-on-chain card stayed at 0. Removed the filter: any output paying the configured address counts. Edge cases (operator self-send, exchange withdrawal, swap change) get folded into the count and can be subtracted via `historical_payouts_offset_sat`. The `coinbaseSeen` field on `HistoricalBackfillResult` (and the `coinbase_seen` HTTP response field) renamed to `withMatchingOutputs` / `with_matching_outputs` to match the new semantic. Dashboard "Backfill now" toast wording updated; en + nl + es translations updated. The `ocean-pool` skill memory updated with the empirical batched-sweep model.
