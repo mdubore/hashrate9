@@ -3691,7 +3691,7 @@ function HistoricalPayoutsControls({
       if (r.ok) {
         setResult({
           ok: true,
-          message: t`Scanned ${r.tx_seen} txs (${r.coinbase_seen} coinbase). Inserted ${r.inserted} new payout row(s) in ${Math.round(r.duration_ms / 1000)}s.`,
+          message: t`Scanned ${r.tx_seen} txs (${r.with_matching_outputs} with matching outputs). Inserted ${r.inserted} new payout row(s) in ${Math.round(r.duration_ms / 1000)}s.`,
         });
       } else {
         setResult({

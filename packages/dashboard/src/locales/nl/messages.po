@@ -3077,12 +3077,12 @@ msgid "Scanned"
 msgstr "Gescand"
 
 #. placeholder {0}: r.tx_seen
-#. placeholder {1}: r.coinbase_seen
+#. placeholder {1}: r.with_matching_outputs
 #. placeholder {2}: r.inserted
 #. placeholder {3}: Math.round(r.duration_ms / 1000)
 #: src/pages/Config.tsx
-msgid "Scanned {0} txs ({1} coinbase). Inserted {2} new payout row(s) in {3}s."
-msgstr "{0} transacties gescand ({1} coinbase). {2} nieuwe uitbetalingsregel(s) toegevoegd in {3}s."
+msgid "Scanned {0} txs ({1} with matching outputs). Inserted {2} new payout row(s) in {3}s."
+msgstr "{0} txs gescand ({1} met overeenkomende outputs). {2} nieuwe payout-rij(en) ingevoegd in {3}s."
 
 #: src/pages/Config.tsx
 msgid "scanning…"

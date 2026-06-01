@@ -677,7 +677,7 @@ export const api = {
       ok: boolean;
       error?: string;
       inserted: number;
-      coinbase_seen: number;
+      with_matching_outputs: number;
       tx_seen: number;
       duration_ms: number;
     }>('/api/payouts/backfill', { method: 'POST' }),
