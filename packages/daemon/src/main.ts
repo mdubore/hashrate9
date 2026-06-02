@@ -566,6 +566,67 @@ async function bootOperational(
   // looks identical to a daemon that didn't restart, and we ship
   // four iterations of "fixes" thinking the code is buggy when
   // actually it's never executing.
+  // #240 follow-up: boot-time check whether the payout address has
+  // changed since the last historical backfill. The onConfigSaved
+  // handler clears reward_events + runs the backfill on the SAVE
+  // event, but if the operator changed the address mid-run on an
+  // older build (before the live-cfg fix), the backfill ran against
+  // the stale boot-time address - so reward_events ends up containing
+  // OLD-address payouts. On daemon restart, cfg loads the NEW
+  // address from the DB but reward_events still has the OLD-address
+  // rows. P&L "collected (on-chain)" (now reading from
+  // reward_events.sum, see finance.ts) would show the wrong number.
+  //
+  // Compare cfg.btc_payout_address against the address recorded the
+  // last time we backfilled successfully. On mismatch (including
+  // first-boot NULL): clear reward_events + null tick_metrics.
+  // paid_total_sat + run historical backfill against the live
+  // address. After it completes, record the address so subsequent
+  // boots no-op.
+  void (async () => {
+    if (!cfgRefHolder.value.btc_payout_address) return;
+    const runtime = await runtimeRepo.get().catch(() => null);
+    const lastAddr = runtime?.last_backfilled_payout_address ?? null;
+    const currAddr = cfgRefHolder.value.btc_payout_address;
+    if (lastAddr === currAddr) return;
+    log(
+      `[payout] boot detected address mismatch (was ${lastAddr ?? '<null>'}, ` +
+        `now ${currAddr}); clearing reward_events and kicking ` +
+        `historical backfill against the new address`,
+    );
+    try {
+      await handle.db.deleteFrom('reward_events').execute();
+      await handle.db
+        .updateTable('tick_metrics')
+        .set({ paid_total_sat: null })
+        .execute();
+      if (payoutObserver) {
+        payoutObserver.resetSnapshot();
+        void payoutObserver.scanOnce().catch((e) =>
+          log(`[payout] boot address-mismatch scanOnce failed: ${(e as Error).message}`),
+        );
+        const r = await payoutObserver.runHistoricalBackfill();
+        log(
+          `[payout] boot address-mismatch backfill: ${r.txSeen} txs, ` +
+            `${r.withMatchingOutputs} with matching outputs, ` +
+            `${r.inserted} inserted${r.error ? `, error: ${r.error}` : ''}`,
+        );
+        // Only stamp the address as "backfilled" once a backfill has
+        // produced a result without throwing. If runHistoricalBackfill
+        // raised mid-flight we want the next boot to retry.
+        await runtimeRepo.patch({ last_backfilled_payout_address: currAddr });
+      } else {
+        // No observer (e.g., payout_source=none or no electrs/bitcoind):
+        // stamp the address anyway so we don't log the same mismatch
+        // every restart. reward_events stays empty; collected_sat is
+        // legitimately 0 in this config.
+        await runtimeRepo.patch({ last_backfilled_payout_address: currAddr });
+      }
+    } catch (err) {
+      log(`[payout] boot address-mismatch refresh failed: ${(err as Error).message}`);
+    }
+  })();
+
   void runPoolBlocksBackfill({
     oceanClient,
     poolBlocksRepo,
@@ -953,6 +1014,13 @@ async function bootOperational(
                   `${r.withMatchingOutputs} with matching outputs, ` +
                   `${r.inserted} inserted${r.error ? `, error: ${r.error}` : ''}`,
               );
+              // Stamp the new address as the one we just backfilled
+              // so the boot-time mismatch check (above) no-ops on
+              // subsequent restarts unless the operator changes the
+              // address again.
+              await runtimeRepo.patch({
+                last_backfilled_payout_address: newCfg.btc_payout_address,
+              });
             }
           } catch (err) {
             log(

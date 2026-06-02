@@ -158,6 +158,16 @@ export interface RuntimeStateTable {
   above_floor_ticks: number;
   /** #204: fleet-wide all-time best difficulty high-water mark. */
   solo_best_difficulty_all_time: number | null;
+  /**
+   * #240 follow-up: the `btc_payout_address` value that was last
+   * processed through `runHistoricalBackfill`. Compared against
+   * `cfg.btc_payout_address` on boot; mismatch triggers a
+   * `DELETE FROM reward_events` + re-backfill so the operator
+   * doesn't end up with stale old-address payout history after
+   * changing the address mid-run. Null = never backfilled (fresh
+   * install or pre-migration-0105).
+   */
+  last_backfilled_payout_address: string | null;
 }
 
 // ---------------------------------------------------------------------------

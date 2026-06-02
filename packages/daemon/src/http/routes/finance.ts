@@ -6,8 +6,16 @@
  *                  bid the autopilot has ever owned (operator can also
  *                  bump a bid manually; that path also goes through
  *                  the autopilot's owned-bids ledger so it's counted).
- *   - collected  = on-chain UTXOs at the configured payout address
- *                  (electrs preferred, bitcoind fallback).
+ *   - collected  = lifetime sat received at the configured payout
+ *                  address (sum of reward_events.value_sat where
+ *                  reorged=0). We count "what they put in," not the
+ *                  current balance - so a payout that's been spent
+ *                  still counts. Until #240 follow-up (this commit)
+ *                  this was `total_unspent_sat` from the observer's
+ *                  in-memory UTXO snapshot; operator caught that
+ *                  semantic when a new-address payout-then-spend
+ *                  cycle made the tile read 0 despite the address
+ *                  having received the payout.
  *   - expected   = Ocean's "Unpaid Earnings" - the BTC amount that
  *                  will land at the next payout (when above threshold)
  *                  or has already been earned but is below threshold.
@@ -37,6 +45,7 @@ import type { OceanClient } from '../../services/ocean.js';
 import type { PayoutObserver } from '../../services/payout-observer.js';
 import type { OwnedBidsRepo } from '../../state/repos/owned_bids.js';
 import type { ConfigRepo } from '../../state/repos/config.js';
+import type { RewardEventsRepo } from '../../state/repos/reward_events.js';
 import type { TickMetricsRepo } from '../../state/repos/tick_metrics.js';
 
 const EH_PER_PH = 1000;
@@ -110,6 +119,8 @@ export interface FinanceDeps {
   readonly accountSpend: AccountSpendService | null;
   readonly hashpriceCache: HashpriceCache | null;
   readonly tickMetricsRepo: TickMetricsRepo;
+  /** #240 follow-up: source of truth for lifetime collected. */
+  readonly rewardEventsRepo: RewardEventsRepo;
 }
 
 /**
@@ -269,7 +280,20 @@ export async function registerFinanceRoute(
       spent_sat = await deps.ownedBidsRepo.sumLifetimeConsumedSat();
     }
 
-    const collected_sat = deps.payoutObserver?.getLastSnapshot()?.total_unspent_sat ?? null;
+    // #240 follow-up: collected = LIFETIME RECEIVED, not current UTXO
+    // balance. Operator on Taliesin received a payout to the new
+    // configured address, then spent it; the previous
+    // `total_unspent_sat` source showed 0 because the UTXOs were gone,
+    // even though the address received N sat in its lifetime. We
+    // count "what they put in," not the current balance.
+    // sum is over reward_events.value_sat for non-reorged events. The
+    // observer populates that table both from current-UTXO scans
+    // (steady state) and from historical electrs scans of the
+    // address's tx history (boot + every 30 min), so spent payouts
+    // are captured too.
+    const collected_sat = deps.payoutObserver
+      ? await deps.rewardEventsRepo.sumPaidUpTo(Date.now())
+      : null;
     const collected_status: 'computing' | 'ready' | 'idle' = !deps.payoutObserver
       ? 'idle'
       : deps.payoutObserver.getCollectedStatus();
