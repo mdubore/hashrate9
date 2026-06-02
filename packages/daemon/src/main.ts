@@ -114,6 +114,15 @@ async function main(): Promise<void> {
   // boot paths (the wizard writes config + secrets through repos
   // backed by the same handle).
   const handle = await openDatabase({ path: dbPath });
+  if (handle.migrations.reconciled.length > 0) {
+    // Migrations whose schema effect was already present on the DB
+    // (e.g., a half-applied state from a crashed prior run) but
+    // whose tracking row was missing in `_migrations`. The runner
+    // stamped them retroactively. Log loudly so the operator knows
+    // self-heal kicked in - this is the kind of thing you want
+    // visible in the journal, not silent.
+    log(`db: reconciled ${handle.migrations.reconciled.length} already-applied migration(s): ${handle.migrations.reconciled.join(', ')}`);
+  }
   const deps: BootDeps = {
     handle,
     configRepo: new ConfigRepo(handle.db),
