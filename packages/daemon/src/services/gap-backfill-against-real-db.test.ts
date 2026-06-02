@@ -19,7 +19,11 @@ const DB_PATH = path.resolve(process.cwd(), 'data/state.db');
 describe.skipIf(!existsSync(DB_PATH))(
   'runGapBackfill against operator state.db',
   () => {
-    it('reports what gap (if any) it detects on the live DB', async () => {
+    // 60s timeout - the recompute pass scans every tick_metrics row
+    // in the real DB (30k+ on the operator's machine, 12s end-to-end
+    // on M-series silicon). Default vitest 5s aborted mid-flight even
+    // though the function completes and all assertions hold.
+    it('reports what gap (if any) it detects on the live DB', { timeout: 60_000 }, async () => {
       const handle = await openDatabase({ path: DB_PATH });
       try {
         const logs: string[] = [];
