@@ -329,6 +329,10 @@ msgstr "Alert thresholds"
 msgid "Alerts"
 msgstr "Alerts"
 
+#: src/components/Bip110ScanCard.tsx
+msgid "All"
+msgstr "All"
+
 #: src/pages/Config.tsx
 msgid "already added"
 msgstr "already added"
@@ -387,8 +391,20 @@ msgid "ASIC overheating ceiling (°F, 0 = auto per model)"
 msgstr "ASIC overheating ceiling (°F, 0 = auto per model)"
 
 #: src/components/Bip110ScanCard.tsx
-msgid "At block height 965,664 (approximately September 2026), user-activated enforcement begins: nodes running BIP 110-compatible software will enforce the rules regardless of miner signaling."
-msgstr "At block height 965,664 (approximately September 2026), user-activated enforcement begins: nodes running BIP 110-compatible software will enforce the rules regardless of miner signaling."
+msgid "at block {uasfHeightStr} (estimated {uasfDateStr}), BIP 110-aware nodes (Bitcoin Knots included) begin enforcing the rules regardless of miner signaling."
+msgstr "at block {uasfHeightStr} (estimated {uasfDateStr}), BIP 110-aware nodes (Bitcoin Knots included) begin enforcing the rules regardless of miner signaling."
+
+#: src/components/Bip110ScanCard.tsx
+msgid "at block {uasfHeightStr} (mined ~{uasfDateStr}), BIP 110-aware nodes (Bitcoin Knots included) began enforcing the rules regardless of miner signaling."
+msgstr "at block {uasfHeightStr} (mined ~{uasfDateStr}), BIP 110-aware nodes (Bitcoin Knots included) began enforcing the rules regardless of miner signaling."
+
+#: src/components/Bip110ScanCard.tsx
+msgid "at block {uasfHeightStr}, BIP 110-aware nodes (Bitcoin Knots included) began enforcing the rules regardless of miner signaling."
+msgstr "at block {uasfHeightStr}, BIP 110-aware nodes (Bitcoin Knots included) began enforcing the rules regardless of miner signaling."
+
+#: src/components/Bip110ScanCard.tsx
+msgid "at block {uasfHeightStr}, BIP 110-aware nodes (Bitcoin Knots included) begin enforcing the rules regardless of miner signaling."
+msgstr "at block {uasfHeightStr}, BIP 110-aware nodes (Bitcoin Knots included) begin enforcing the rules regardless of miner signaling."
 
 #: src/pages/Status.tsx
 msgid "At effective cap - desired fillable + overpay exceeds the ceiling."
@@ -401,6 +417,10 @@ msgstr "At least one placeholder ({hash} or {height}) is required. Example custo
 #: src/pages/Config.tsx
 msgid "At least one placeholder ({txid} or {hash}) is required. Auto-populated when you click a preset above; override here for custom self-hosted explorers (e.g. http://umbrel.local:3006/tx/{txid})."
 msgstr "At least one placeholder ({txid} or {hash}) is required. Auto-populated when you click a preset above; override here for custom self-hosted explorers (e.g. http://umbrel.local:3006/tx/{txid})."
+
+#: src/components/Bip110ScanCard.tsx
+msgid "At or above the 55% MASF threshold"
+msgstr "At or above the 55% MASF threshold"
 
 #: src/pages/Alerts.tsx
 msgid "Audit trail for every notification the daemon recorded - sent, failed, muted, or given-up. Configure the Telegram destination on Config → Notifications."
@@ -445,6 +465,10 @@ msgstr "Average delivered hashrate over the selected chart range. Multiplied by 
 #: src/pages/Status.tsx
 msgid "Average effective rate over the selected chart range - what Braiins actually charged per PH/day delivered. Computed as the delta-weighted harmonic mean of the bid: SUM(Δconsumed_sat) ÷ SUM(Δconsumed_sat ÷ bid). Under pay-your-bid the bid IS the price, so when the bid is constant across the window this equals the bid exactly; when the bid varies (mid-window edits) it's the spend-weighted average. Periods of zero delivery contribute zero to both sides and don't skew the result. For the current bid price see the NEXT ACTION panel."
 msgstr "Average effective rate over the selected chart range - what Braiins actually charged per PH/day delivered. Computed as the delta-weighted harmonic mean of the bid: SUM(Δconsumed_sat) ÷ SUM(Δconsumed_sat ÷ bid). Under pay-your-bid the bid IS the price, so when the bid is constant across the window this equals the bid exactly; when the bid varies (mid-window edits) it's the spend-weighted average. Periods of zero delivery contribute zero to both sides and don't skew the result. For the current bid price see the NEXT ACTION panel."
+
+#: src/components/HashrateChart.tsx
+msgid "avg block time"
+msgstr "avg block time"
 
 #: src/pages/Status.tsx
 msgid "avg braiins"
@@ -507,6 +531,10 @@ msgstr "Balance-check backend"
 msgid "below floor since {0}"
 msgstr "below floor since {0}"
 
+#: src/components/Bip110ScanCard.tsx
+msgid "Below the 55% MASF threshold"
+msgstr "Below the 55% MASF threshold"
+
 #: src/pages/Setup.tsx
 msgid "Below this triggers an alert. ≤ target."
 msgstr "Below this triggers an alert. ≤ target."
@@ -546,6 +574,10 @@ msgid "Bid sustained-paused for"
 msgstr "Bid sustained-paused for"
 
 #: src/pages/Config.tsx
+msgid "Bid-event markers"
+msgstr "Bid-event markers"
+
+#: src/pages/Config.tsx
 msgid "Bid-event markers (CREATE / EDIT_PRICE / EDIT_SPEED / CANCEL) on the price chart. The dashboard already hides them on long ranges (1w / 1m / 1y / All) where individual markers lose meaning; the cap below adds a count-based rule on top of that."
 msgstr "Bid-event markers (CREATE / EDIT_PRICE / EDIT_SPEED / CANCEL) on the price chart. The dashboard already hides them on long ranges (1w / 1m / 1y / All) where individual markers lose meaning; the cap below adds a count-based rule on top of that."
 
@@ -557,15 +589,25 @@ msgstr "Bid:"
 msgid "Bids"
 msgstr "Bids"
 
-#. placeholder {0}: formatNumber(stats.threshold, {}, intlLocale)
-#. placeholder {1}: formatNumber(stats.period, {}, intlLocale)
 #: src/components/Bip110ScanCard.tsx
-msgid "BIP 110 (Reduced Data Temporary Softfork) activation happens in two phases. Currently in the miner-activated phase: miners can optionally signal support in their block headers. If the threshold ({0} of {1} blocks) is reached within a retarget period, the softfork locks in early."
-msgstr "BIP 110 (Reduced Data Temporary Softfork) activation happens in two phases. Currently in the miner-activated phase: miners can optionally signal support in their block headers. If the threshold ({0} of {1} blocks) is reached within a retarget period, the softfork locks in early."
+msgid "BIP 110 is active. Activated at the UASF flag-day block {uasfHeightStr} on {sinceDateStr}. Your Bitcoin node is enforcing the new consensus rules."
+msgstr "BIP 110 is active. Activated at the UASF flag-day block {uasfHeightStr} on {sinceDateStr}. Your Bitcoin node is enforcing the new consensus rules."
+
+#: src/components/Bip110ScanCard.tsx
+msgid "BIP 110 is active. Activated via the 55% miner-activation threshold at block {sinceHeightStr} on {sinceDateStr}. Your Bitcoin node is enforcing the new consensus rules."
+msgstr "BIP 110 is active. Activated via the 55% miner-activation threshold at block {sinceHeightStr} on {sinceDateStr}. Your Bitcoin node is enforcing the new consensus rules."
+
+#: src/components/Bip110ScanCard.tsx
+msgid "BIP 110 is active. Your Bitcoin node is enforcing the new consensus rules."
+msgstr "BIP 110 is active. Your Bitcoin node is enforcing the new consensus rules."
 
 #: src/components/Bip110ScanCard.tsx
 msgid "BIP 110 scan"
 msgstr "BIP 110 scan"
+
+#: src/components/Bip110ScanCard.tsx
+msgid "BIP 110 scan range"
+msgstr "BIP 110 scan range"
 
 #: src/components/HashrateChart.tsx
 msgid "BIP 110 SIGNAL"
@@ -614,11 +656,19 @@ msgstr "Block explorer"
 msgid "block found:"
 msgstr "block found:"
 
+#: src/components/HashrateChart.tsx
+msgid "block height"
+msgstr "block height"
+
 #. placeholder {0}: luckBefore === null ? '-' : `${luckBefore.toFixed(2)}×`
 #. placeholder {1}: luckAfter.toFixed(2)
 #: src/components/HashrateChart.tsx
 msgid "Block landed - pool luck went from {0} to {1}× (rolling-{windowLabel} window)."
 msgstr "Block landed - pool luck went from {0} to {1}× (rolling-{windowLabel} window)."
+
+#: src/components/Bip110ScanCard.tsx
+msgid "Block range"
+msgstr "Block range"
 
 #: src/pages/Status.tsx
 msgid "block reward"
@@ -640,14 +690,9 @@ msgstr "blocked"
 msgid "blocked - update abuse detected"
 msgstr "blocked - update abuse detected"
 
-#: src/components/Bip110ScanCard.tsx
 #: src/pages/Config.tsx
 msgid "blocks"
 msgstr "blocks"
-
-#: src/components/Bip110ScanCard.tsx
-msgid "blocks into the current retarget period"
-msgstr "blocks into the current retarget period"
 
 #: src/pages/Status.tsx
 msgid "Blocks Ocean found in the last 24h. The \"X.XX× expected\" multiplier compares observed vs Poisson-expected. Pool hashrate / network difficulty unavailable right now; tooltip will show live share % once Ocean stats are reachable again."
@@ -675,10 +720,6 @@ msgstr "Blocks Ocean found in the last 7d, same observed-vs-Poisson-expected rat
 #: src/pages/Status.tsx
 msgid "Blocks Ocean found in the last 7d. Same observed-vs-Poisson-expected ratio as the 24h row, with the window extended: at Ocean's current share of {shareStr}, the 7d expectation is ~{0} blocks. 7d smooths the short-term Poisson variance: a sustained <0.70× over a week suggests something structural (lower hashrate share than the estimator implies, or a real upstream issue at Ocean)."
 msgstr "Blocks Ocean found in the last 7d. Same observed-vs-Poisson-expected ratio as the 24h row, with the window extended: at Ocean's current share of {shareStr}, the 7d expectation is ~{0} blocks. 7d smooths the short-term Poisson variance: a sustained <0.70× over a week suggests something structural (lower hashrate share than the estimator implies, or a real upstream issue at Ocean)."
-
-#: src/components/Bip110ScanCard.tsx
-msgid "blocks remaining in this period"
-msgstr "blocks remaining in this period"
 
 #: src/pages/Config.tsx
 msgid "Boot directly into LIVE. Use only when the autopilot is proven and the box reboots should not interrupt bidding."
@@ -790,6 +831,7 @@ msgid "calculating…"
 msgstr "calculating…"
 
 #: src/components/PriceChart.tsx
+#: src/pages/Config.tsx
 msgid "cancel"
 msgstr "cancel"
 
@@ -815,6 +857,10 @@ msgstr "Cancel bid"
 msgid "Cancel bid {0}? About {1} of unconsumed budget will be refunded by Braiins (an exit fee may be deducted on top). The autopilot's next tick will create a fresh bid with the new URL."
 msgstr "Cancel bid {0}? About {1} of unconsumed budget will be refunded by Braiins (an exit fee may be deducted on top). The autopilot's next tick will create a fresh bid with the new URL."
 
+#: src/pages/Config.tsx
+msgid "cancel event marker"
+msgstr "cancel event marker"
+
 #: src/lib/labels.ts
 msgid "Cancelled"
 msgstr "Cancelled"
@@ -839,6 +885,10 @@ msgstr "change"
 #: src/components/Layout.tsx
 msgid "changelog"
 msgstr "changelog"
+
+#: src/pages/Config.tsx
+msgid "Chart colors"
+msgstr "Chart colors"
 
 #: src/pages/Config.tsx
 msgid "Chart markers"
@@ -877,6 +927,14 @@ msgstr "Choose file…"
 msgid "click outside to close"
 msgstr "click outside to close"
 
+#: src/components/Bip110ScanCard.tsx
+msgid "Click to collapse"
+msgstr "Click to collapse"
+
+#: src/components/Bip110ScanCard.tsx
+msgid "Click to expand"
+msgstr "Click to expand"
+
 #: src/components/HashrateChart.tsx
 #: src/components/PriceChart.tsx
 msgid "close"
@@ -911,6 +969,10 @@ msgstr "Compact numeric time series - one row per tick (~1,440/day) with hashrat
 #: src/pages/Setup.tsx
 msgid "Complete setup"
 msgstr "Complete setup"
+
+#: src/components/Bip110ScanCard.tsx
+msgid "Completed"
+msgstr "Completed"
 
 #: src/pages/Status.tsx
 msgid "computing…"
@@ -964,9 +1026,17 @@ msgstr "copied JSON"
 msgid "copied URL"
 msgstr "copied URL"
 
+#: src/components/ChartColorPicker.tsx
+msgid "Copied!"
+msgstr "Copied!"
+
 #: src/pages/Status.tsx
 msgid "copy bid ID"
 msgstr "copy bid ID"
+
+#: src/components/ChartColorPicker.tsx
+msgid "Copy hex to clipboard"
+msgstr "Copy hex to clipboard"
 
 #: src/components/PriceChart.tsx
 msgid "copy JSON"
@@ -977,6 +1047,7 @@ msgid "copy URL"
 msgstr "copy URL"
 
 #: src/components/PriceChart.tsx
+#: src/pages/Config.tsx
 msgid "create"
 msgstr "create"
 
@@ -987,6 +1058,10 @@ msgstr "CREATE"
 #: src/pages/Status.tsx
 msgid "Create bid"
 msgstr "Create bid"
+
+#: src/pages/Config.tsx
+msgid "create event marker"
+msgstr "create event marker"
 
 #: src/pages/Status.tsx
 msgid "created"
@@ -1025,6 +1100,10 @@ msgstr "current bid · primary of {0}"
 msgid "Current config:"
 msgstr "Current config:"
 
+#: src/components/Bip110ScanCard.tsx
+msgid "Current epoch"
+msgstr "Current epoch"
+
 #: src/pages/Status.tsx
 msgid "Current owned-bid price (sat/PH/day). Under pay-your-bid this is exactly what Braiins charges per delivered EH-day - the live price you're paying. The plus/minus next to it is the spread vs Ocean's spot hashprice (positive = paying above break-even, negative = below). For the spend-weighted average paid across the selected chart range (handy when the bid moved during the window), see the AVG COST / PH DELIVERED stats card."
 msgstr "Current owned-bid price (sat/PH/day). Under pay-your-bid this is exactly what Braiins charges per delivered EH-day - the live price you're paying. The plus/minus next to it is the spread vs Ocean's spot hashprice (positive = paying above break-even, negative = below). For the spend-weighted average paid across the selected chart range (handy when the bid moved during the window), see the AVG COST / PH DELIVERED stats card."
@@ -1044,6 +1123,10 @@ msgstr "custom"
 #: src/pages/Config.tsx
 msgid "Custom (uploaded)"
 msgstr "Custom (uploaded)"
+
+#: src/components/ChartColorPicker.tsx
+msgid "Custom color picker"
+msgstr "Custom color picker"
 
 #: src/pages/Setup.tsx
 msgid "Daemon did not return to OPERATIONAL within 90 seconds."
@@ -1146,6 +1229,7 @@ msgid "delivered"
 msgstr "delivered"
 
 #: src/components/HashrateChart.tsx
+#: src/pages/Config.tsx
 msgid "delivered (Braiins)"
 msgstr "delivered (Braiins)"
 
@@ -1186,8 +1270,8 @@ msgid "Devices"
 msgstr "Devices"
 
 #: src/components/HashrateChart.tsx
-msgid "DIFFICULTY RETARGET"
-msgstr "DIFFICULTY RETARGET"
+msgid "DIFFICULTY ADJUSTMENT"
+msgstr "DIFFICULTY ADJUSTMENT"
 
 #: src/pages/Config.tsx
 msgid "Disabled"
@@ -1257,7 +1341,12 @@ msgstr "e.g. 192.168.1.121 or electrs_electrs_1 on Umbrel"
 msgid "e.g. http://192.168.1.121:8332 - your Bitcoin Knots RPC endpoint."
 msgstr "e.g. http://192.168.1.121:8332 - your Bitcoin Knots RPC endpoint."
 
+#: src/components/ChartColorPicker.tsx
+msgid "Edit color"
+msgstr "Edit color"
+
 #: src/components/PriceChart.tsx
+#: src/pages/Config.tsx
 msgid "edit price"
 msgstr "edit price"
 
@@ -1270,6 +1359,7 @@ msgid "EDIT PRICE"
 msgstr "EDIT PRICE"
 
 #: src/components/PriceChart.tsx
+#: src/pages/Config.tsx
 msgid "edit speed"
 msgstr "edit speed"
 
@@ -1284,6 +1374,14 @@ msgstr "EDIT SPEED"
 #: src/pages/Config.tsx
 msgid "Edit-price deadband"
 msgstr "Edit-price deadband"
+
+#: src/pages/Config.tsx
+msgid "edit-price event marker"
+msgstr "edit-price event marker"
+
+#: src/pages/Config.tsx
+msgid "edit-speed event marker"
+msgstr "edit-speed event marker"
 
 #: src/components/PriceChart.tsx
 msgid "effective"
@@ -1356,9 +1454,17 @@ msgstr "Enable debug API endpoint"
 msgid "Enable solo-mining monitoring"
 msgstr "Enable solo-mining monitoring"
 
+#: src/components/Bip110ScanCard.tsx
+msgid "Epoch"
+msgstr "Epoch"
+
 #: src/pages/Status.tsx
 msgid "Escalation in"
 msgstr "Escalation in"
+
+#: src/components/Bip110ScanCard.tsx
+msgid "est."
+msgstr "est."
 
 #: src/pages/Config.tsx
 msgid "Estimated cap at current settings: ~ {totalStr} (logs only, indexes excluded). Logs grow ~ {dailyStr}/day."
@@ -1429,6 +1535,7 @@ msgid "Fetches the BTC/USD spot price from a public exchange API. Enables a sats
 msgstr "Fetches the BTC/USD spot price from a public exchange API. Enables a sats/USD denomination toggle in the dashboard header. No API key required - uses unauthenticated public endpoints."
 
 #: src/components/PriceChart.tsx
+#: src/pages/Config.tsx
 msgid "fillable"
 msgstr "fillable"
 
@@ -1473,6 +1580,7 @@ msgid "Flip this on, curl the endpoint, flip it back. Supports ?hours=N (default
 msgstr "Flip this on, curl the endpoint, flip it back. Supports ?hours=N (default 24, max 168) and ?tables=tick_metrics, pool_blocks, alert_events, bid_events, reward_events, app_config, daemon_info to filter the response."
 
 #: src/components/HashrateChart.tsx
+#: src/pages/Config.tsx
 #: src/pages/Status.tsx
 msgid "floor"
 msgstr "floor"
@@ -1544,6 +1652,7 @@ msgid "Hard ceiling. If fillable + overpay would exceed this, the bid is clamped
 msgstr "Hard ceiling. If fillable + overpay would exceed this, the bid is clamped down to this value (and may not fill)."
 
 #: src/components/PriceChart.tsx
+#: src/pages/Config.tsx
 msgid "hashprice"
 msgstr "hashprice"
 
@@ -1569,9 +1678,17 @@ msgstr "Hashrate"
 msgid "Hashrate below floor for"
 msgstr "Hashrate below floor for"
 
+#: src/pages/Config.tsx
+msgid "Hashrate chart"
+msgstr "Hashrate chart"
+
 #: src/pages/Status.tsx
 msgid "Hashrate Ocean credits to our payout address (5-min sliding window). Sourced per-tick from /v1/user_hashrate.hashrate_300s. Compare against AVG BRAIINS / AVG DATUM at the top of the page; sustained gaps mean shares are getting lost somewhere in the Braiins -> Datum -> Ocean pipeline."
 msgstr "Hashrate Ocean credits to our payout address (5-min sliding window). Sourced per-tick from /v1/user_hashrate.hashrate_300s. Compare against AVG BRAIINS / AVG DATUM at the top of the page; sustained gaps mean shares are getting lost somewhere in the Braiins -> Datum -> Ocean pipeline."
+
+#: src/pages/Config.tsx
+msgid "Hashrate right-axis line"
+msgstr "Hashrate right-axis line"
 
 #: src/pages/Config.tsx
 #: src/pages/Setup.tsx
@@ -1589,6 +1706,10 @@ msgstr "headers"
 #: src/components/Bip110ScanCard.tsx
 msgid "height"
 msgstr "height"
+
+#: src/components/ChartColorPicker.tsx
+msgid "Hex color (paste or type)"
+msgstr "Hex color (paste or type)"
 
 #: src/pages/Setup.tsx
 msgid "Hide"
@@ -1648,6 +1769,10 @@ msgstr "id {0}"
 msgid "IDs: {0}"
 msgstr "IDs: {0}"
 
+#: src/components/Bip110ScanCard.tsx
+msgid "if at least 55% of a difficulty epoch's blocks signal BIP 110 in their headers, the soft fork locks in at the next epoch boundary."
+msgstr "if at least 55% of a difficulty epoch's blocks signal BIP 110 in their headers, the soft fork locks in at the next epoch boundary."
+
 #: src/pages/Alerts.tsx
 msgid "important"
 msgstr "important"
@@ -1655,6 +1780,10 @@ msgstr "important"
 #: src/pages/Config.tsx
 msgid "IMPORTANT"
 msgstr "IMPORTANT"
+
+#: src/components/Bip110ScanCard.tsx
+msgid "In progress"
+msgstr "In progress"
 
 #: src/pages/Config.tsx
 msgid "Include historical Ocean payouts in lifetime earnings"
@@ -1679,6 +1808,14 @@ msgstr "info"
 #: src/pages/Config.tsx
 msgid "INFO"
 msgstr "INFO"
+
+#: src/pages/Config.tsx
+msgid "Informational. Off by default. Fires the moment Ocean debits your unpaid balance - the payout has been committed to the coinbase of the next block Ocean finds, but the transaction hasn't confirmed on-chain yet. Detection: the daemon's per-tick ocean_unpaid_sat drops by more than 30% AND the residual is below the 1,048,576-sat payout threshold (filters out tick noise / Ocean-side accounting bumps)."
+msgstr "Informational. Off by default. Fires the moment Ocean debits your unpaid balance - the payout has been committed to the coinbase of the next block Ocean finds, but the transaction hasn't confirmed on-chain yet. Detection: the daemon's per-tick ocean_unpaid_sat drops by more than 30% AND the residual is below the 1,048,576-sat payout threshold (filters out tick noise / Ocean-side accounting bumps)."
+
+#: src/pages/Config.tsx
+msgid "Informational. Off by default. Fires when the on-chain payout scanner observes a coinbase output crediting your payout address - i.e. the transaction Ocean committed has now confirmed. Includes block height, payout amount, and a truncated tx id. Source: reward_events ledger (populated by Electrs or bitcoind scantxoutset, whichever the operator has wired)."
+msgstr "Informational. Off by default. Fires when the on-chain payout scanner observes a coinbase output crediting your payout address - i.e. the transaction Ocean committed has now confirmed. Includes block height, payout amount, and a truncated tx id. Source: reward_events ledger (populated by Electrs or bitcoind scantxoutset, whichever the operator has wired)."
 
 #: src/pages/Config.tsx
 msgid "Informational. Off by default. When on, every block Ocean credits to your payout address sends a small INFO message: block height, your share %, your credit, and progress toward the next 1,048,576-sat on-chain payout."
@@ -1876,6 +2013,7 @@ msgid "Max acceptable fee"
 msgstr "Max acceptable fee"
 
 #: src/components/PriceChart.tsx
+#: src/pages/Config.tsx
 #: src/pages/Status.tsx
 msgid "max bid"
 msgstr "max bid"
@@ -1919,6 +2057,14 @@ msgstr "Metallic clank 1"
 #: src/pages/Config.tsx
 msgid "Metallic clank 2"
 msgstr "Metallic clank 2"
+
+#: src/components/Bip110ScanCard.tsx
+msgid "miner"
+msgstr "miner"
+
+#: src/components/Bip110ScanCard.tsx
+msgid "Miner-activated (MASF):"
+msgstr "Miner-activated (MASF):"
 
 #: src/pages/Config.tsx
 msgid "Minimum floor"
@@ -1992,6 +2138,10 @@ msgstr "network difficulty"
 #: src/pages/Config.tsx
 msgid "network error"
 msgstr "network error"
+
+#: src/components/HashrateChart.tsx
+msgid "network hashrate"
+msgstr "network hashrate"
 
 #: src/pages/Status.tsx
 msgid "Network's break-even rate at current difficulty + block reward: (block_reward_sat * 144 blocks/day) / network_hashrate. If you're paying ABOVE this for hashrate you're losing money vs mining; below this you're winning. The autopilot's max-overpay-vs-hashprice cap clamps your bid relative to this number."
@@ -2073,14 +2223,6 @@ msgstr "No hashrate available on the market right now."
 #: src/pages/Config.tsx
 msgid "No on-chain balance tracking. The Profit & Loss panel won't show collected BTC."
 msgstr "No on-chain balance tracking. The Profit & Loss panel won't show collected BTC."
-
-#: src/components/Bip110ScanCard.tsx
-msgid "No signaling blocks in this window."
-msgstr "No signaling blocks in this window."
-
-#: src/components/Bip110ScanCard.tsx
-msgid "node does not track BIP 110 as a named softfork"
-msgstr "node does not track BIP 110 as a named softfork"
 
 #: src/pages/Status.tsx
 msgid "none"
@@ -2169,6 +2311,14 @@ msgid "Ocean mining found a block (voice)"
 msgstr "Ocean mining found a block (voice)"
 
 #: src/pages/Config.tsx
+msgid "Ocean payout confirmed on-chain"
+msgstr "Ocean payout confirmed on-chain"
+
+#: src/pages/Config.tsx
+msgid "Ocean payout initiated"
+msgstr "Ocean payout initiated"
+
+#: src/pages/Config.tsx
 msgid "Ocean pool-block credited"
 msgstr "Ocean pool-block credited"
 
@@ -2192,10 +2342,6 @@ msgstr "Ocean's own estimate - the pool extrapolates from the address's last 3-h
 #: src/pages/Status.tsx
 msgid "Ocean's Unpaid Earnings - what will land on-chain at the next payout. Threshold: {0} sat (~0.01 BTC)."
 msgstr "Ocean's Unpaid Earnings - what will land on-chain at the next payout. Threshold: {0} sat (~0.01 BTC)."
-
-#: src/components/Bip110ScanCard.tsx
-msgid "of"
-msgstr "of"
 
 #: src/pages/Config.tsx
 msgid "Off"
@@ -2329,7 +2475,12 @@ msgstr "Order, separators, 12h vs 24h. Month names always follow your UI languag
 msgid "Other (generic dyndns2)"
 msgstr "Other (generic dyndns2)"
 
+#: src/pages/Config.tsx
+msgid "other pool blocks"
+msgstr "other pool blocks"
+
 #: src/components/PriceChart.tsx
+#: src/pages/Config.tsx
 msgid "our bid"
 msgstr "our bid"
 
@@ -2340,6 +2491,10 @@ msgstr "our earnings"
 #: src/pages/Status.tsx
 msgid "our earnings (est.)"
 msgstr "our earnings (est.)"
+
+#: src/pages/Config.tsx
+msgid "our pool blocks"
+msgstr "our pool blocks"
 
 #: src/components/HashrateChart.tsx
 msgid "our share (est.)"
@@ -2371,6 +2526,10 @@ msgstr "Overpay above fillable"
 #: src/pages/Status.tsx
 msgid "Override lock clears in"
 msgstr "Override lock clears in"
+
+#: src/pages/Config.tsx
+msgid "Override the color of any named line or event marker on the Hashrate and Price charts. Click a swatch to pick from the curated palette or set a custom hex value. Saved on the daemon, so the choice follows you across devices."
+msgstr "Override the color of any named line or event marker on the Hashrate and Price charts. Click a swatch to pick from the curated palette or set a custom hex value. Saved on the daemon, so the choice follows you across devices."
 
 #: src/pages/Status.tsx
 msgid "owner"
@@ -2449,6 +2608,10 @@ msgstr "Pending 2FA"
 msgid "Per-bid budget"
 msgstr "Per-bid budget"
 
+#: src/components/Bip110ScanCard.tsx
+msgid "Per-epoch breakdown"
+msgstr "Per-epoch breakdown"
+
 #: src/pages/Config.tsx
 msgid "Per-event-class opt-outs live on the Notifications tab. Per-ASIC-model thermal ceilings are picked automatically; the override below applies a single global ceiling across every device."
 msgstr "Per-event-class opt-outs live on the Notifications tab. Per-ASIC-model thermal ceilings are picked automatically; the override below applies a single global ceiling across every device."
@@ -2507,8 +2670,12 @@ msgid "pool blocks 7d"
 msgstr "pool blocks 7d"
 
 #: src/pages/Status.tsx
-msgid "pool blocks all time"
-msgstr "pool blocks all time"
+msgid "pool blocks since start"
+msgstr "pool blocks since start"
+
+#: src/components/HashrateChart.tsx
+msgid "pool blocks this epoch"
+msgstr "pool blocks this epoch"
 
 #: src/pages/Config.tsx
 msgid "Pool destination"
@@ -2584,6 +2751,10 @@ msgstr "pre-installation (manual)"
 msgid "Pre-installation earnings"
 msgstr "Pre-installation earnings"
 
+#: src/components/ChartColorPicker.tsx
+msgid "Presets"
+msgstr "Presets"
+
 #: src/components/HashrateChart.tsx
 msgid "previous"
 msgstr "previous"
@@ -2596,6 +2767,14 @@ msgstr "price"
 #: src/components/PriceChart.tsx
 msgid "Price"
 msgstr "Price"
+
+#: src/pages/Config.tsx
+msgid "Price chart"
+msgstr "Price chart"
+
+#: src/pages/Config.tsx
+msgid "Price right-axis line"
+msgstr "Price right-axis line"
 
 #: src/pages/Config.tsx
 msgid "Price source"
@@ -2687,10 +2866,12 @@ msgid "rebuild"
 msgstr "rebuild"
 
 #: src/components/HashrateChart.tsx
+#: src/pages/Config.tsx
 msgid "received (Datum)"
 msgstr "received (Datum)"
 
 #: src/components/HashrateChart.tsx
+#: src/pages/Config.tsx
 msgid "received (Ocean)"
 msgstr "received (Ocean)"
 
@@ -2737,6 +2918,14 @@ msgid "Replace file…"
 msgstr "Replace file…"
 
 #: src/pages/Config.tsx
+msgid "Reset all to defaults"
+msgstr "Reset all to defaults"
+
+#: src/components/ChartColorPicker.tsx
+msgid "Reset to default"
+msgstr "Reset to default"
+
+#: src/pages/Config.tsx
 msgid "Residential ISPs reassign your public IP periodically. If you put a raw IP here it will work today and silently break the day your ISP rotates it. Use a DDNS hostname instead - free options include DuckDNS (no expiration, no monthly re-confirm) and No-IP. Configure DDNS in the <0>Dynamic DNS</0> panel below; once set up, point Pool URL at the hostname (e.g. <1>stratum+tcp://yourname.duckdns.org:23334</1>) and the daemon keeps the hostname mapped to your current IP automatically. Static IPs / VPS / business connections can keep using a raw IP and ignore this note."
 msgstr "Residential ISPs reassign your public IP periodically. If you put a raw IP here it will work today and silently break the day your ISP rotates it. Use a DDNS hostname instead - free options include DuckDNS (no expiration, no monthly re-confirm) and No-IP. Configure DDNS in the <0>Dynamic DNS</0> panel below; once set up, point Pool URL at the hostname (e.g. <1>stratum+tcp://yourname.duckdns.org:23334</1>) and the daemon keeps the hostname mapped to your current IP automatically. Static IPs / VPS / business connections can keep using a raw IP and ignore this note."
 
@@ -2776,6 +2965,10 @@ msgstr "reward"
 #: src/pages/Status.tsx
 msgid "right axis"
 msgstr "right axis"
+
+#: src/pages/Config.tsx
+msgid "right-axis line"
+msgstr "right-axis line"
 
 #: src/pages/Config.tsx
 msgid "Rolling-mean window applied to the hashrate chart. 1 = raw (no smoothing). Ocean is excluded - its /user_hashrate endpoint already returns a server-side 5-min average, so set these to 5 to line all three series up on the same cadence."
@@ -2879,13 +3072,17 @@ msgstr "Scan results"
 msgid "scanned"
 msgstr "scanned"
 
+#: src/components/Bip110ScanCard.tsx
+msgid "Scanned"
+msgstr "Scanned"
+
 #. placeholder {0}: r.tx_seen
-#. placeholder {1}: r.coinbase_seen
+#. placeholder {1}: r.with_matching_outputs
 #. placeholder {2}: r.inserted
 #. placeholder {3}: Math.round(r.duration_ms / 1000)
 #: src/pages/Config.tsx
-msgid "Scanned {0} txs ({1} coinbase). Inserted {2} new payout row(s) in {3}s."
-msgstr "Scanned {0} txs ({1} coinbase). Inserted {2} new payout row(s) in {3}s."
+msgid "Scanned {0} txs ({1} with matching outputs). Inserted {2} new payout row(s) in {3}s."
+msgstr "Scanned {0} txs ({1} with matching outputs). Inserted {2} new payout row(s) in {3}s."
 
 #: src/pages/Config.tsx
 msgid "scanning…"
@@ -2977,6 +3174,10 @@ msgstr "sign out"
 msgid "signaling"
 msgstr "signaling"
 
+#: src/components/Bip110ScanCard.tsx
+msgid "Signaling"
+msgstr "Signaling"
+
 #: src/components/HashrateChart.tsx
 msgid "Signaling BIP 110"
 msgstr "Signaling BIP 110"
@@ -2984,10 +3185,6 @@ msgstr "Signaling BIP 110"
 #: src/components/HashrateChart.tsx
 msgid "Signaling BIP 110 (Reduced Data Temporary Soft Fork)"
 msgstr "Signaling BIP 110 (Reduced Data Temporary Soft Fork)"
-
-#: src/components/Bip110ScanCard.tsx
-msgid "signaling blocks in this period"
-msgstr "signaling blocks in this period"
 
 #: src/pages/Login.tsx
 msgid "signing in…"
@@ -3086,7 +3283,6 @@ msgstr "Start a chat with your bot, then send /start. Send any message to <0>@us
 msgid "status"
 msgstr "status"
 
-#: src/components/Bip110ScanCard.tsx
 #: src/components/Layout.tsx
 msgid "Status"
 msgstr "Status"
@@ -3132,6 +3328,7 @@ msgid "system default"
 msgstr "system default"
 
 #: src/components/HashrateChart.tsx
+#: src/pages/Config.tsx
 #: src/pages/Status.tsx
 msgid "target"
 msgstr "target"
@@ -3192,6 +3389,14 @@ msgstr "Testing…"
 #: src/pages/Config.tsx
 msgid "The \"Backfill now\" button walks the full address history via Electrs and adds any historical Ocean coinbase payouts that aren't already recorded. Safe to run repeatedly."
 msgstr "The \"Backfill now\" button walks the full address history via Electrs and adds any historical Ocean coinbase payouts that aren't already recorded. Safe to run repeatedly."
+
+#: src/components/Bip110ScanCard.tsx
+msgid "The 55% miner-activation threshold has been crossed. BIP 110 will activate at the next difficulty epoch boundary (block {nextBoundaryHeightStr}, estimated {nextBoundaryDateStr})."
+msgstr "The 55% miner-activation threshold has been crossed. BIP 110 will activate at the next difficulty epoch boundary (block {nextBoundaryHeightStr}, estimated {nextBoundaryDateStr})."
+
+#: src/components/Bip110ScanCard.tsx
+msgid "The 55% miner-activation threshold has been crossed. BIP 110 will activate at the next difficulty epoch boundary."
+msgstr "The 55% miner-activation threshold has been crossed. BIP 110 will activate at the next difficulty epoch boundary."
 
 #: src/pages/Config.tsx
 msgid "The bid tracks the cheapest ask with enough depth for your target, plus a small premium. Two hard ceilings sit above that so the premium can never run away. Entered in <0/>/PH/day."
@@ -3310,6 +3515,10 @@ msgstr "Unknown bid(s) detected - next tick will PAUSE the autopilot."
 msgid "unpaid"
 msgstr "unpaid"
 
+#: src/pages/Config.tsx
+msgid "unpaid (sat)"
+msgstr "unpaid (sat)"
+
 #: src/pages/Status.tsx
 msgid "unpaid earnings"
 msgstr "unpaid earnings"
@@ -3366,6 +3575,10 @@ msgstr "Used by the on-chain payout balance check (when \"Bitcoin Knots RPC\" is
 #: src/pages/Config.tsx
 msgid "Used for click-through from the Ocean panel's \"last pool block\" row, block-marker tooltips on the Hashrate chart, and on-chain payout dots on the Price chart. Block links use `{hash}` / `{height}`; transaction links use `{txid}` / `{hash}`. Picking a preset sets both URLs at once."
 msgstr "Used for click-through from the Ocean panel's \"last pool block\" row, block-marker tooltips on the Hashrate chart, and on-chain payout dots on the Price chart. Block links use `{hash}` / `{height}`; transaction links use `{txid}` / `{hash}`. Picking a preset sets both URLs at once."
+
+#: src/components/Bip110ScanCard.tsx
+msgid "User-activated (UASF):"
+msgstr "User-activated (UASF):"
 
 #: src/pages/Config.tsx
 msgid "Username (DDNS Key user)"
@@ -3514,6 +3727,14 @@ msgstr "You'll use this to sign in to the dashboard after setup. At least 8 char
 #: src/pages/Setup.tsx
 msgid "Your address that receives Ocean TIDES payouts. The worker identity below is auto-derived from this."
 msgstr "Your address that receives Ocean TIDES payouts. The worker identity below is auto-derived from this."
+
+#: src/components/Bip110ScanCard.tsx
+msgid "your Bitcoin node does not track BIP 110 as a named softfork"
+msgstr "your Bitcoin node does not track BIP 110 as a named softfork"
+
+#: src/components/Bip110ScanCard.tsx
+msgid "Your Bitcoin node supports BIP 110, which is currently in its activation window. There are two paths it can activate by:"
+msgstr "Your Bitcoin node supports BIP 110, which is currently in its activation window. There are two paths it can activate by:"
 
 #: src/pages/Config.tsx
 msgid "Zero hashrate for"

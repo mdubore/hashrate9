@@ -405,6 +405,23 @@ export const AppConfigSchema = z.object({
   // the Telegram POST.
   notify_on_braiins_deposit: z.boolean().default(false),
 
+  // #226: opt-in INFO Telegram alerts on the Ocean payout lifecycle.
+  // - notify_on_payout_initiated: fires the tick we observe a sharp
+  //   drop in ocean_unpaid_sat (>30% of prior) WITH the residual below
+  //   the on-chain payout threshold (1,048,576 sat). At that moment
+  //   Ocean has debited the balance and committed to including the
+  //   payout in the coinbase of the next block it finds; the
+  //   transaction hasn't hit the chain yet.
+  // - notify_on_payout_confirmed: fires when the on-chain payout
+  //   scanner writes a new row to reward_events (a coinbase output
+  //   to the configured payout address has confirmed). Idempotent
+  //   via the in-memory `lastNotifiedRewardEventId` watermark in the
+  //   alert evaluator, same pattern as pool_block_credited.
+  // Both default off so a fresh install / upgrade doesn't start
+  // buzzing the operator's phone unannounced.
+  notify_on_payout_initiated: z.boolean().default(false),
+  notify_on_payout_confirmed: z.boolean().default(false),
+
   // #131: locale for Telegram message rendering. The dashboard has its
   // own locale picker (Lingui-driven) for the UI; this is the
   // separate, daemon-side locale that drives the language of every
@@ -412,6 +429,37 @@ export const AppConfigSchema = z.object({
   // catalog only ships en/nl/es today; values outside that set fall
   // back to en at render time.
   notification_locale: z.enum(['en', 'nl', 'es']).default('en'),
+
+  // #227 follow-up: display format preferences promoted from the
+  // dashboard's browser localStorage to daemon-managed config. The
+  // Display & Logging tab has dropdowns for number format
+  // (thousand/decimal separators) and date layout; these used to live
+  // in `braiins.numberLocale` / `braiins.dateLayout` localStorage
+  // keys, which the daemon couldn't see. Now mirrored here so the
+  // Telegram render path can read them. Both default 'system'; the
+  // daemon resolves 'system' to 'en-US' since there's no browser
+  // context server-side. Values follow the same enums the dashboard
+  // shows in its presets: number_locale ∈ {'system','en-US','nl-NL',
+  // 'fr-FR','no-grouping'}, date_layout ∈ {'system','us',
+  // 'eu-spaced-24h','slash-dmy-24h','iso','slash-mdy-12h'}. The
+  // dashboard PATCHes these on change; the daemon caches stay in
+  // sync as a write-through.
+  display_number_locale: z
+    .enum(['system', 'en-US', 'nl-NL', 'fr-FR', 'no-grouping'])
+    .default('system'),
+  display_date_layout: z
+    .enum(['system', 'us', 'eu-spaced-24h', 'slash-dmy-24h', 'iso', 'slash-mdy-12h'])
+    .default('system'),
+
+  // #238: per-series chart color overrides. JSON object keyed by
+  // canonical series name (e.g. "hashrate.delivered") with hex-string
+  // values (`#RRGGBB`). Missing keys fall back to the built-in defaults
+  // on the dashboard side, so an empty `{}` preserves the current look.
+  // Schema validates as a string here (cheap, no JSON re-parse on every
+  // tick); the dashboard's `parseOverrides()` validates and silently
+  // drops malformed entries so a stray browser write can't break the
+  // chart.
+  chart_color_overrides: z.string().default('{}'),
 
   // #111: daemon-managed DDNS updater. When ddns_provider is non-empty
   // the daemon pushes the current public IP to the configured DDNS
@@ -590,7 +638,19 @@ export const APP_CONFIG_DEFAULTS: Omit<
   notification_disabled_event_classes: [],
   notify_on_pool_block_credit: false,
   notify_on_braiins_deposit: false,
+  // #226: payout lifecycle Telegram alerts - opt-in, default off.
+  notify_on_payout_initiated: false,
+  notify_on_payout_confirmed: false,
   notification_locale: 'en',
+  // #227 follow-up: 'system' = "follow the operator's browser /
+  // default", resolved daemon-side to 'en-US' since there's no
+  // browser context. Operators who pick a non-system value on the
+  // Display & Logging tab get the dashboard to PATCH the new value
+  // and Telegram immediately renders with it.
+  display_number_locale: 'system',
+  display_date_layout: 'system',
+  // #238: empty JSON object = "use every series's built-in default".
+  chart_color_overrides: '{}',
 
   ddns_provider: '',
   ddns_hostname: '',

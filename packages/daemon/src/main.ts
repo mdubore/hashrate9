@@ -59,9 +59,10 @@ import { BraiinsDepositWatcherService } from './services/braiins-deposit-watcher
 import { TelegramSink, type SendOptions } from './services/notifier.js';
 import { TelegramReceiver } from './services/telegram-receiver.js';
 import { runOceanUnpaidCleanup } from './services/ocean-unpaid-cleanup.js';
+import { runNetworkDifficultyBackfill } from './services/network-difficulty-backfill.js';
 import { runPoolBlocksBackfill } from './services/pool-blocks-backfill.js';
 import { runPoolLuckRecompute } from './services/pool-luck-recompute.js';
-import { runRetargetBackfill } from './services/retarget-backfill.js';
+import { runGapBackfill } from './services/gap-backfill.js';
 import type { TickResult } from './controller/tick.js';
 import { cheapestAskForDepth } from './controller/orderbook.js';
 import type { State } from './controller/types.js';
@@ -344,6 +345,18 @@ async function bootOperational(
       ? createBitcoindClient({ url: bitcoindRpcUrl, username: bitcoindRpcUser, password: bitcoindRpcPass })
       : null;
 
+  // Live config wrapper. Defined BEFORE the payout observer (and
+  // anything else that needs a live-view of the operator's edits)
+  // so closures over cfgRefHolder.value see updates as they land,
+  // not the boot-time `cfg` snapshot. Previously the observer's
+  // getAddress / getHistoricalEnabled read from the boot const,
+  // which meant changing btc_payout_address via the dashboard
+  // didn't take effect until daemon restart - the observer kept
+  // scanning the old address and the P&L "collected (on-chain)"
+  // tile stayed stuck on the old number even though Config showed
+  // the new address (#240 follow-up).
+  const cfgRefHolder = { value: cfg };
+
   let payoutObserver: PayoutObserver | null = null;
   // Construction conditions:
   // - payout_source must be enabled
@@ -362,14 +375,24 @@ async function bootOperational(
   if (cfg.payout_source !== 'none' && cfg.btc_payout_address && (hasBitcoind || hasElectrs)) {
     payoutObserver = new PayoutObserver({
       client: bitcoindClient,
-      getAddress: () => cfg.btc_payout_address,
+      // #240 follow-up: live-read via cfgRefHolder so a dashboard-
+      // edited btc_payout_address takes effect on the observer's
+      // next scan without a daemon restart. The boot-time `cfg`
+      // capture used to snapshot the address - subsequent edits
+      // changed the DB row but the observer kept polling the old
+      // value.
+      getAddress: () => cfgRefHolder.value.btc_payout_address,
+      // electrs host/port are still read off the boot-time cfg
+      // because changing the electrs endpoint mid-run isn't a
+      // supported edit (would need a full observer rewire). Address
+      // is the operator-facing knob.
       electrsHost: cfg.payout_source === 'electrs' ? cfg.electrs_host : null,
       electrsPort: cfg.payout_source === 'electrs' ? cfg.electrs_port : null,
       log: (m) => log(m),
       db: handle.db,
       // #170: live-read the backfill toggle each cycle so flipping it
       // in the dashboard takes effect without a daemon restart.
-      getHistoricalEnabled: () => cfg.include_historical_payouts,
+      getHistoricalEnabled: () => cfgRefHolder.value.include_historical_payouts,
       // When new reward_events rows land, immediately backfill
       // tick_metrics.paid_total_sat across history so the chart's
       // lifetime-earnings line shows the correct timeline without
@@ -522,12 +545,132 @@ async function bootOperational(
     (err) => log(`[ocean-unpaid-cleanup] ${(err as Error).message}`),
   );
 
+  // Boot chain order (#241):
+  //   1. pool-blocks-backfill - pull Ocean's pool_blocks for the
+  //      lookback window so the per-tick gap-fill below can compute
+  //      pool_blocks_*_count and pool_luck_* at synthetic-tick times.
+  //   2. gap-backfill - if there's an offline gap in tick_metrics,
+  //      insert synthetic ticks across it (per-tick when bitcoindClient
+  //      is wired so each tick carries the correct epoch difficulty,
+  //      falls back to a single-marker estimate without it).
+  //   3. pool-luck-recompute - walk every tick_metrics row (including
+  //      the newly-inserted synthetics) and populate
+  //      pool_blocks_*_count / pool_luck_* / paid_total_sat from the
+  //      pool_blocks + reward_events ground truth. This is what turns
+  //      the in-gap synthetics into a luck line that step-changes on
+  //      each in-gap pool block instead of flat-interpolating.
+  // Each stage gets its own `.catch` so an earlier-stage error
+  // doesn't silently swallow the next stage. Previously a single
+  // shared `.catch` at the end meant: pool-blocks-backfill throws ->
+  // gap-backfill and pool-luck-recompute never run -> the chart
+  // looks identical to a daemon that didn't restart, and we ship
+  // four iterations of "fixes" thinking the code is buggy when
+  // actually it's never executing.
+  // #240 follow-up: boot-time payout-state refresh. Two scenarios:
+  //
+  // 1. Address mismatch (the obvious one). Operator changed
+  //    btc_payout_address on an older build (before the live-cfg
+  //    fix in build 564) so reward_events ends up populated with
+  //    OLD-address payouts. On restart, cfg loads the NEW address
+  //    but reward_events still has the OLD-address rows. P&L
+  //    "collected (on-chain)" (reads reward_events.sum) shows the
+  //    wrong number. Detect via runtime_state.last_backfilled_
+  //    payout_address. On mismatch: DELETE reward_events, NULL
+  //    tick_metrics.paid_total_sat, kick scanOnce + backfill,
+  //    stamp the new address.
+  //
+  // 2. No mismatch but reward_events may still be stale or empty.
+  //    A user with a long-standing address (operator's #240 user
+  //    is the canonical case - never changed address but never saw
+  //    their incoming payout because the original install's
+  //    backfill predated the coinbase-filter fix). On every boot,
+  //    additively re-run runHistoricalBackfill so new TXs that
+  //    weren't found on prior boots (because of a code bug, an
+  //    electrs hiccup, scan-depth limits, transient errors) get
+  //    picked up. No DELETE in this path - existing rows are
+  //    preserved, only new ones inserted.
+  //
+  // Both paths skip if payoutObserver is null (payout_source=none
+  // or no electrs/bitcoind), and the additive path no-ops on
+  // bitcoind-only setups (runHistoricalBackfill returns an
+  // "electrs not configured" error string; logged, not thrown).
+  void (async () => {
+    if (!cfgRefHolder.value.btc_payout_address) return;
+    const runtime = await runtimeRepo.get().catch(() => null);
+    const lastAddr = runtime?.last_backfilled_payout_address ?? null;
+    const currAddr = cfgRefHolder.value.btc_payout_address;
+    const mismatch = lastAddr !== currAddr;
+
+    if (mismatch) {
+      log(
+        `[payout] boot detected address mismatch (was ${lastAddr ?? '<null>'}, ` +
+          `now ${currAddr}); clearing reward_events and kicking ` +
+          `historical backfill against the new address`,
+      );
+      try {
+        await handle.db.deleteFrom('reward_events').execute();
+        await handle.db
+          .updateTable('tick_metrics')
+          .set({ paid_total_sat: null })
+          .execute();
+        if (payoutObserver) {
+          payoutObserver.resetSnapshot();
+          void payoutObserver.scanOnce().catch((e) =>
+            log(`[payout] boot address-mismatch scanOnce failed: ${(e as Error).message}`),
+          );
+          const r = await payoutObserver.runHistoricalBackfill();
+          log(
+            `[payout] boot address-mismatch backfill: ${r.txSeen} txs, ` +
+              `${r.withMatchingOutputs} with matching outputs, ` +
+              `${r.inserted} inserted${r.error ? `, error: ${r.error}` : ''}`,
+          );
+        }
+        // Stamp the address regardless of whether backfill produced
+        // rows. If runHistoricalBackfill threw, the catch below
+        // intercepts and we DON'T stamp - next boot retries.
+        await runtimeRepo.patch({ last_backfilled_payout_address: currAddr });
+      } catch (err) {
+        log(`[payout] boot address-mismatch refresh failed: ${(err as Error).message}`);
+      }
+      return;
+    }
+
+    // Address unchanged. Additively re-run the historical backfill
+    // anyway so users who never changed addresses still get fresh
+    // discoveries from electrs (e.g., a payout TX that landed
+    // between this boot and the previous one, or one that the
+    // earlier boot's backfill missed due to a code bug). Existing
+    // rows are preserved - the backfill's INSERT ... ON CONFLICT
+    // DO NOTHING is idempotent on tx_hash + output_index.
+    if (!payoutObserver) return;
+    try {
+      const r = await payoutObserver.runHistoricalBackfill();
+      log(
+        `[payout] boot additive historical backfill: ${r.txSeen} txs, ` +
+          `${r.withMatchingOutputs} with matching outputs, ` +
+          `${r.inserted} inserted${r.error ? `, error: ${r.error}` : ''}`,
+      );
+    } catch (err) {
+      log(`[payout] boot additive backfill failed: ${(err as Error).message}`);
+    }
+  })();
+
   void runPoolBlocksBackfill({
     oceanClient,
     poolBlocksRepo,
     db: handle.db,
     log: (m) => log(m),
   })
+    .catch((err) => log(`[pool-blocks] backfill failed: ${(err as Error).message}`))
+    .then(() =>
+      runGapBackfill({
+        db: handle.db,
+        poolBlocksRepo,
+        ...(bitcoindClient ? { bitcoindClient } : {}),
+        log: (m) => log(m),
+      }),
+    )
+    .catch((err) => log(`[gap-backfill] failed: ${(err as Error).message}\n${(err as Error).stack ?? ''}`))
     .then(() =>
       runPoolLuckRecompute({
         db: handle.db,
@@ -535,16 +678,23 @@ async function bootOperational(
         log: (m) => log(m),
       }),
     )
-    .then(() =>
-      runRetargetBackfill({
-        db: handle.db,
-        poolBlocksRepo,
-        log: (m) => log(m),
-      }),
-    )
-    .catch((err) =>
-      log(`[pool-blocks] backfill/recompute failed: ${(err as Error).message}`),
+    .catch((err) => log(`[pool-luck-recompute] failed: ${(err as Error).message}`));
+
+  // #230: fill NULL `network_difficulty` ticks from bitcoind block
+  // headers. Pre-existing rows that predate the daemon-side
+  // observation hold the chart's difficulty line back from extending
+  // through full history; this backfill walks the gap. Boot-time,
+  // idempotent, never overwrites a non-null value. Silent skip when
+  // bitcoind isn't configured / reachable.
+  if (bitcoindClient) {
+    void runNetworkDifficultyBackfill({
+      bitcoindClient,
+      tickMetricsRepo,
+      log: (m) => log(m),
+    }).catch((err) =>
+      log(`[network-difficulty-backfill] ${(err as Error).message}`),
     );
+  }
 
   // #100: Telegram notifier wiring. Sink credentials are re-read from
   // the latest config snapshot on every send so live edits to bot
@@ -562,7 +712,6 @@ async function bootOperational(
     });
     void latestCfg;
   };
-  const cfgRefHolder = { value: cfg };
   // Forward `opts` through to the freshly-built sink so the
   // alert-manager's alert_id + action_buttons (Mark as seen / Snooze)
   // make it onto the outbound Telegram payload as reply_markup. The
@@ -597,6 +746,8 @@ async function bootOperational(
     axeOSPoller,
     tickMetricsRepo,
     poolBlocksRepo,
+    // #226: enables payout_confirmed firing once per new reward_events row.
+    rewardEventsRepo,
     log: (m) => log(m),
   });
   // Rebuild in-memory event state from the alerts table so a daemon
@@ -839,6 +990,72 @@ async function bootOperational(
       if (ddnsChanged) {
         log('[ddns] config changed, kicking immediate tick');
         void ddnsUpdater.tick();
+      }
+      // #240: when the payout address changes, the existing
+      // reward_events rows belong to the old address and the
+      // tick_metrics.paid_total_sat values were derived from those.
+      // Wipe both and kick an immediate backfill so the dashboard
+      // reflects the new address's history within the next tick.
+      // historical_payouts_offset_sat is operator-set and stays
+      // (separate concern - operator updates it on the new address
+      // if they had pre-installation income there).
+      const addressChanged =
+        prevCfg !== null &&
+        prevCfg.btc_payout_address !== newCfg.btc_payout_address &&
+        newCfg.btc_payout_address !== '';
+      if (addressChanged) {
+        log(
+          `[payout] address changed from ${prevCfg!.btc_payout_address} to ` +
+            `${newCfg.btc_payout_address}; clearing reward_events and ` +
+            `nulling tick_metrics.paid_total_sat across history`,
+        );
+        void (async () => {
+          try {
+            await handle.db.deleteFrom('reward_events').execute();
+            await handle.db
+              .updateTable('tick_metrics')
+              .set({ paid_total_sat: null })
+              .execute();
+            if (payoutObserver) {
+              // Drop the in-memory snapshot first so the P&L
+              // "collected (on-chain)" tile shows 'computing'
+              // instead of the OLD address's total while the
+              // rescan + backfill run.
+              payoutObserver.resetSnapshot();
+              // Kick an immediate balance scan against the new
+              // address (getAddress reads cfgRefHolder live, so
+              // it'll see the just-saved new value). Don't await -
+              // backfill below is more important and they're
+              // independent.
+              void payoutObserver.scanOnce().catch((e) =>
+                log(`[payout] post-address-change scanOnce failed: ${(e as Error).message}`),
+              );
+              log('[payout] kicking historical backfill against new address');
+              // runHistoricalBackfill fires onRewardsChanged when any
+              // rows insert, and that callback already kicks
+              // pool-luck-recompute (which regenerates the
+              // tick_metrics.paid_total_sat we just nulled). No
+              // explicit recompute needed here.
+              const r = await payoutObserver.runHistoricalBackfill();
+              log(
+                `[payout] post-address-change backfill: ${r.txSeen} txs, ` +
+                  `${r.withMatchingOutputs} with matching outputs, ` +
+                  `${r.inserted} inserted${r.error ? `, error: ${r.error}` : ''}`,
+              );
+              // Stamp the new address as the one we just backfilled
+              // so the boot-time mismatch check (above) no-ops on
+              // subsequent restarts unless the operator changes the
+              // address again.
+              await runtimeRepo.patch({
+                last_backfilled_payout_address: newCfg.btc_payout_address,
+              });
+            }
+          } catch (err) {
+            log(
+              `[payout] address-change refresh failed: ${(err as Error).message}`,
+            );
+          }
+        })();
       }
     },
   });

@@ -8,17 +8,105 @@ import { Trans } from '@lingui/react/macro';
 import { t } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { api } from '../lib/api';
-import type { Bip110ScanDeployment, Bip110ScanResponse, Bip110ScanSignalingBlock } from '../lib/api';
+import type {
+  Bip110EpochBucket,
+  Bip110ScanDeployment,
+  Bip110ScanResponse,
+  Bip110ScanSignalingBlock,
+} from '../lib/api';
 import { applyExplorerTemplate } from '../lib/blockExplorer';
 import { formatAgeMinutes, formatNumber } from '../lib/format';
-import { useFormatters, useLocale } from '../lib/locale';
+import { useDateTimeLocale, useFormatters, useLocale } from '../lib/locale';
 import { Tooltip } from './Tooltip';
 
-const WINDOWS = [2016, 4032, 8064, 16128, 32256] as const;
-type ScanWindow = (typeof WINDOWS)[number];
+/**
+ * Compact date-range string for the per-epoch breakdown's secondary
+ * line. Uses `dateStyle: 'medium'` (locale-aware) on both endpoints,
+ * collapsed to a single date when both fall on the same calendar day
+ * (in-progress epoch right after a retarget). The UI-language locale
+ * drives month-name language so a Dutch UI gets Dutch month names
+ * even when the number-format preset is set to en-US.
+ *
+ * #233: when `forecastMs` is non-null, the right endpoint becomes
+ * the forecasted retarget date instead of the literal last-scanned
+ * block time (which is just "≈ now" for the in-progress epoch). The
+ * caller gets back a tuple with the rendered string + an estimation
+ * flag so the UI can append "(est.)" or otherwise mark uncertainty.
+ */
+function formatEpochDateRange(
+  startMs: number,
+  endMs: number,
+  dateTimeLocale: string,
+  forecastMs: number | null = null,
+): { text: string; estimated: boolean } {
+  const fmt = new Intl.DateTimeFormat(dateTimeLocale, { dateStyle: 'medium' });
+  const startDate = new Date(startMs);
+  const rightDate = new Date(forecastMs ?? endMs);
+  const sameDay =
+    startDate.getFullYear() === rightDate.getFullYear() &&
+    startDate.getMonth() === rightDate.getMonth() &&
+    startDate.getDate() === rightDate.getDate();
+  const text = sameDay
+    ? fmt.format(startDate)
+    : `${fmt.format(startDate)} – ${fmt.format(rightDate)}`;
+  return { text, estimated: forecastMs !== null };
+}
+
+/**
+ * #231 follow-up #3: range is a two-option choice. `current` shows
+ * the in-progress difficulty epoch (live MASF window). `all` shows
+ * every difficulty epoch since the first known BIP 110 signaling
+ * block (height 938,903, 2026-03-01) - a bounded ~13k-block scan
+ * that takes single-digit seconds on a healthy node.
+ */
+type ScanRange = 'current' | 'all';
+
+/** BIP 110 MASF activation threshold: 55% of an epoch's blocks. */
+const MASF_THRESHOLD_PCT = 55;
+/** Absolute signaling-block count needed to cross MASF threshold in
+ *  a difficulty epoch. Used as the per-row progress-bar denominator
+ *  (#233 moved the bar from the header to inside each epoch row). */
+const BLOCKS_PER_EPOCH = 2016;
+const MASF_THRESHOLD_BLOCKS = Math.ceil(BLOCKS_PER_EPOCH * (MASF_THRESHOLD_PCT / 100));
+/** BIP 110 UASF flag-day block height. At this height, BIP 110-aware
+ *  nodes begin enforcing the rules regardless of miner signaling. */
+const UASF_HEIGHT_BIP110 = 965_664;
+
+/** Bitcoin's protocol-target block time. The chain retargets every
+ *  2016 blocks to bring the moving-window average toward this. */
+const TARGET_BLOCK_TIME_MS = 600_000;
+
+/**
+ * Estimated wall-clock time at which the chain will reach
+ * `targetHeight`, computed as `now + (target - tip) × 600s`. Matches
+ * the formula every block-time calculator on the internet uses
+ * (bennet.org's tool, the operator's own hand math at
+ * 144 blocks/day), so the displayed estimate matches what the
+ * operator can verify independently.
+ *
+ * #235: works in both directions. For past targets (target < tip)
+ * the formula gives `now - (tip - target) × 600s` - the estimated
+ * wall-clock time at which that past block was mined. Accurate to
+ * within a few hours; for exact times the operator can click through
+ * to a block explorer.
+ *
+ * Null when we don't know the tip height (no scan yet).
+ */
+function estimateBlockHeightTime(
+  targetHeight: number,
+  tipHeight: number | null,
+  nowMs: number = Date.now(),
+): number | null {
+  if (tipHeight === null) return null;
+  return nowMs + (targetHeight - tipHeight) * TARGET_BLOCK_TIME_MS;
+}
+
+function formatMediumDate(ms: number, dateTimeLocale: string): string {
+  return new Intl.DateTimeFormat(dateTimeLocale, { dateStyle: 'medium' }).format(new Date(ms));
+}
 
 const BIP110_REFERENCE_URL = 'https://bip110.org/';
 
@@ -32,22 +120,28 @@ function formatSize(bytes: number): string {
   return `${bytes} B`;
 }
 
-const POOL_COLORS = [
+/** #234: deterministic color picker for the miner-badge avatar. The
+ *  pool the operator mines on is always Ocean; the meaningful
+ *  identity is the miner who built the template, so this colors a
+ *  per-miner badge (a "M" in front of "Roughnecks", etc.). Same
+ *  hash-of-tag → index logic the PoolBadge had; only the surface
+ *  naming changed. */
+const MINER_COLORS = [
   'bg-amber-600', 'bg-emerald-600', 'bg-sky-600', 'bg-violet-600',
   'bg-rose-600', 'bg-teal-600', 'bg-orange-600', 'bg-indigo-600',
 ];
 
-function poolColor(tag: string): string {
+function minerColor(tag: string): string {
   let h = 0;
   for (let i = 0; i < tag.length; i++) h = (h * 31 + tag.charCodeAt(i)) | 0;
-  return POOL_COLORS[Math.abs(h) % POOL_COLORS.length]!;
+  return MINER_COLORS[Math.abs(h) % MINER_COLORS.length]!;
 }
 
-function PoolBadge({ tag }: { tag: string }): React.JSX.Element {
+function MinerBadge({ tag }: { tag: string }): React.JSX.Element {
   const initial = tag.replace(/^[^a-zA-Z0-9]*/, '').charAt(0).toUpperCase() || '?';
   return (
     <span className="inline-flex items-center gap-1.5 text-xs text-slate-300 truncate max-w-[180px]" title={tag}>
-      <span className={`inline-flex items-center justify-center w-5 h-5 rounded text-[10px] font-bold text-white ${poolColor(tag)}`}>
+      <span className={`inline-flex items-center justify-center w-5 h-5 rounded text-[10px] font-bold text-white ${minerColor(tag)}`}>
         {initial}
       </span>
       <span className="truncate">{tag}</span>
@@ -105,7 +199,15 @@ function SignalingBlockCard({
         <span className="text-lg font-semibold text-amber-400 font-mono">
           {formatNumber(block.height, {}, intlLocale)}
         </span>
-        {block.pool_tag && <PoolBadge tag={block.pool_tag} />}
+        {/* #237: pool and miner badges stack vertically in the top-right
+            so both identities are visible on mobile without a horizontal
+            scroll. Pool on top (more identity-stable across blocks);
+            miner below. When miner is null (non-Ocean blocks) only the
+            pool badge renders. */}
+        <div className="flex flex-col items-end gap-1">
+          {block.pool_tag && <MinerBadge tag={block.pool_tag} />}
+          {block.miner_tag && <MinerBadge tag={block.miner_tag} />}
+        </div>
       </div>
 
       <div className="mt-1.5 text-xs text-slate-400">
@@ -172,6 +274,7 @@ function SignalingBlockTable({
           <tr className="text-slate-500 text-left">
             <th className="pb-2 pr-4 font-normal">{t`height`}</th>
             <th className="pb-2 pr-4 font-normal">{t`pool`}</th>
+            <th className="pb-2 pr-4 font-normal">{t`miner`}</th>
             <th className="pb-2 pr-4 font-normal">{t`found`}</th>
             <th className="pb-2 pr-4 font-normal text-right">{t`reward`}</th>
             <th className="pb-2 pr-4 font-normal text-right">{t`fees`}</th>
@@ -190,7 +293,10 @@ function SignalingBlockTable({
                   {formatNumber(b.height, {}, intlLocale)}
                 </td>
                 <td className="py-2 pr-4">
-                  {b.pool_tag ? <PoolBadge tag={b.pool_tag} /> : <span className="text-slate-600">-</span>}
+                  {b.pool_tag ? <MinerBadge tag={b.pool_tag} /> : <span className="text-slate-600">-</span>}
+                </td>
+                <td className="py-2 pr-4">
+                  {b.miner_tag ? <MinerBadge tag={b.miner_tag} /> : <span className="text-slate-600">-</span>}
                 </td>
                 <td className="py-2 pr-4" title={formatAgeMinutes(b.time_ms)}>
                   {fmtTimestamp(b.time_ms)}
@@ -229,7 +335,7 @@ export function Bip110ScanCard(): React.JSX.Element {
   const { intlLocale } = useLocale();
   const fmt = useFormatters();
 
-  const [window, setWindow] = useState<ScanWindow>(2016);
+  const [range, setRange] = useState<ScanRange>('current');
 
   const configQuery = useQuery({
     queryKey: ['config'],
@@ -240,13 +346,36 @@ export function Bip110ScanCard(): React.JSX.Element {
     'https://mempool.space/block/{hash}';
 
   const scan = useMutation({
-    mutationFn: (blocks: number) => api.bip110Scan(blocks),
+    mutationFn: (r: ScanRange) => api.bip110Scan(r),
   });
 
   const data: Bip110ScanResponse | undefined = scan.data;
   const sortedBlocks = data
     ? [...data.signaling_blocks].sort((a, b) => b.height - a.height)
     : [];
+
+  // #233: track expanded epoch rows here (lifted from EpochBreakdown
+  // so the auto-expand-on-scan effect can poke at it). Set-based so
+  // the cost of toggling is O(1) and stable identities across
+  // re-renders are preserved.
+  const [expandedEpochs, setExpandedEpochs] = useState<ReadonlySet<number>>(new Set());
+
+  // #233: when a scan completes, automatically expand the in-progress
+  // epoch row so the operator sees its signaling blocks without an
+  // extra chevron click. Keys off the response identity so a manual
+  // collapse during the same scan session sticks (we don't re-fire
+  // on every re-render - only when fresh data arrives).
+  useEffect(() => {
+    if (!data?.epochs) return;
+    const inProgress = data.epochs.find((e) => e.in_progress);
+    if (!inProgress) return;
+    setExpandedEpochs((prev) => {
+      if (prev.has(inProgress.start_height)) return prev;
+      const next = new Set(prev);
+      next.add(inProgress.start_height);
+      return next;
+    });
+  }, [data]);
 
   return (
     <section className="bg-slate-900 border border-slate-800 rounded-xl p-5 mt-6">
@@ -272,21 +401,38 @@ export function Bip110ScanCard(): React.JSX.Element {
         </div>
 
         <div className="flex items-center gap-2">
-          <select
-            value={window}
-            onChange={(e) => setWindow(Number(e.target.value) as ScanWindow)}
-            className="bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-sm text-slate-200"
-            disabled={scan.isPending}
+          <div
+            className="inline-flex items-center border border-slate-700 rounded-md overflow-hidden text-xs leading-none"
+            role="radiogroup"
+            aria-label={t`BIP 110 scan range`}
           >
-            {WINDOWS.map((w) => (
-              <option key={w} value={w}>
-                {w} {t`blocks`}
-              </option>
-            ))}
-          </select>
+            {(['current', 'all'] as const).map((option, i) => {
+              const selected = range === option;
+              const label = option === 'current' ? t`Current epoch` : t`All`;
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  onClick={() => setRange(option)}
+                  disabled={scan.isPending}
+                  className={
+                    'px-3 py-1.5 transition ' +
+                    (i > 0 ? 'border-l border-slate-700 ' : '') +
+                    (selected
+                      ? 'bg-amber-400 text-slate-900 font-medium'
+                      : 'text-slate-400 hover:bg-slate-800')
+                  }
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
           <button
             type="button"
-            onClick={() => scan.mutate(window)}
+            onClick={() => scan.mutate(range)}
             disabled={scan.isPending}
             className="px-4 py-1.5 text-sm rounded bg-amber-400 text-slate-900 font-medium hover:bg-amber-300 disabled:opacity-50"
           >
@@ -317,42 +463,54 @@ export function Bip110ScanCard(): React.JSX.Element {
 
       {data && data.rpc_available && !data.error && (
         <>
-          <div className="mt-4 flex items-center flex-wrap gap-y-1 rounded-lg border border-slate-700/50 bg-slate-800/40 px-4 py-2.5 text-sm font-mono">
-            <span className="text-slate-500 text-xs mr-1.5">{t`tip`}</span>
-            <span className="text-slate-200 font-semibold">
-              {data.tip_height !== null ? formatNumber(data.tip_height, {}, intlLocale) : '-'}
+          {/* #233 follow-up: header stacks vertically on mobile (the
+              divider-pipe horizontal layout wrapped awkwardly at narrow
+              widths). On lg+ it goes back to the inline row with the
+              pipes between items. */}
+          <div className="mt-4 flex flex-col lg:flex-row lg:items-center lg:flex-wrap lg:gap-x-3 gap-y-1 rounded-lg border border-slate-700/50 bg-slate-800/40 px-4 py-2.5 text-sm font-mono">
+            <span>
+              <span className="text-slate-500 text-xs mr-1.5">{t`tip`}</span>
+              <span className="text-slate-200 font-semibold">
+                {data.tip_height !== null ? formatNumber(data.tip_height, {}, intlLocale) : '-'}
+              </span>
             </span>
-            <Divider />
-            <span className="text-slate-200">
-              {formatNumber(data.scanned, {}, intlLocale)}
+            <span className="hidden lg:inline"><Divider /></span>
+            <span>
+              <span className="text-slate-200">
+                {formatNumber(data.scanned, {}, intlLocale)}
+              </span>
+              <span className="text-slate-500 text-xs ml-1.5">{t`scanned`}</span>
             </span>
-            <span className="text-slate-500 text-xs ml-1.5">{t`scanned`}</span>
-            <Divider />
-            <span className="text-amber-400">
-              {formatNumber(data.signaling_count, {}, intlLocale)}
-            </span>
-            <span className="text-slate-500 text-xs ml-1.5">{t`signaling`}</span>
-            <span className="text-slate-500 text-xs ml-1">
-              ({formatNumber(
-                data.signaling_pct,
-                { minimumFractionDigits: 2, maximumFractionDigits: 2 },
-                intlLocale,
-              )}%)
+            <span className="hidden lg:inline"><Divider /></span>
+            <span>
+              <span className="text-amber-400">
+                {formatNumber(data.signaling_count, {}, intlLocale)}
+              </span>
+              <span className="text-slate-500 text-xs ml-1.5">{t`signaling`}</span>
+              <span className="text-slate-500 text-xs ml-1">
+                ({formatNumber(
+                  data.signaling_pct,
+                  { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+                  intlLocale,
+                )}%)
+              </span>
             </span>
             {data.deployment ? (
               <>
-                <Divider />
-                <div className="flex-1 min-w-[120px]">
-                  <DeploymentProgressBar deployment={data.deployment} intlLocale={intlLocale} />
-                </div>
+                <span className="hidden lg:inline"><Divider /></span>
+                <DeploymentStatusBadge
+                  deployment={data.deployment}
+                  tipHeight={data.tip_height}
+                  intlLocale={intlLocale}
+                />
               </>
             ) : (
               <>
-                <Divider />
+                <span className="hidden lg:inline"><Divider /></span>
                 <span className="text-slate-600 text-xs" title={
                   data.softfork_keys && data.softfork_keys.length > 0
                     ? `${t`known softforks`}: ${data.softfork_keys.join(', ')}`
-                    : t`node does not track BIP 110 as a named softfork`
+                    : t`your Bitcoin node does not track BIP 110 as a named softfork`
                 }>
                   {t`deployment`}: n/a
                 </span>
@@ -360,36 +518,17 @@ export function Bip110ScanCard(): React.JSX.Element {
             )}
           </div>
 
-          {sortedBlocks.length === 0 ? (
-            <p className="mt-4 text-sm text-slate-500">
-              <Trans>No signaling blocks in this window.</Trans>
-            </p>
-          ) : (
-            <>
-              {/* Desktop: table */}
-              <div className="hidden lg:block">
-                <SignalingBlockTable
-                  blocks={sortedBlocks}
-                  tipHeight={data.tip_height}
-                  explorerTemplate={explorerTemplate}
-                  intlLocale={intlLocale}
-                  fmtTimestamp={fmt.timestamp}
-                />
-              </div>
-              {/* Mobile: cards */}
-              <div className="lg:hidden mt-4 grid gap-3 sm:grid-cols-2">
-                {sortedBlocks.map((b) => (
-                  <SignalingBlockCard
-                    key={b.hash}
-                    block={b}
-                    tipHeight={data.tip_height}
-                    explorerTemplate={explorerTemplate}
-                    intlLocale={intlLocale}
-                    fmtTimestamp={fmt.timestamp}
-                  />
-                ))}
-              </div>
-            </>
+          {data.epochs && data.epochs.length > 0 && (
+            <EpochBreakdown
+              epochs={data.epochs}
+              signalingBlocks={sortedBlocks}
+              tipHeight={data.tip_height}
+              explorerTemplate={explorerTemplate}
+              intlLocale={intlLocale}
+              fmtTimestamp={fmt.timestamp}
+              expanded={expandedEpochs}
+              setExpanded={setExpandedEpochs}
+            />
           )}
         </>
       )}
@@ -397,91 +536,468 @@ export function Bip110ScanCard(): React.JSX.Element {
   );
 }
 
-function DeploymentProgressBar({
+function Divider(): React.JSX.Element {
+  return <span className="mx-3 text-slate-700 select-none">|</span>;
+}
+
+/**
+ * #231 / follow-up: per-epoch breakdown with expandable rows. One row
+ * per epoch in scope, latest at the top. Each row shows height range,
+ * scanned count, signaling count + percentage, and a 55%-MASF-threshold
+ * indicator (percentage is green at or above 55%, slate below). The
+ * current (in-progress) epoch is tagged so the operator can see at a
+ * glance which row is the live one - its percentage is partial and
+ * may still climb.
+ *
+ * Follow-up: rows with at least one signaling block can be expanded
+ * to show those blocks inline (desktop table / mobile cards). Replaces
+ * the previous "table-of-epochs + separate table-of-blocks-below"
+ * layout. Default state: all collapsed. Click anywhere on the row to
+ * toggle. Rows with zero signaling blocks are visually muted and not
+ * clickable.
+ */
+function EpochBreakdown({
+  epochs,
+  signalingBlocks,
+  tipHeight,
+  explorerTemplate,
+  intlLocale,
+  fmtTimestamp,
+  expanded,
+  setExpanded,
+}: {
+  epochs: readonly Bip110EpochBucket[];
+  signalingBlocks: readonly Bip110ScanSignalingBlock[];
+  tipHeight: number | null;
+  explorerTemplate: string;
+  intlLocale: string | undefined;
+  fmtTimestamp: (ms: number | null | undefined) => string;
+  expanded: ReadonlySet<number>;
+  setExpanded: React.Dispatch<React.SetStateAction<ReadonlySet<number>>>;
+}): React.JSX.Element {
+  // Latest-first ordering - the in-progress epoch sits at the top, which is
+  // what the operator is usually checking on.
+  const ordered = [...epochs].sort((a, b) => b.start_height - a.start_height);
+  const dateTimeLocale = useDateTimeLocale();
+
+  const blocksForEpoch = (e: Bip110EpochBucket): Bip110ScanSignalingBlock[] =>
+    signalingBlocks.filter((b) => b.height >= e.start_height && b.height <= e.end_height);
+
+  const toggle = (start: number) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(start)) next.delete(start);
+      else next.add(start);
+      return next;
+    });
+  };
+
+  return (
+    <div className="mt-4">
+      <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+        <Trans>Per-epoch breakdown</Trans>
+      </h3>
+
+      {/* Desktop: table. */}
+      <div className="hidden lg:block overflow-x-auto rounded-lg border border-slate-700/50">
+        <table className="w-full text-sm font-mono">
+          <thead className="bg-slate-800/40">
+            <tr className="text-xs text-slate-500 uppercase tracking-wider">
+              <th className="px-3 py-2 text-left font-semibold w-6"></th>
+              <th className="px-3 py-2 text-left font-semibold"><Trans>Epoch</Trans></th>
+              <th className="px-3 py-2 text-left font-semibold"><Trans>Block range</Trans></th>
+              <th className="px-3 py-2 text-right font-semibold"><Trans>Scanned</Trans></th>
+              <th className="px-3 py-2 text-left font-semibold min-w-[180px]"><Trans>Signaling</Trans></th>
+            </tr>
+          </thead>
+          <tbody>
+            {ordered.map((e) => {
+              const isOpen = expanded.has(e.start_height);
+              const canExpand = e.signaling_count > 0;
+              const epochBlocks = isOpen ? blocksForEpoch(e) : [];
+              const dateRange = e.start_time_ms !== null
+                ? formatEpochDateRange(
+                    e.start_time_ms,
+                    e.end_time_ms ?? e.start_time_ms,
+                    dateTimeLocale,
+                    e.in_progress ? e.expected_end_time_ms : null,
+                  )
+                : null;
+              return (
+                <React.Fragment key={e.start_height}>
+                  <tr
+                    className={`border-t border-slate-800/60 ${
+                      canExpand ? 'cursor-pointer hover:bg-slate-800/30' : ''
+                    }`}
+                    onClick={canExpand ? () => toggle(e.start_height) : undefined}
+                    title={canExpand ? (isOpen ? t`Click to collapse` : t`Click to expand`) : undefined}
+                  >
+                    <td className="px-3 py-2 text-slate-500 select-none align-top">
+                      {canExpand ? (
+                        <span className="inline-block w-3 text-center" aria-hidden>
+                          {isOpen ? '▼' : '▶'}
+                        </span>
+                      ) : (
+                        <span className="inline-block w-3" aria-hidden />
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-slate-300 align-top">
+                      {e.in_progress ? (
+                        <span className="bg-amber-400/20 text-amber-300 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider">
+                          <Trans>In progress</Trans>
+                        </span>
+                      ) : (
+                        <span className="text-slate-500"><Trans>Completed</Trans></span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-slate-300 align-top">
+                      <div>
+                        {formatNumber(e.start_height, {}, intlLocale)} – {formatNumber(e.end_height, {}, intlLocale)}
+                      </div>
+                      {dateRange && (
+                        <div className="text-xs text-slate-500 mt-0.5 font-sans">
+                          {dateRange.text}
+                          {dateRange.estimated && (
+                            <span className="ml-1 text-slate-600">({t`est.`})</span>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-right text-slate-300 align-top">
+                      {formatNumber(e.scanned, {}, intlLocale)}
+                    </td>
+                    <td className="px-3 py-2 align-top">
+                      <MasfProgress
+                        signalingCount={e.signaling_count}
+                        signalingPct={e.signaling_pct}
+                        intlLocale={intlLocale}
+                      />
+                    </td>
+                  </tr>
+                  {isOpen && epochBlocks.length > 0 && (
+                    <tr className="border-t border-slate-800/60 bg-slate-950/60">
+                      <td colSpan={5} className="px-3 py-3">
+                        <SignalingBlockTable
+                          blocks={epochBlocks}
+                          tipHeight={tipHeight}
+                          explorerTemplate={explorerTemplate}
+                          intlLocale={intlLocale}
+                          fmtTimestamp={fmtTimestamp}
+                        />
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Mobile: stacked cards. Same data, no horizontal scroll, the
+          touch target for expand is the entire card header. */}
+      <div className="lg:hidden space-y-3">
+        {ordered.map((e) => {
+          const isOpen = expanded.has(e.start_height);
+          const canExpand = e.signaling_count > 0;
+          const epochBlocks = isOpen ? blocksForEpoch(e) : [];
+          const dateRange = e.start_time_ms !== null
+            ? formatEpochDateRange(
+                e.start_time_ms,
+                e.end_time_ms ?? e.start_time_ms,
+                dateTimeLocale,
+                e.in_progress ? e.expected_end_time_ms : null,
+              )
+            : null;
+          return (
+            <div
+              key={e.start_height}
+              className="rounded-lg border border-slate-700/50 bg-slate-800/40 overflow-hidden"
+            >
+              <div
+                className={`px-3 py-2 ${canExpand ? 'cursor-pointer active:bg-slate-800/60' : ''}`}
+                onClick={canExpand ? () => toggle(e.start_height) : undefined}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    {canExpand && (
+                      <span className="text-slate-500 select-none text-sm" aria-hidden>
+                        {isOpen ? '▼' : '▶'}
+                      </span>
+                    )}
+                    {e.in_progress ? (
+                      <span className="bg-amber-400/20 text-amber-300 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider">
+                        <Trans>In progress</Trans>
+                      </span>
+                    ) : (
+                      <span className="text-slate-500 text-xs uppercase tracking-wider">
+                        <Trans>Completed</Trans>
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-xs text-slate-400 font-mono">
+                    {formatNumber(e.scanned, {}, intlLocale)} {t`scanned`}
+                  </span>
+                </div>
+                <div className="mt-2 text-sm font-mono text-slate-300">
+                  {formatNumber(e.start_height, {}, intlLocale)} – {formatNumber(e.end_height, {}, intlLocale)}
+                </div>
+                {dateRange && (
+                  <div className="text-xs text-slate-500 mt-0.5">
+                    {dateRange.text}
+                    {dateRange.estimated && (
+                      <span className="ml-1 text-slate-600">({t`est.`})</span>
+                    )}
+                  </div>
+                )}
+                <div className="mt-2">
+                  <MasfProgress
+                    signalingCount={e.signaling_count}
+                    signalingPct={e.signaling_pct}
+                    intlLocale={intlLocale}
+                  />
+                </div>
+              </div>
+              {isOpen && epochBlocks.length > 0 && (
+                <div className="px-3 pb-3 pt-1 bg-slate-950/60 border-t border-slate-800/60 grid gap-3 sm:grid-cols-2">
+                  {epochBlocks.map((b) => (
+                    <SignalingBlockCard
+                      key={b.hash}
+                      block={b}
+                      tipHeight={tipHeight}
+                      explorerTemplate={explorerTemplate}
+                      intlLocale={intlLocale}
+                      fmtTimestamp={fmtTimestamp}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * #233: per-epoch MASF progress bar. Fills to 100% at the absolute
+ * threshold (MASF_THRESHOLD_BLOCKS = ceil(2016 × 55%) = 1109 signaling
+ * blocks). Color is amber below threshold, emerald at or above; that
+ * matches the operator's mental model of "did this epoch cross the
+ * activation line yet." The supplementary signaling_pct (signaling
+ * vs scanned, not vs 2016) appears under the bar so the in-progress
+ * reading is read as a rate, not as a final tally.
+ */
+function MasfProgress({
+  signalingCount,
+  signalingPct,
+  intlLocale,
+}: {
+  signalingCount: number;
+  signalingPct: number;
+  intlLocale: string | undefined;
+}): React.JSX.Element {
+  const fillPct = Math.min((signalingCount / MASF_THRESHOLD_BLOCKS) * 100, 100);
+  const crossed = signalingCount >= MASF_THRESHOLD_BLOCKS;
+  return (
+    <div className="space-y-1">
+      <div
+        className="h-2 rounded-full bg-slate-700 overflow-hidden"
+        title={crossed ? t`At or above the 55% MASF threshold` : t`Below the 55% MASF threshold`}
+      >
+        <div
+          className={`h-full rounded-full transition-all ${crossed ? 'bg-emerald-400' : 'bg-amber-400'}`}
+          style={{ width: `${fillPct}%` }}
+        />
+      </div>
+      <div className={`text-xs font-mono ${crossed ? 'text-emerald-400' : 'text-slate-400'}`}>
+        {formatNumber(signalingCount, {}, intlLocale)} / {formatNumber(MASF_THRESHOLD_BLOCKS, {}, intlLocale)}
+        <span className="text-slate-500 ml-1.5">
+          ({formatNumber(
+            signalingPct,
+            { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+            intlLocale,
+          )}%)
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * #233 replacement for the old DeploymentProgressBar widget. The
+ * progress bar itself moved into the per-epoch table; the header now
+ * shows just the status label (Signaling / Locked in / Active) with
+ * a plain-English tooltip per state.
+ *
+ * #233 follow-up #2: SIGNALING tooltip now names both activation
+ * paths (MASF + UASF) and surfaces the UASF flag-day block (965,664)
+ * with a dynamically forecasted date from the average block time
+ * observed in the in-progress difficulty epoch. The fixed September-
+ * 2026 calendar reference the older deleted DeploymentProgressBar
+ * carried was already off (blocks are coming faster than 600s on
+ * average), so the dynamic forecast replaces the calendar fact too.
+ *
+ * Wording: never the C-word in user-visible text - see the
+ * never-say-bitcoin-core-in-ui memory.
+ */
+function DeploymentStatusBadge({
   deployment,
+  tipHeight,
   intlLocale,
 }: {
   deployment: Bip110ScanDeployment;
+  tipHeight: number | null;
   intlLocale: string | undefined;
 }): React.JSX.Element {
-  const stats = deployment.statistics;
-  if (!stats) {
-    return (
-      <span className="text-slate-200 text-xs">{deployment.status ?? '-'}</span>
-    );
-  }
-
-  const pct = Math.min((stats.count / stats.threshold) * 100, 100);
-  const remaining = Math.max(stats.period - stats.elapsed, 0);
+  const dateTimeLocale = useDateTimeLocale();
   const statusLabel =
     deployment.status === 'locked_in' ? t`locked in`
     : deployment.status === 'active' ? t`active`
     : t`signaling`;
-
-  const tooltipContent = (
-    <div className="max-w-sm">
-      <div className="flex items-center gap-2 mb-2">
-        <span className="text-slate-400"><Trans>Status</Trans>:</span>
+  const uasfHeightStr = formatNumber(UASF_HEIGHT_BIP110, {}, intlLocale);
+  const uasfPast = tipHeight !== null && tipHeight >= UASF_HEIGHT_BIP110;
+  const uasfTimeMs = estimateBlockHeightTime(UASF_HEIGHT_BIP110, tipHeight);
+  const uasfDateStr = uasfTimeMs !== null
+    ? formatMediumDate(uasfTimeMs, dateTimeLocale)
+    : null;
+  // #235: next epoch boundary above the current tip. Used in the
+  // LOCKED_IN tooltip to forecast when activation will land.
+  const nextBoundary = tipHeight !== null
+    ? Math.floor(tipHeight / BLOCKS_PER_EPOCH) * BLOCKS_PER_EPOCH + BLOCKS_PER_EPOCH
+    : null;
+  const nextBoundaryDateMs = nextBoundary !== null
+    ? estimateBlockHeightTime(nextBoundary, tipHeight)
+    : null;
+  const nextBoundaryHeightStr = nextBoundary !== null
+    ? formatNumber(nextBoundary, {}, intlLocale)
+    : null;
+  const nextBoundaryDateStr = nextBoundaryDateMs !== null
+    ? formatMediumDate(nextBoundaryDateMs, dateTimeLocale)
+    : null;
+  // #235: `since` lets us tell MASF apart from UASF after activation.
+  // since < UASF_HEIGHT_BIP110 means MASF triggered earlier (the
+  // since height is the activation height — first block of the epoch
+  // after the one that crossed 55%). since >= UASF_HEIGHT_BIP110
+  // (or close to it) means UASF triggered.
+  const since = deployment.since;
+  const sinceHeightStr = since !== null ? formatNumber(since, {}, intlLocale) : null;
+  const sinceDateMs = since !== null
+    ? estimateBlockHeightTime(since, tipHeight)
+    : null;
+  const sinceDateStr = sinceDateMs !== null
+    ? formatMediumDate(sinceDateMs, dateTimeLocale)
+    : null;
+  const tooltip = (() => {
+    if (deployment.status === 'locked_in') {
+      // Enriched with next-boundary forecast when we have tip data.
+      if (nextBoundaryHeightStr !== null && nextBoundaryDateStr !== null) {
+        return (
+          <p className="text-slate-300 leading-relaxed max-w-xs">
+            <Trans>
+              The 55% miner-activation threshold has been crossed. BIP 110 will activate at the next difficulty epoch boundary (block {nextBoundaryHeightStr}, estimated {nextBoundaryDateStr}).
+            </Trans>
+          </p>
+        );
+      }
+      return (
+        <p className="text-slate-300 leading-relaxed max-w-xs">
+          <Trans>
+            The 55% miner-activation threshold has been crossed. BIP 110 will activate at the next difficulty epoch boundary.
+          </Trans>
+        </p>
+      );
+    }
+    if (deployment.status === 'active') {
+      // #235: distinguish MASF vs UASF activation when we have `since`.
+      // UASF = since == flag-day height (Knots will report 965,664
+      // exactly when UASF triggered the activation). MASF = anything
+      // earlier than the flag day.
+      if (since !== null && sinceDateStr !== null) {
+        if (since >= UASF_HEIGHT_BIP110) {
+          return (
+            <p className="text-slate-300 leading-relaxed max-w-xs">
+              <Trans>
+                BIP 110 is active. Activated at the UASF flag-day block {uasfHeightStr} on {sinceDateStr}. Your Bitcoin node is enforcing the new consensus rules.
+              </Trans>
+            </p>
+          );
+        }
+        return (
+          <p className="text-slate-300 leading-relaxed max-w-xs">
+            <Trans>
+              BIP 110 is active. Activated via the 55% miner-activation threshold at block {sinceHeightStr} on {sinceDateStr}. Your Bitcoin node is enforcing the new consensus rules.
+            </Trans>
+          </p>
+        );
+      }
+      // No `since` data — fall back to the short text.
+      return (
+        <p className="text-slate-300 leading-relaxed max-w-xs">
+          <Trans>
+            BIP 110 is active. Your Bitcoin node is enforcing the new consensus rules.
+          </Trans>
+        </p>
+      );
+    }
+    // Default: signaling (or any other state we don't recognize).
+    return (
+      <div className="text-slate-300 leading-relaxed max-w-xs space-y-2">
+        <p>
+          <Trans>
+            Your Bitcoin node supports BIP 110, which is currently in its activation window. There are two paths it can activate by:
+          </Trans>
+        </p>
+        <p>
+          <span className="text-amber-300 font-semibold">
+            <Trans>Miner-activated (MASF):</Trans>
+          </span>{' '}
+          <Trans>
+            if at least 55% of a difficulty epoch's blocks signal BIP 110 in their headers, the soft fork locks in at the next epoch boundary.
+          </Trans>
+        </p>
+        <p>
+          <span className="text-amber-300 font-semibold">
+            <Trans>User-activated (UASF):</Trans>
+          </span>{' '}
+          {/* #235: tense switches when the UASF block has been mined.
+              This SIGNALING state is unlikely to be observed past the
+              flag day (Knots would report ACTIVE), but defensively
+              cover it so the framing isn't wrong if it ever does. */}
+          {uasfPast ? (
+            uasfDateStr !== null ? (
+              <Trans>
+                at block {uasfHeightStr} (mined ~{uasfDateStr}), BIP 110-aware nodes (Bitcoin Knots included) began enforcing the rules regardless of miner signaling.
+              </Trans>
+            ) : (
+              <Trans>
+                at block {uasfHeightStr}, BIP 110-aware nodes (Bitcoin Knots included) began enforcing the rules regardless of miner signaling.
+              </Trans>
+            )
+          ) : (
+            uasfDateStr !== null ? (
+              <Trans>
+                at block {uasfHeightStr} (estimated {uasfDateStr}), BIP 110-aware nodes (Bitcoin Knots included) begin enforcing the rules regardless of miner signaling.
+              </Trans>
+            ) : (
+              <Trans>
+                at block {uasfHeightStr}, BIP 110-aware nodes (Bitcoin Knots included) begin enforcing the rules regardless of miner signaling.
+              </Trans>
+            )
+          )}
+        </p>
+      </div>
+    );
+  })();
+  return (
+    <Tooltip content={tooltip}>
+      <span className="inline-flex items-center gap-1.5 cursor-help">
+        <span className="text-slate-500 text-xs">{t`deployment`}:</span>
         <span className="bg-amber-400/20 text-amber-400 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider">
           {statusLabel}
         </span>
-      </div>
-      <div className="space-y-0.5 font-mono text-slate-400 mb-3">
-        <div>
-          <span className="text-slate-200">{formatNumber(stats.count, {}, intlLocale)}</span>
-          {' / '}
-          {formatNumber(stats.threshold, {}, intlLocale)}
-          {' '}<Trans>signaling blocks in this period</Trans>
-        </div>
-        <div>
-          <span className="text-slate-200">{formatNumber(stats.elapsed, {}, intlLocale)}</span>
-          {' / '}
-          {formatNumber(stats.period, {}, intlLocale)}
-          {' '}<Trans>blocks into the current retarget period</Trans>
-        </div>
-        <div>
-          <span className="text-slate-200">{formatNumber(remaining, {}, intlLocale)}</span>
-          {' '}<Trans>blocks remaining in this period</Trans>
-        </div>
-      </div>
-      <hr className="border-slate-700 mb-2" />
-      <p className="text-slate-400 leading-relaxed">
-        <Trans>
-          BIP 110 (Reduced Data Temporary Softfork) activation happens in two phases.
-          Currently in the miner-activated phase: miners can optionally signal support
-          in their block headers. If the threshold ({formatNumber(stats.threshold, {}, intlLocale)} of {formatNumber(stats.period, {}, intlLocale)} blocks)
-          is reached within a retarget period, the softfork locks in early.
-        </Trans>
-      </p>
-      <p className="text-slate-400 leading-relaxed mt-1.5">
-        <Trans>
-          At block height 965,664 (approximately September 2026), user-activated
-          enforcement begins: nodes running BIP 110-compatible software will enforce
-          the rules regardless of miner signaling.
-        </Trans>
-      </p>
-    </div>
-  );
-
-  return (
-    <Tooltip content={tooltipContent}>
-      <div className="flex items-center gap-2 cursor-help min-w-0">
-        <div className="flex-1 h-2 rounded-full bg-slate-700 overflow-hidden min-w-[60px]">
-          <div
-            className="h-full rounded-full bg-amber-400 transition-all"
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-        <span className="text-slate-200 text-xs whitespace-nowrap">
-          {formatNumber(stats.count, {}, intlLocale)}{' '}
-          <Trans>of</Trans>{' '}
-          {formatNumber(stats.threshold, {}, intlLocale)}
-        </span>
-      </div>
+      </span>
     </Tooltip>
   );
-}
-
-function Divider(): React.JSX.Element {
-  return <span className="mx-3 text-slate-700 select-none">|</span>;
 }

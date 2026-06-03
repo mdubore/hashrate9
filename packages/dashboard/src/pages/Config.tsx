@@ -5,9 +5,17 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
+import { ChartColorPicker } from '../components/ChartColorPicker';
 import { NumberField } from '../components/NumberField';
 import { SatSymbol } from '../components/SatSymbol';
 import { StaleUrlBanner } from '../components/StaleUrlBanner';
+import {
+  CHART_COLOR_DEFAULTS,
+  type ChartColorKey,
+  getChartColor,
+  parseOverrides,
+  serializeOverrides,
+} from '../lib/chartColors';
 import {
   api,
   UnauthorizedError,
@@ -38,7 +46,7 @@ import {
 } from '../lib/locale';
 
 // #98 - auto-save defaults on; toggle persists per-browser.
-const AUTOSAVE_STORAGE_KEY = 'braiins.configAutoSave';
+const AUTOSAVE_STORAGE_KEY = 'hashrate-autopilot.configAutoSave';
 const AUTOSAVE_DEBOUNCE_MS = 800;
 
 const EH_PER_PH = 1000;
@@ -781,7 +789,7 @@ const TAB_SECTIONS: Record<TabId, readonly string[]> = {
   strategy: ['hashrate-targets', 'cheap-mode', 'pricing', 'fee-protection', 'budget', 'daemon-startup'],
   pool: ['pool-destination', 'ddns', 'payout-source', 'profit-and-loss', 'btc-price-oracle'],
   notifications: ['notifications', 'block-found-sound'],
-  display: ['display-settings', 'solo-miners', 'block-explorer', 'chart-smoothing', 'chart-markers', 'log-retention', 'debug-api'],
+  display: ['display-settings', 'chart-colors', 'solo-miners', 'block-explorer', 'chart-smoothing', 'chart-markers', 'log-retention', 'debug-api'],
 };
 
 function isTabId(s: string | null): s is TabId {
@@ -856,6 +864,37 @@ function ConfigTabsAndContent({
         'Fahrenheit',
         '°C',
         '°F',
+      ],
+    },
+    // #238: per-series chart color overrides. Aliased with the
+    // hashrate / price / event series names so an operator searching
+    // for "max bid color" or "right axis purple" lands here.
+    'chart-colors': {
+      title: t`Chart colors`,
+      labels: [
+        t`delivered (Braiins)`,
+        t`received (Datum)`,
+        t`received (Ocean)`,
+        t`target`,
+        t`floor`,
+        t`our pool blocks`,
+        t`other pool blocks`,
+        t`Hashrate right-axis line`,
+        t`our bid`,
+        t`fillable`,
+        t`hashprice`,
+        t`max bid`,
+        t`unpaid (sat)`,
+        t`Price right-axis line`,
+        t`create event marker`,
+        t`edit-price event marker`,
+        t`edit-speed event marker`,
+        t`cancel event marker`,
+        // Generic aliases — operators search by intent, not by series key.
+        'right axis color',
+        'purple',
+        'palette',
+        'theme',
       ],
     },
     // #154 follow-up: block-found-sound's title is indexed via
@@ -984,6 +1023,9 @@ function ConfigTabsAndContent({
     }
     if (sid === 'display-settings') {
       return wrapHighlight(sid, <DisplaySettingsSection />);
+    }
+    if (sid === 'chart-colors') {
+      return wrapHighlight(sid, <ChartColorsSection draft={draft} onChange={onChange} />);
     }
     if (sid === 'solo-miners') {
       return wrapHighlight(sid, <SoloMinersSection draft={draft} onChange={onChange} />);
@@ -1313,7 +1355,7 @@ function SectionCard({
  *
  * Greying uses `opacity-50 pointer-events-none` on the wrapper so
  * the inputs visibly read as disabled and clicks/keys can't reach
- * them — the existing `Field` component doesn't take a disabled
+ * them - the existing `Field` component doesn't take a disabled
  * prop, and adding one would touch every field type. The wrapper
  * approach is one line and reverts cleanly when the operator
  * toggles back on.
@@ -1877,6 +1919,126 @@ function dateLayoutLabel(layout: DateLayout, sampleMs: number, uiLocale: string)
  * (in-memory poller cache), refreshed on a 5s interval so adding
  * an IP and waiting one tick shows live values without a page reload.
  */
+
+/**
+ * #238: per-series chart color picker rows grouped by chart.
+ * Each row shows the series label + a ChartColorPicker. Changes write
+ * back into the draft's `chart_color_overrides` JSON string via the
+ * shared onChange; the Save button at the page top commits.
+ */
+function ChartColorsSection({
+  draft,
+  onChange,
+}: {
+  draft: AppConfig;
+  onChange: <K extends keyof AppConfig>(k: K, v: AppConfig[K]) => void;
+}) {
+  const { i18n } = useLingui();
+  void i18n;
+  const overrides = parseOverrides(draft.chart_color_overrides);
+  const setColor = (key: ChartColorKey, next: string | null) => {
+    const updated = { ...overrides };
+    if (next === null) {
+      delete updated[key];
+    } else {
+      updated[key] = next;
+    }
+    onChange('chart_color_overrides', serializeOverrides(updated));
+  };
+  const resetAll = () => onChange('chart_color_overrides', '{}');
+
+  const groups: { title: string; rows: Array<{ key: ChartColorKey; label: string }> }[] = [
+    {
+      title: t`Hashrate chart`,
+      rows: [
+        { key: 'hashrate.delivered', label: t`delivered (Braiins)` },
+        { key: 'hashrate.received_datum', label: t`received (Datum)` },
+        { key: 'hashrate.received_ocean', label: t`received (Ocean)` },
+        { key: 'hashrate.target', label: t`target` },
+        { key: 'hashrate.floor', label: t`floor` },
+        { key: 'hashrate.pool_block_ours', label: t`our pool blocks` },
+        { key: 'hashrate.pool_block_others', label: t`other pool blocks` },
+        { key: 'hashrate.right_axis', label: t`right-axis line` },
+      ],
+    },
+    {
+      title: t`Price chart`,
+      rows: [
+        { key: 'price.our_bid', label: t`our bid` },
+        { key: 'price.fillable', label: t`fillable` },
+        { key: 'price.hashprice', label: t`hashprice` },
+        { key: 'price.max_bid', label: t`max bid` },
+        { key: 'price.unpaid', label: t`unpaid (sat)` },
+        { key: 'price.right_axis', label: t`right-axis line` },
+      ],
+    },
+    {
+      title: t`Bid-event markers`,
+      rows: [
+        { key: 'events.create', label: t`create` },
+        { key: 'events.edit_price', label: t`edit price` },
+        { key: 'events.edit_speed', label: t`edit speed` },
+        { key: 'events.cancel', label: t`cancel` },
+      ],
+    },
+  ];
+
+  const anyOverride = Object.keys(overrides).length > 0;
+
+  return (
+    <section className="bg-slate-900 border border-slate-800 rounded-lg p-4">
+      <header className="mb-3 flex items-start justify-between gap-4">
+        <div>
+          <h3 className="text-sm uppercase tracking-wider text-amber-400">
+            <Trans>Chart colors</Trans>
+          </h3>
+          <p className="text-xs text-slate-500 mt-1 max-w-2xl">
+            <Trans>
+              Override the color of any named line or event marker on the Hashrate and Price charts.
+              Click a swatch to pick from the curated palette or set a custom hex value.
+              Saved on the daemon, so the choice follows you across devices.
+            </Trans>
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={resetAll}
+          disabled={!anyOverride}
+          className="shrink-0 text-xs text-amber-400 hover:underline disabled:text-slate-600 disabled:no-underline disabled:cursor-not-allowed whitespace-nowrap"
+        >
+          <Trans>Reset all to defaults</Trans>
+        </button>
+      </header>
+      <div className="space-y-5 max-w-3xl">
+        {groups.map((group) => (
+          <div key={group.title}>
+            <div className="text-[11px] uppercase tracking-wider text-slate-500 mb-2">
+              {group.title}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+              {group.rows.map((row) => {
+                const def = CHART_COLOR_DEFAULTS[row.key];
+                const cur = getChartColor(row.key, overrides);
+                return (
+                  <div key={row.key} className="flex items-center justify-between gap-3">
+                    <span className="text-sm text-slate-300">{row.label}</span>
+                    <ChartColorPicker
+                      value={cur}
+                      defaultValue={def}
+                      onChange={(next) => setColor(row.key, next)}
+                      isOverridden={overrides[row.key] !== undefined}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function SoloMinersSection({
   draft,
   onChange,
@@ -2811,7 +2973,7 @@ type Tile = {
    * Source of truth: each detector's `severity:` argument in
    * `packages/daemon/src/services/alert-evaluator.ts`. The
    * mapping is static (assigned at code time, not configurable per-
-   * install), so a const lookup is enough — no API call needed.
+   * install), so a const lookup is enough - no API call needed.
    */
   severity: AlertSeverity;
 };
@@ -3071,6 +3233,26 @@ function EventClassSubscriptions({
       help: t`Informational. Off by default. When on, every block Ocean credits to your payout address sends a small INFO message: block height, your share %, your credit, and progress toward the next 1,048,576-sat on-chain payout.`,
       enabled: draft.notify_on_pool_block_credit,
       setEnabled: (n) => onChange('notify_on_pool_block_credit', n as never),
+      severity: 'INFO',
+    },
+    // #226: payout lifecycle - two separate INFO toggles. Most operators
+    // will want both on or both off; keeping them split mirrors how the
+    // events actually fire (one when Ocean debits unpaid_sat, one when
+    // the coinbase confirms on-chain).
+    {
+      id: 'payout_initiated',
+      label: t`Ocean payout initiated`,
+      help: t`Informational. Off by default. Fires the moment Ocean debits your unpaid balance - the payout has been committed to the coinbase of the next block Ocean finds, but the transaction hasn't confirmed on-chain yet. Detection: the daemon's per-tick ocean_unpaid_sat drops by more than 30% AND the residual is below the 1,048,576-sat payout threshold (filters out tick noise / Ocean-side accounting bumps).`,
+      enabled: draft.notify_on_payout_initiated,
+      setEnabled: (n) => onChange('notify_on_payout_initiated', n as never),
+      severity: 'INFO',
+    },
+    {
+      id: 'payout_confirmed',
+      label: t`Ocean payout confirmed on-chain`,
+      help: t`Informational. Off by default. Fires when the on-chain payout scanner observes a coinbase output crediting your payout address - i.e. the transaction Ocean committed has now confirmed. Includes block height, payout amount, and a truncated tx id. Source: reward_events ledger (populated by Electrs or bitcoind scantxoutset, whichever the operator has wired).`,
+      enabled: draft.notify_on_payout_confirmed,
+      setEnabled: (n) => onChange('notify_on_payout_confirmed', n as never),
       severity: 'INFO',
     },
   ];
@@ -3509,7 +3691,7 @@ function HistoricalPayoutsControls({
       if (r.ok) {
         setResult({
           ok: true,
-          message: t`Scanned ${r.tx_seen} txs (${r.coinbase_seen} coinbase). Inserted ${r.inserted} new payout row(s) in ${Math.round(r.duration_ms / 1000)}s.`,
+          message: t`Scanned ${r.tx_seen} txs (${r.with_matching_outputs} with matching outputs). Inserted ${r.inserted} new payout row(s) in ${Math.round(r.duration_ms / 1000)}s.`,
         });
       } else {
         setResult({
@@ -4696,7 +4878,7 @@ function DdnsSection({
             <Trans>Daemon's public IP:</Trans>
           </span>
           <span className="text-slate-100">
-            {r?.daemon_public_ip ?? <span className="text-slate-500">—</span>}
+            {r?.daemon_public_ip ?? <span className="text-slate-500">-</span>}
             {r?.daemon_public_ip_checked_at && (
               <span className="text-slate-500 ml-2">
                 <Trans>(checked {formatAge(r.daemon_public_ip_checked_at)})</Trans>
@@ -4712,7 +4894,7 @@ function DdnsSection({
             <Trans>Pool URL hostname:</Trans>
           </span>
           <span className="text-slate-100">
-            {r?.pool_url_hostname ?? <span className="text-slate-500">—</span>}
+            {r?.pool_url_hostname ?? <span className="text-slate-500">-</span>}
           </span>
         </div>
         <div className="flex flex-wrap gap-x-4">
@@ -4720,7 +4902,7 @@ function DdnsSection({
             <Trans>Resolves to:</Trans>
           </span>
           <span className="text-slate-100">
-            {r?.pool_url_resolves_to ?? <span className="text-slate-500">—</span>}
+            {r?.pool_url_resolves_to ?? <span className="text-slate-500">-</span>}
             {r?.pool_url_resolve_error && (
               <span className="text-red-400 ml-2">({r.pool_url_resolve_error})</span>
             )}
@@ -4801,7 +4983,7 @@ function DdnsSection({
                   <Trans>Last successful push:</Trans>
                 </span>
                 <span className="text-slate-100">
-                  {r?.ddns.last_pushed_ip ?? <span className="text-slate-500">—</span>}
+                  {r?.ddns.last_pushed_ip ?? <span className="text-slate-500">-</span>}
                   {r?.ddns.last_pushed_at != null && (
                     <span className="text-slate-500 ml-2">
                       {/* formatAge expects an absolute ms-epoch

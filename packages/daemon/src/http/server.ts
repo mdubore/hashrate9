@@ -240,6 +240,7 @@ export async function createHttpServer(deps: HttpServerDeps): Promise<HttpServer
     accountSpend: deps.accountSpend,
     hashpriceCache: deps.hashpriceCache,
     tickMetricsRepo: deps.tickMetricsRepo,
+    rewardEventsRepo: deps.rewardEventsRepo,
   });
   await registerBtcPriceRoute(app, {
     btcPriceService: deps.btcPriceService,

@@ -1,4 +1,4 @@
-# Hashrate Autopilot - Architecture (v1.12)
+# Hashrate Autopilot - Architecture (v1.13)
 
 > Concretion of `docs/spec.md` into module boundaries, data flow, deployment shape, and a
 > milestone-ordered build plan.
@@ -25,13 +25,31 @@
 > from 0052/0061), removes the dropped `operator_available` column from `runtime_state`, and adds
 > `total_balance_sat` to `tick_metrics` (migration 0095, #211). v1.11 (2026-05-25) updated
 > braiins-deposit-watcher annotation and route listing. v1.12 (2026-05-25) added the `deposits` route.
-> **v1.13** (this revision, 2026-05-29) covers the v1.10.0 release window: migration 0099 adds
+> v1.13 (2026-05-29) covers the v1.10.0 release window: migration 0099 adds
 > `bid_edit_deadband_pct` and `max_acceptable_fee_pct` to the `config` table (#222); migration 0100
 > adds `bid_edit_deadband_pct` to `tick_metrics` so EDIT_PRICE event tooltips can render the deadband
 > in effect at any historical event (#224, default 20 backfills existing rows to the legacy `overpay/5`
 > equivalent). Mutation gate gains a new `FEE_THRESHOLD_EXCEEDED` denial reason that blocks CREATE /
 > EDIT / EDIT_SPEED when any active bid's `fee_rate_pct` exceeds `config.max_acceptable_fee_pct`;
 > CANCEL_BID remains allowed.
+> **v1.14** (this revision, 2026-06-02) covers the v1.11.0 release window. Migration 0101 adds two
+> notify-on-payout config toggles (`notify_on_payout_initiated`, `notify_on_payout_confirmed`) for
+> Ocean payout-lifecycle Telegram alerts (#226); 0102 adds `display_number_locale` and
+> `display_date_layout` config columns so Telegram render path reads operator-set formatting (#227
+> follow-up); 0103 adds `chart_color_overrides` JSON to config for the Display & Logging chart-color
+> picker (#238). Migration 0104 adds `tick_metrics.synthetic INTEGER NOT NULL DEFAULT 0` to mark rows
+> inserted by `runGapBackfill` for offline-gap reconstruction (#241). Migration 0105 adds
+> `runtime_state.last_backfilled_payout_address TEXT` so the daemon can detect operator
+> address-change mid-run on boot and force a re-backfill against the live `cfg.btc_payout_address`
+> (#240 follow-up). New boot-time backfill service `runGapBackfill` walks all `synthetic = 0` rows
+> in the last 365 days, finds every consecutive pair where the delta exceeds 10 min, and processes
+> each gap independently: clears stale synthetic rows in the gap, collects retarget metadata
+> (multi-retarget walk via bitcoind when configured, single nearest-pool-block estimate as a
+> fallback), then inserts a synthetic tick every 5 min across the gap plus one at each retarget
+> canonical time. Skips cadence ticks colliding with a canonical retarget's 30-min bucket so the
+> chart's bucket-AVG aggregation doesn't smear the marker. Downstream `runPoolLuckRecompute` was
+> updated in the same release to bypass its 30d-eligibility gate for `synthetic = 1` rows so fresh
+> installs with shallow pool_blocks history still get pool_luck populated on gap synthetics.
 
 ## 1. High-level shape
 
@@ -283,7 +301,21 @@ CREATE TABLE config (
   notification_disabled_event_classes TEXT NOT NULL DEFAULT '',       -- comma-separated
   notify_on_pool_block_credit INTEGER NOT NULL DEFAULT 0,            -- bool (0 | 1)
   notify_on_braiins_deposit INTEGER NOT NULL DEFAULT 0,              -- bool (0 | 1)
+  -- #226 (migration 0101): payout lifecycle Telegram alerts.
+  notify_on_payout_initiated INTEGER NOT NULL DEFAULT 0,             -- bool (0 | 1)
+  notify_on_payout_confirmed INTEGER NOT NULL DEFAULT 0,             -- bool (0 | 1)
   notification_locale TEXT NOT NULL DEFAULT 'en',                    -- 'en' | 'nl' | 'es'
+  -- Display & Logging preferences promoted from browser-only localStorage
+  -- so the Telegram render path can read them (#227 follow-up, migration 0102).
+  display_number_locale TEXT NOT NULL DEFAULT 'system',              -- 'system' | 'en-US' | 'nl-NL' | 'fr-FR' | 'no-grouping'
+  display_date_layout TEXT NOT NULL DEFAULT 'system',                -- 'system' | 'us' | 'eu-spaced-24h' | 'slash-dmy-24h' | 'iso' | 'slash-mdy-12h'
+  -- Per-series chart color overrides (#238, migration 0103). JSON object
+  -- keyed by canonical series name with `#RRGGBB` values. Missing keys
+  -- fall back to the documented defaults in lib/chartColors.ts on the
+  -- dashboard side; `'{}'` preserves the current look. Malformed JSON,
+  -- unknown keys, non-string values, and non-hex strings are silently
+  -- dropped at parse time on the dashboard.
+  chart_color_overrides TEXT NOT NULL DEFAULT '{}',
   -- Dynamic DNS (#111, migrations 0067-0068)
   ddns_provider TEXT NOT NULL DEFAULT '',                            -- '' | 'noip' | 'duckdns' | 'dyndns2'
   ddns_hostname TEXT NOT NULL DEFAULT '',
@@ -344,7 +376,12 @@ CREATE TABLE runtime_state (
   above_floor_ticks INTEGER NOT NULL,     -- debounce counter for below_floor_since_ms
   lower_ready_since_ms INTEGER,           -- DEPRECATED (v2.0 retired lowering-patience)
   below_target_since_ms INTEGER,          -- DEPRECATED (v2.0 retired above_market escalation)
-  solo_best_difficulty_all_time REAL      -- fleet-wide all-time best share difficulty (migration 0094, #204)
+  solo_best_difficulty_all_time REAL,     -- fleet-wide all-time best share difficulty (migration 0094, #204)
+  last_backfilled_payout_address TEXT     -- migration 0105 (#240 follow-up): address that was last
+                                          -- historical-backfilled into reward_events. On boot, mismatch
+                                          -- vs cfg.btc_payout_address triggers DELETE FROM reward_events
+                                          -- + runHistoricalBackfill so a mid-run address change wiped
+                                          -- on a pre-build-564 daemon's stale closure can self-heal.
 );
 -- Note: run_mode is set on startup from config.boot_mode:
 --   ALWAYS_DRY_RUN (default) → always boots in DRY_RUN (safest)
@@ -433,7 +470,14 @@ CREATE TABLE tick_metrics (
   paid_total_sat INTEGER,                 -- cumulative on-chain payouts to payout address (migration 0066, #102)
   braiins_reachable INTEGER,              -- 1 = API reachable this tick, 0 = unreachable; NULL pre-0091
   run_mode TEXT NOT NULL,
-  action_mode TEXT NOT NULL
+  action_mode TEXT NOT NULL,
+  -- #241 (migration 0104): marks rows inserted by runGapBackfill to reconstruct
+  -- offline-period state. 0 = real polled row, 1 = synthetic gap-fill row.
+  -- Gap-detection queries filter `synthetic = 0` so a previous run's synthetic
+  -- can't poison the boundary lookup. runPoolLuckRecompute's 30d-eligibility
+  -- gate is bypassed for synthetic=1 rows so fresh installs (shallow pool_blocks
+  -- history) still get pool_luck populated on gap synthetics.
+  synthetic INTEGER NOT NULL DEFAULT 0
 );
 
 -- Accounting - spend (sourced from Braiins)
@@ -725,6 +769,55 @@ concern (not by order; the file names are authoritative):
   recorded_at) for the staircase chart line and trophy markers. An INFO
   Telegram notification fires on each new record.
 
+- **Debug-API toggle + balance metrics (0092, 0095):** 0092 (#179)
+  adds `debug_api_enabled` boolean (default OFF) gating `GET /api/debug/dump`.
+  0095 (#211) adds `total_balance_sat` to `tick_metrics` = available + blocked,
+  the source of the Braiins panel balance display.
+
+- **Deposit lifecycle timestamps (0096-0098):** 0096 stores the real
+  Braiins tx timestamp on `braiins_deposits` (not just first_seen). 0097
+  adds `credited_at_ms` so deposit markers anchor at the balance-step
+  moment rather than chain-confirmation time. 0098 corrects rows that
+  0097 backfilled with `now()` instead of using `tx_timestamp_ms`.
+
+- **Bid-edit deadband + fee guard (0099-0100):** 0099 (#222) adds two
+  `config` columns: `bid_edit_deadband_pct` (operator-tunable EDIT_PRICE
+  noise floor, default 20%; was the legacy `overpay/5` constant) and
+  `max_acceptable_fee_pct` (mutation gate denies CREATE / EDIT / EDIT_SPEED
+  when any active bid's `fee_rate_pct` exceeds this). 0100 (#224) adds
+  `bid_edit_deadband_pct REAL NOT NULL DEFAULT 20` to `tick_metrics` so
+  historical EDIT_PRICE event tooltips can render the deadband that was
+  in effect at the time of the edit.
+
+- **Payout-lifecycle notifications + Display & Logging (0101-0103):**
+  0101 (#226) adds `notify_on_payout_initiated` and `notify_on_payout_confirmed`
+  config booleans for the Ocean payout-lifecycle Telegram alerts (TIDES
+  payout detected => block credited => on-chain TX confirmed). 0102
+  (#227 follow-up) promotes `display_number_locale` and `display_date_layout`
+  from browser localStorage to daemon config so the Telegram render path
+  reads operator-set formatting (the chart-screenshot embed in notifications
+  was using browser defaults, not Display & Logging settings). 0103 (#238)
+  adds `chart_color_overrides` JSON to config, keyed by series name with
+  `#RRGGBB` values, for the Display & Logging chart-color picker.
+
+- **Gap-backfill + boot-time payout refresh (0104-0105):** 0104 (#241)
+  adds `tick_metrics.synthetic INTEGER NOT NULL DEFAULT 0` marking rows
+  inserted by `runGapBackfill` to reconstruct offline-period state.
+  Gap-detection queries filter `synthetic = 0` so previous-run synthetics
+  can't poison boundary lookups; `runPoolLuckRecompute`'s 30d-eligibility
+  gate is bypassed for synthetic rows so fresh installs (shallow
+  pool_blocks coverage) still get pool_luck populated on gap synthetics.
+  0105 (#240 follow-up) adds `runtime_state.last_backfilled_payout_address
+  TEXT`. On daemon boot, the daemon compares this column against
+  `cfg.btc_payout_address`; on mismatch (including first-boot NULL) it
+  clears `reward_events`, nulls `tick_metrics.paid_total_sat`, resets
+  the payout-observer snapshot, kicks `scanOnce` + `runHistoricalBackfill`
+  against the live address, then stamps the new address. Even on match,
+  the daemon additively re-runs `runHistoricalBackfill` so users who
+  never changed addresses still benefit from fresh discoveries (e.g.,
+  a payout TX that wasn't found on a prior boot due to a now-fixed
+  code bug like the pre-build-558 coinbase-only filter).
+
 ## 6. External integrations
 
 ### 6.1 Braiins client
@@ -846,3 +939,5 @@ Remaining work is tracked in GitHub issues.
 | 1.11    | 2026-05-25 | §2 repo layout: updated braiins-deposit-watcher.ts annotation - all three deposit events (_detected, _available, _returned) now sourced from the on-chain endpoint poller (#210). Retired the balance-delta workaround in AlertEvaluator. |
 | 1.12    | 2026-05-25 | §2 routes listing: added `deposits` route (#211, `/api/deposits` serves credited Braiins deposits for Price chart markers). |
 | 1.13    | 2026-05-29 | v1.10.0 release window. §5 `config` schema gains `bid_edit_deadband_pct` and `max_acceptable_fee_pct` (migration 0099, #222) - the EDIT_PRICE deadband formula in `decide.ts` is now `max(tick_size, overpay × bid_edit_deadband_pct / 100)` with default 20 reproducing the legacy `overpay / 5`; the mutation gate gains a new `FEE_THRESHOLD_EXCEEDED` denial reason that blocks CREATE / EDIT / EDIT_SPEED when any active bid's `fee_rate_pct` exceeds `config.max_acceptable_fee_pct` (CANCEL_BID stays allowed). §5 `tick_metrics` gains `bid_edit_deadband_pct` (migration 0100, #224) - per-tick snapshot so EDIT_PRICE event tooltips render the deadband in effect at any historical edit; `DEFAULT 20` backfills existing rows. No other control-loop shape changes. |
+| 1.14    | 2026-05-30 | §5 `config` schema gains `notify_on_payout_initiated` and `notify_on_payout_confirmed` (migration 0101, #226) - two new opt-in INFO Telegram alerts for the Ocean payout lifecycle. payout_initiated fires the tick the daemon observes a one-tick `ocean_unpaid_sat` drop > 30% with residual below the 1,048,576-sat payout threshold (mirrors the dashboard's unpaidDropMarkers heuristic on PriceChart.tsx). payout_confirmed fires once per new `reward_events` row, with in-memory `lastNotifiedRewardEventId` watermark for idempotency, silent-baselined at boot from `rewardEventsRepo.maxId()` so a fresh install's backfill doesn't fire a flood. Both default off, gated by their own dedicated toggle each (same convention as `notify_on_pool_block_credit` / `notify_on_braiins_deposit`). No control-loop shape changes. |
+| 1.15    | 2026-06-02 | Consolidated catch-up covering #227-#239. §5 `config` schema gains `display_number_locale` and `display_date_layout` (migration 0102, #227 follow-up) - Display & Logging preferences promoted from browser-only localStorage so the Telegram render path can read them. `chart_color_overrides` added (migration 0103, #238) - JSON object keyed by canonical series name with `#RRGGBB` values; the dashboard's `parseOverrides` defensively drops malformed JSON, unknown keys, and non-hex values so a stray browser write can't break the chart. Eighteen named series resolve through `getChartColor` on both HashrateChart and PriceChart (every left/right-axis line plus the four bid-event marker hues). New boot-time service `runNetworkDifficultyBackfill` (#230) walks NULL `tick_metrics.network_difficulty` rows and fills them from bitcoind block headers (two batched RPC calls per epoch boundary), with `IS NULL` guard on every UPDATE so live observations stay canonical. AlertEvaluator gains `lastPoolBlockUnpaidSat` in-memory field (#239) - single-block-per-tick pool_block_credited alerts now report Ocean's actual TIDES credit as the unpaid-delta against the previous fire; multi-block ticks and post-restart / post-payout fires fall back to the `~share_log_pct × reward` estimate with leading `~` to mark uncertainty. Bip110Deployment carries `since` (sourced from `bip9.since` in bitcoind's `getdeploymentinfo`) so the deployment-status badge tooltip distinguishes MASF vs UASF activation in ACTIVE state. Project-wide source sweep removed all em dashes (-) from `.ts` / `.tsx`. No control-loop shape changes. |

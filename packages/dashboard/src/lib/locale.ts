@@ -7,21 +7,23 @@
  * #147 split a single conflated "number & date format" dropdown into
  * two independent controls:
  *
- *   - `numberLocale` (Intl locale string) — drives `Intl.NumberFormat`
+ *   - `numberLocale` (Intl locale string) - drives `Intl.NumberFormat`
  *     (thousand / decimal separators only). Persisted to localStorage
- *     as `braiins.numberLocale`.
- *   - `dateLayout` (discrete enum) — drives date/time *layout* (order,
+ *     as `hashrate-autopilot.numberLocale`.
+ *   - `dateLayout` (discrete enum) - drives date/time *layout* (order,
  *     separators, 12h vs 24h). Persisted to localStorage as
- *     `braiins.dateLayout`. Month-name *language* is always whichever
+ *     `hashrate-autopilot.dateLayout`. Month-name *language* is always whichever
  *     UI language the operator has picked (via `useDateTimeLocale`).
  *
- * One-time migration from the legacy single `braiins.displayLocale`
+ * One-time migration from the legacy single `hashrate-autopilot.displayLocale`
  * key happens in `useLocaleState`. After migration runs, the old key
  * is removed from localStorage.
  */
 
 import { useLingui } from '@lingui/react';
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+
+import { api, UnauthorizedError } from './api';
 
 import {
   formatAge as formatAgeRaw,
@@ -33,10 +35,10 @@ import {
   type DateLayout,
 } from './format';
 
-const NUMBER_LOCALE_KEY = 'braiins.numberLocale';
-const DATE_LAYOUT_KEY = 'braiins.dateLayout';
-const TEMP_UNIT_KEY = 'braiins.temperatureUnit';
-const LEGACY_DISPLAY_LOCALE_KEY = 'braiins.displayLocale';
+const NUMBER_LOCALE_KEY = 'hashrate-autopilot.numberLocale';
+const DATE_LAYOUT_KEY = 'hashrate-autopilot.dateLayout';
+const TEMP_UNIT_KEY = 'hashrate-autopilot.temperatureUnit';
+const LEGACY_DISPLAY_LOCALE_KEY = 'hashrate-autopilot.displayLocale';
 
 export type { DateLayout } from './format';
 
@@ -91,7 +93,7 @@ function isKnownNumberLocale(v: string | null | undefined): boolean {
 }
 
 /**
- * Migrate the legacy single `braiins.displayLocale` key into the
+ * Migrate the legacy single `hashrate-autopilot.displayLocale` key into the
  * new pair if and only if the new keys are unset. Runs once per
  * `useLocaleState` mount; safe to call repeatedly (no-op when new
  * keys already exist).
@@ -246,14 +248,100 @@ export function useLocaleState(): LocaleContextValue {
     window.localStorage.setItem(TEMP_UNIT_KEY, temperatureUnit);
   }, [temperatureUnit]);
 
+  // #227 follow-up: promote numberLocale + dateLayout from
+  // localStorage-only to daemon-managed config so the daemon's
+  // Telegram render path can read them. Strategy:
+  //
+  //   1. On first mount fetch /api/config:
+  //      - If daemon has a non-'system' value, adopt it locally
+  //        (the daemon is the cross-device source of truth; other
+  //        browsers on the same operator should see the same prefs).
+  //      - Else if localStorage has a non-'system' value, PATCH it
+  //        up to the daemon (one-shot migration so the operator's
+  //        existing choice carries over without re-picking).
+  //   2. Each setter PATCHes daemon config in addition to setting
+  //      local state, so subsequent changes flow through.
+  //
+  // Fire-and-forget on all PATCHes - if the network is down or the
+  // user is logged out, local state and localStorage are still
+  // correct for this session. The next successful boot reconciles.
+  const syncedRef = useRef(false);
+  useEffect(() => {
+    if (syncedRef.current) return;
+    if (typeof window === 'undefined') return;
+    syncedRef.current = true;
+    void (async () => {
+      try {
+        const res = await api.config();
+        const cfg = res.config;
+        if (cfg.display_number_locale && cfg.display_number_locale !== 'system') {
+          // Adopt daemon's value, keep localStorage in sync.
+          if (cfg.display_number_locale !== numberLocale) {
+            setNumberLocaleState(cfg.display_number_locale);
+            window.localStorage.setItem(NUMBER_LOCALE_KEY, cfg.display_number_locale);
+          }
+        } else if (numberLocale !== 'system') {
+          // Daemon at default but the operator has a local preference.
+          // Push it up so Telegram (and other devices) sees it.
+          await api.updateConfig({ ...cfg, display_number_locale: numberLocale }).catch(() => null);
+        }
+        if (cfg.display_date_layout && cfg.display_date_layout !== 'system') {
+          if (isDateLayout(cfg.display_date_layout) && cfg.display_date_layout !== dateLayout) {
+            setDateLayoutState(cfg.display_date_layout);
+            window.localStorage.setItem(DATE_LAYOUT_KEY, cfg.display_date_layout);
+          }
+        } else if (dateLayout !== 'system') {
+          await api.updateConfig({ ...cfg, display_date_layout: dateLayout }).catch(() => null);
+        }
+      } catch (e) {
+        if (e instanceof UnauthorizedError) return;
+        // Network / parse failure: silent. Reconciliation happens
+        // next successful boot.
+      }
+    })();
+  }, [numberLocale, dateLayout]);
+
+  // Setters that PATCH the daemon config in addition to updating
+  // local state + localStorage. The localStorage write happens in
+  // the existing effects above; this side-effect handles the daemon
+  // round-trip.
+  const setNumberLocale = (code: string) => {
+    setNumberLocaleState(code);
+    void (async () => {
+      try {
+        const res = await api.config();
+        const cfg = res.config;
+        if (cfg.display_number_locale !== code) {
+          await api.updateConfig({ ...cfg, display_number_locale: code });
+        }
+      } catch {
+        // Best-effort; local state remains authoritative for this session.
+      }
+    })();
+  };
+  const setDateLayout = (layout: DateLayout) => {
+    setDateLayoutState(layout);
+    void (async () => {
+      try {
+        const res = await api.config();
+        const cfg = res.config;
+        if (cfg.display_date_layout !== layout) {
+          await api.updateConfig({ ...cfg, display_date_layout: layout });
+        }
+      } catch {
+        // Best-effort.
+      }
+    })();
+  };
+
   return {
     numberLocale,
     dateLayout,
     temperatureUnit,
     intlLocale: resolveNumberLocale(numberLocale),
     numberGrouping: numberLocale !== 'no-grouping',
-    setNumberLocale: setNumberLocaleState,
-    setDateLayout: setDateLayoutState,
+    setNumberLocale,
+    setDateLayout,
     setTemperatureUnit: setTemperatureUnitState,
   };
 }

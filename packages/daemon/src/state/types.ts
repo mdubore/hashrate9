@@ -53,8 +53,18 @@ export interface ConfigTable {
   notify_on_pool_block_credit: 0 | 1;
   /** #130: opt-in messages on Braiins deposit lifecycle (Detected / Available / Returned). Off by default. */
   notify_on_braiins_deposit: 0 | 1;
+  /** #226: opt-in INFO message when Ocean debits unpaid_sat (payout committed to next coinbase). Off by default. */
+  notify_on_payout_initiated: 0 | 1;
+  /** #226: opt-in INFO message when an on-chain coinbase to the payout address confirms. Off by default. */
+  notify_on_payout_confirmed: 0 | 1;
   /** #131: locale for Telegram message rendering. 'en' (default) | 'nl' | 'es'. */
   notification_locale: string;
+  /** #227 follow-up: number-format preference (mirrors dashboard's `braiins.numberLocale`). Default 'system'. */
+  display_number_locale: string;
+  /** #227 follow-up: date-layout preference (mirrors dashboard's `braiins.dateLayout`). Default 'system'. */
+  display_date_layout: string;
+  /** #238: per-series chart color overrides as a JSON string. Empty `{}` means defaults. */
+  chart_color_overrides: string;
   /** @deprecated Legacy column - kept for NOT NULL; ignored by the app. */
   hibernate_on_expensive_market: 0 | 1;
   electrs_host: string | null;
@@ -148,6 +158,16 @@ export interface RuntimeStateTable {
   above_floor_ticks: number;
   /** #204: fleet-wide all-time best difficulty high-water mark. */
   solo_best_difficulty_all_time: number | null;
+  /**
+   * #240 follow-up: the `btc_payout_address` value that was last
+   * processed through `runHistoricalBackfill`. Compared against
+   * `cfg.btc_payout_address` on boot; mismatch triggers a
+   * `DELETE FROM reward_events` + re-backfill so the operator
+   * doesn't end up with stale old-address payout history after
+   * changing the address mid-run. Null = never backfilled (fresh
+   * install or pre-migration-0105).
+   */
+  last_backfilled_payout_address: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -438,6 +458,18 @@ export interface TickMetricsTable {
   braiins_reachable: number | null;
   run_mode: RunMode;
   action_mode: ActionMode;
+  /**
+   * #241: 1 = synthetic row inserted by `runGapBackfill` to fill an
+   * offline gap (per-tick fill at 5-min cadence when bitcoindClient
+   * is wired so each tick carries the correct epoch difficulty; one
+   * tick at the latest retarget's nearest-pool-block estimate as a
+   * pre-bitcoind fallback). 0 = real polled row. Gap-detection
+   * queries filter `synthetic = 0` so a previous run's wrong-time
+   * synthetic doesn't poison the "previous tick" lookup and block
+   * re-correction on the next boot. Added by migration 0104; rows
+   * predating it carry the default 0.
+   */
+  synthetic: Generated<number>;
 }
 
 // ---------------------------------------------------------------------------

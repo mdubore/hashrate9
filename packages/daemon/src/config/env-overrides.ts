@@ -208,8 +208,34 @@ const APP_CONFIG_ENV: {
     varName: 'BHA_NOTIFY_ON_BRAIINS_DEPOSIT',
     coerce: asBoolean,
   },
+  // #226: payout lifecycle Telegram alerts.
+  notify_on_payout_initiated: {
+    varName: 'BHA_NOTIFY_ON_PAYOUT_INITIATED',
+    coerce: asBoolean,
+  },
+  notify_on_payout_confirmed: {
+    varName: 'BHA_NOTIFY_ON_PAYOUT_CONFIRMED',
+    coerce: asBoolean,
+  },
   notification_locale: {
     varName: 'BHA_NOTIFICATION_LOCALE',
+    coerce: asString,
+  },
+  // #227 follow-up: display format preferences. Stored as the same
+  // string the dashboard's dropdowns produce; daemon resolves to
+  // BCP-47 + grouping flag at format time.
+  display_number_locale: {
+    varName: 'BHA_DISPLAY_NUMBER_LOCALE',
+    coerce: asString,
+  },
+  display_date_layout: {
+    varName: 'BHA_DISPLAY_DATE_LAYOUT',
+    coerce: asString,
+  },
+  // #238: JSON string of per-series color overrides. Same format the
+  // dashboard PATCHes via Display & Logging.
+  chart_color_overrides: {
+    varName: 'BHA_CHART_COLOR_OVERRIDES',
     coerce: asString,
   },
   ddns_provider: { varName: 'BHA_DDNS_PROVIDER', coerce: asString },

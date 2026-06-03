@@ -49,11 +49,10 @@ export interface BlockchainInfo {
   readonly verificationprogress: number;
   readonly pruned: boolean;
   /**
-   * Soft-fork deployment table. Vanilla Core reports a known set
-   * (taproot, etc); Knots-patched builds add `bip110` (or similarly
-   * named) when the BIP 110 patch is applied. Optional because the
-   * shape varies and we only consume it as opaque data in the
-   * BIP 110 scan route.
+   * Soft-fork deployment table. Stock bitcoind reports a known set
+   * (taproot, etc); Knots adds `bip110` (or similarly named) when
+   * the BIP 110 patch is applied. Optional because the shape varies
+   * and we only consume it as opaque data in the BIP 110 scan route.
    */
   readonly softforks?: Record<string, unknown>;
 }
@@ -82,6 +81,14 @@ export interface BlockHeader {
   readonly height: number;
   readonly time: number;
   readonly previousblockhash: string | null;
+  /**
+   * #230: Bitcoin difficulty at this block (the canonical
+   * floating-point form bitcoind derives from the `bits` field). Same
+   * units the daemon's `tick_metrics.network_difficulty` column uses,
+   * so the historical-difficulty backfill can write the value
+   * straight through.
+   */
+  readonly difficulty: number;
 }
 
 export interface BatchRequest {

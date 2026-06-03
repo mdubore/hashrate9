@@ -78,7 +78,7 @@ export async function registerPayoutsRoute(
         ok: false,
         error: result.error,
         inserted: result.inserted,
-        coinbase_seen: result.coinbaseSeen,
+        with_matching_outputs: result.withMatchingOutputs,
         tx_seen: result.txSeen,
         duration_ms: result.durationMs,
       };
@@ -86,7 +86,7 @@ export async function registerPayoutsRoute(
     return {
       ok: true,
       inserted: result.inserted,
-      coinbase_seen: result.coinbaseSeen,
+      with_matching_outputs: result.withMatchingOutputs,
       tx_seen: result.txSeen,
       duration_ms: result.durationMs,
     };

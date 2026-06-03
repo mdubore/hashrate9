@@ -108,6 +108,33 @@ export interface AlertCopy {
     unpaid: string;
   }): string;
 
+  // #226 - Ocean payout lifecycle. payout_initiated fires when the
+  // daemon observes Ocean debiting ocean_unpaid_sat (a payout is on
+  // its way). payout_confirmed fires when a new on-chain receipt
+  // hits the operator's payout address. Deliberately doesn't claim
+  // anything about WHICH block the payout will ride in: empirically
+  // operators see payouts confirm in non-Ocean blocks too
+  // (#226 follow-up, operator observation 2026-05-30). The body
+  // sticks to what we can prove: the balance dropped, the
+  // transaction will land, you'll get a second message.
+  //
+  // Tx id is intentionally omitted from the confirmed body (privacy
+  // posture - the operator's payout-tx history is sensitive and
+  // shouldn't broadcast through Telegram by default).
+  payout_initiated_title(args: { payout_btc: string }): string;
+  payout_initiated_body(args: {
+    payout_sat: string;
+    payout_btc: string;
+    pre_drop_unpaid: string;
+    residual_unpaid: string;
+  }): string;
+  payout_confirmed_title(args: { payout_btc: string }): string;
+  payout_confirmed_body(args: {
+    payout_sat: string;
+    payout_btc: string;
+    height: string;
+  }): string;
+
   // #130 - Braiins deposit lifecycle.
   braiins_deposit_detected_title(): string;
   braiins_deposit_detected_body(args: { amount: string; address_short: string | null }): string;
@@ -227,7 +254,16 @@ const EN: AlertCopy = {
       ? `Pool block credited + ON-CHAIN PAYOUT - #${height}`
       : `Pool block credited - #${height}`,
   pool_block_credited_body: ({ height, reward_btc, share_pct, credit, payout_sat, payout_btc, unpaid }) =>
-    `Ocean found pool block #${height} (reward ${reward_btc} BTC). Your share: ${share_pct} → ${credit}.${payout_sat && payout_btc ? ` Paid out: ${payout_sat} sat / ${payout_btc} BTC to your payout address.` : ''} Unpaid total: ${unpaid}.`,
+    `Ocean found pool block #${height} (reward ${reward_btc} BTC). Credited to you: ${credit} (~${share_pct} pool share at the time).${payout_sat && payout_btc ? ` Paid out: ${payout_sat} sat / ${payout_btc} BTC to your payout address.` : ''} Unpaid total: ${unpaid}.`,
+
+  payout_initiated_title: ({ payout_btc }) =>
+    `Payout initiated - ${payout_btc} BTC`,
+  payout_initiated_body: ({ payout_sat, payout_btc, pre_drop_unpaid, residual_unpaid }) =>
+    `Ocean has debited your unpaid balance: ${pre_drop_unpaid} → ${residual_unpaid}. A payout of ~${payout_sat} sat (${payout_btc} BTC) has been initiated. On-chain confirmation follows; you'll get a second message when the transaction lands.`,
+  payout_confirmed_title: ({ payout_btc }) =>
+    `Payout confirmed on-chain - ${payout_btc} BTC`,
+  payout_confirmed_body: ({ payout_sat, payout_btc, height }) =>
+    `Payout of ${payout_sat} sat (${payout_btc} BTC) confirmed on-chain in block #${height}.`,
 
   braiins_deposit_detected_title: () => 'Braiins deposit detected',
   braiins_deposit_detected_body: ({ amount, address_short }) =>
@@ -346,7 +382,16 @@ const NL: AlertCopy = {
       ? `Pool block bijgeschreven + ON-CHAIN UITBETALING - #${height}`
       : `Pool block bijgeschreven - #${height}`,
   pool_block_credited_body: ({ height, reward_btc, share_pct, credit, payout_sat, payout_btc, unpaid }) =>
-    `Ocean vond pool block #${height} (reward ${reward_btc} BTC). Jouw aandeel: ${share_pct} → ${credit}.${payout_sat && payout_btc ? ` Uitbetaald: ${payout_sat} sat / ${payout_btc} BTC naar je payout-adres.` : ''} Unpaid totaal: ${unpaid}.`,
+    `Ocean vond pool block #${height} (reward ${reward_btc} BTC). Bijgeschreven: ${credit} (~${share_pct} pool-aandeel op dat moment).${payout_sat && payout_btc ? ` Uitbetaald: ${payout_sat} sat / ${payout_btc} BTC naar je payout-adres.` : ''} Unpaid totaal: ${unpaid}.`,
+
+  payout_initiated_title: ({ payout_btc }) =>
+    `Uitbetaling gestart - ${payout_btc} BTC`,
+  payout_initiated_body: ({ payout_sat, payout_btc, pre_drop_unpaid, residual_unpaid }) =>
+    `Ocean heeft je unpaid-saldo gedebiteerd: ${pre_drop_unpaid} → ${residual_unpaid}. Een uitbetaling van ~${payout_sat} sat (${payout_btc} BTC) is gestart. On-chain bevestiging volgt; je krijgt een tweede bericht zodra de transactie landt.`,
+  payout_confirmed_title: ({ payout_btc }) =>
+    `Uitbetaling bevestigd on-chain - ${payout_btc} BTC`,
+  payout_confirmed_body: ({ payout_sat, payout_btc, height }) =>
+    `Uitbetaling van ${payout_sat} sat (${payout_btc} BTC) bevestigd on-chain in blok #${height}.`,
 
   braiins_deposit_detected_title: () => 'Braiins deposit gedetecteerd',
   braiins_deposit_detected_body: ({ amount, address_short }) =>
@@ -466,7 +511,16 @@ const ES: AlertCopy = {
       ? `Bloque de pool acreditado + PAGO ON-CHAIN - #${height}`
       : `Bloque de pool acreditado - #${height}`,
   pool_block_credited_body: ({ height, reward_btc, share_pct, credit, payout_sat, payout_btc, unpaid }) =>
-    `Ocean encontró el bloque de pool #${height} (recompensa ${reward_btc} BTC). Tu parte: ${share_pct} → ${credit}.${payout_sat && payout_btc ? ` Pagado: ${payout_sat} sat / ${payout_btc} BTC a tu dirección de pago.` : ''} Total no pagado: ${unpaid}.`,
+    `Ocean encontró el bloque de pool #${height} (recompensa ${reward_btc} BTC). Acreditado: ${credit} (~${share_pct} de la participación del pool en ese momento).${payout_sat && payout_btc ? ` Pagado: ${payout_sat} sat / ${payout_btc} BTC a tu dirección de pago.` : ''} Total no pagado: ${unpaid}.`,
+
+  payout_initiated_title: ({ payout_btc }) =>
+    `Pago iniciado - ${payout_btc} BTC`,
+  payout_initiated_body: ({ payout_sat, payout_btc, pre_drop_unpaid, residual_unpaid }) =>
+    `Ocean ha debitado tu saldo no pagado: ${pre_drop_unpaid} → ${residual_unpaid}. Un pago de ~${payout_sat} sat (${payout_btc} BTC) se ha iniciado. La confirmación en cadena seguirá; recibirás un segundo mensaje cuando la transacción aterrice.`,
+  payout_confirmed_title: ({ payout_btc }) =>
+    `Pago confirmado on-chain - ${payout_btc} BTC`,
+  payout_confirmed_body: ({ payout_sat, payout_btc, height }) =>
+    `Pago de ${payout_sat} sat (${payout_btc} BTC) confirmado on-chain en el bloque #${height}.`,
 
   braiins_deposit_detected_title: () => 'Depósito en Braiins detectado',
   braiins_deposit_detected_body: ({ amount, address_short }) =>

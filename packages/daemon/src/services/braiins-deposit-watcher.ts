@@ -34,6 +34,11 @@ import type { BraiinsClient } from '@hashrate-autopilot/braiins-client';
 
 import type { AppConfig } from '../config/schema.js';
 import { getAlertCopy } from '../i18n/alert-copy.js';
+// #227 + follow-up: locale-aware sat amount rendering. The body's
+// language follows `notification_locale`; the number format
+// (thousand / decimal separators) follows the operator's Display &
+// Logging preference promoted to `display_number_locale`.
+import { formatSatAmount, resolveDisplayLocale } from '../i18n/format-numbers.js';
 import type {
   BraiinsDepositsRepo,
   DepositNotificationKind,
@@ -42,8 +47,6 @@ import type { AlertManager } from './alert-manager.js';
 
 const DEFAULT_INTERVAL_MS = 60_000;
 const FETCH_LIMIT = 100;
-
-const SAT_PER_BTC = 100_000_000;
 
 /**
  * Live response carries the string name, not the OpenAPI-declared
@@ -235,7 +238,12 @@ export class BraiinsDepositWatcherService {
       return;
     }
 
-    const { title, body } = renderMessage(cfg.notification_locale, kind, payload);
+    const { title, body } = renderMessage(
+      cfg.notification_locale,
+      cfg.display_number_locale,
+      kind,
+      payload,
+    );
     try {
       await this.options.alertManager.recordAlert({
         severity,
@@ -265,12 +273,10 @@ function kindToEventClass(kind: DepositNotificationKind): string {
   }
 }
 
-function formatSatAsBtc(sat: number): string {
-  if (sat >= SAT_PER_BTC) {
-    return `${(sat / SAT_PER_BTC).toFixed(8)} BTC (${sat.toLocaleString('en-US')} sat)`;
-  }
-  return `${sat.toLocaleString('en-US')} sat`;
-}
+// #227: the local `formatSatAsBtc` helper is now `formatSatAmount`
+// in `packages/daemon/src/i18n/format-numbers.ts` (centralised so
+// the alert path has a single locale-aware formatting source). The
+// 1-BTC threshold is preserved.
 
 function shortenTxId(tx_id: string): string {
   if (tx_id.length <= 16) return tx_id;
@@ -284,12 +290,13 @@ function parseTxTimestamp(raw: unknown): number | null {
 }
 
 function renderMessage(
-  locale: string,
+  languageLocale: string,
+  displayNumberLocale: string,
   kind: DepositNotificationKind,
   payload: { amount_sat: number; address?: string | null; return_tx_id?: string },
 ): { title: string; body: string } {
-  const copy = getAlertCopy(locale);
-  const amount = formatSatAsBtc(payload.amount_sat);
+  const copy = getAlertCopy(languageLocale);
+  const amount = formatSatAmount(payload.amount_sat, resolveDisplayLocale(displayNumberLocale));
   switch (kind) {
     case 'detected': {
       const address_short = payload.address

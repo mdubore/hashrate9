@@ -26,6 +26,7 @@ import {
 } from '@hashrate-autopilot/shared';
 
 import type { MetricPoint, OurBlockMarker } from '../lib/api';
+import { getChartColor, parseOverrides } from '../lib/chartColors';
 import {
   formatAgeMinutes,
   formatCompactNumber,
@@ -125,6 +126,72 @@ function rollingMean(
   return out;
 }
 
+/**
+ * #229: derive the retarget block height from an `OurBlockMarker[]`
+ * window. Bitcoin's difficulty retargets at every multiple of 2016,
+ * so any pool block whose height we know lets us snap to its epoch
+ * start. Walks `ourBlocks` for the block whose timestamp is closest
+ * to the retarget tick, then:
+ *   - If that block is AT or AFTER the retarget, its height lives
+ *     in the new epoch -> retarget block = floor(height / 2016) * 2016.
+ *   - If BEFORE, it lives in the prior epoch -> retarget block =
+ *     the next 2016 boundary above its height.
+ * Returns null when `ourBlocks` is empty or carries no height field
+ * for the closest match. Exported for PriceChart's mirror builder.
+ */
+export function inferRetargetBlockHeight(
+  retargetTickAt: number,
+  ourBlocks: ReadonlyArray<{ timestamp_ms: number; height: number | null | undefined }>,
+): number | null {
+  let best: { timestamp_ms: number; height: number | null | undefined } | null = null;
+  let bestDiff = Infinity;
+  for (const b of ourBlocks) {
+    if (typeof b.height !== 'number') continue;
+    const diff = Math.abs(b.timestamp_ms - retargetTickAt);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = b;
+    }
+  }
+  if (!best || typeof best.height !== 'number') return null;
+  if (best.timestamp_ms >= retargetTickAt) {
+    return Math.floor(best.height / 2016) * 2016;
+  }
+  return Math.ceil((best.height + 1) / 2016) * 2016;
+}
+
+/**
+ * #229: count pool blocks whose height falls inside the prior
+ * epoch's range `[retargetHeight - 2016, retargetHeight)`. Used by
+ * the retarget tooltip to surface "how many blocks did Ocean find
+ * last epoch" in operator-relevant terms.
+ *
+ * #229 follow-up: returns `null` when we can't prove full coverage
+ * of the prior epoch. A fresh install (or any adjustment older than
+ * our 60-day server-side pool_blocks cutoff) won't have a block at
+ * or before `epochStart`, which means the count is artificially
+ * low - showing "5 blocks this epoch" right after a fresh install
+ * would mislead the operator into thinking Ocean had a horrible
+ * run when actually we just don't have the data yet. The coverage
+ * check requires at least one block whose height is ≤ `epochStart`;
+ * its existence proves we were recording (or backfilled to) before
+ * the epoch began. The tooltip hides the row on null.
+ */
+export function countPriorEpochPoolBlocks(
+  retargetHeight: number,
+  ourBlocks: ReadonlyArray<{ height: number | null | undefined }>,
+): number | null {
+  const epochStart = retargetHeight - 2016;
+  let haveCoverage = false;
+  let count = 0;
+  for (const b of ourBlocks) {
+    if (typeof b.height !== 'number') continue;
+    if (b.height <= epochStart) haveCoverage = true;
+    if (b.height >= epochStart && b.height < retargetHeight) count += 1;
+  }
+  return haveCoverage ? count : null;
+}
+
 export interface RetargetEvent {
   /** Tick timestamp of the first sample at the new difficulty. */
   tick_at: number;
@@ -137,6 +204,22 @@ export interface RetargetEvent {
   luckBefore?: number | null;
   /** Pool luck at the retarget tick. */
   luckAfter?: number | null;
+  /**
+   * #229: retarget block height, derived from `ourBlocks` (the
+   * pool_blocks table). Any Ocean block within the prior or new
+   * epoch lets us snap to the epoch boundary via
+   * `floor(height / 2016) × 2016`. Null when no pool block in the
+   * relevant window is available (rare; Ocean finds ~3 blocks/day,
+   * so a 14-day epoch will normally have ~40+).
+   */
+  block_height?: number | null;
+  /**
+   * #229: count of Ocean pool blocks whose height falls inside the
+   * prior epoch's range `[block_height - 2016, block_height)`.
+   * Surfaces "how lucky were we last epoch" in operator-relevant
+   * terms. Null when `block_height` is null.
+   */
+  pool_blocks_prior_epoch?: number | null;
 }
 
 export interface RetargetTooltipState {
@@ -260,6 +343,7 @@ export const HashrateChart = memo(function HashrateChart({
   isFocused = false,
   viewportSince,
   viewportUntil,
+  chartColorOverrides,
 }: {
   points: readonly MetricPoint[];
   range: ChartRange;
@@ -307,10 +391,32 @@ export const HashrateChart = memo(function HashrateChart({
   isFocused?: boolean;
   viewportSince?: number;
   viewportUntil?: number;
+  /** #238: per-series chart color overrides as a JSON string from
+   *  `config.chart_color_overrides`. Empty `'{}'` (or undefined)
+   *  resolves every series to its built-in default. */
+  chartColorOverrides?: string;
 }) {
   const { i18n } = useLingui();
   void i18n;
   const { intlLocale } = useLocale();
+  // #238: resolve per-series colors from the operator's config.
+  // These shadow the module-scope `COLOR_*` defaults so the rest of
+  // the component body keeps using the same names without changes.
+  // eslint-disable-next-line @typescript-eslint/no-shadow
+  const _colorOverrides = useMemo(
+    () => parseOverrides(chartColorOverrides),
+    [chartColorOverrides],
+  );
+  /* eslint-disable @typescript-eslint/no-shadow */
+  const COLOR_DELIVERED = getChartColor('hashrate.delivered', _colorOverrides);
+  const COLOR_DATUM = getChartColor('hashrate.received_datum', _colorOverrides);
+  const COLOR_OCEAN = getChartColor('hashrate.received_ocean', _colorOverrides);
+  const COLOR_TARGET = getChartColor('hashrate.target', _colorOverrides);
+  const COLOR_FLOOR = getChartColor('hashrate.floor', _colorOverrides);
+  const COLOR_OUR_BLOCK = getChartColor('hashrate.pool_block_ours', _colorOverrides);
+  const COLOR_POOL_BLOCK = getChartColor('hashrate.pool_block_others', _colorOverrides);
+  const COLOR_RIGHT_AXIS = getChartColor('hashrate.right_axis', _colorOverrides);
+  /* eslint-enable @typescript-eslint/no-shadow */
   const dateTimeLocale = useDateTimeLocale();
   const denomination = useDenomination();
   const tempUnit = useTemperatureUnit();
@@ -477,19 +583,30 @@ export const HashrateChart = memo(function HashrateChart({
       if (prev !== null && Math.abs(d - prev) / prev > 0.005) {
         const next = i + 1 < n ? nextNonNull[i + 1] ?? null : null;
         if (next === null || Math.abs(next - d) / d <= 0.005) {
+          // #229: derive retarget block height + prior-epoch pool
+          // block count from `ourBlocks` (the pool_blocks table).
+          // Trivial to compute since the helpers walk the array;
+          // doing it here means the tooltip just reads the field.
+          const retargetTickAt = points[i]!.tick_at;
+          const blockHeight = inferRetargetBlockHeight(retargetTickAt, ourBlocks);
+          const poolBlocksPriorEpoch = blockHeight !== null
+            ? countPriorEpochPoolBlocks(blockHeight, ourBlocks)
+            : null;
           out.push({
-            tick_at: points[i]!.tick_at,
+            tick_at: retargetTickAt,
             difficulty: d,
             previous: prev,
             luckBefore: luckKey && i > 0 ? points[i - 1]![luckKey] : undefined,
             luckAfter: luckKey ? points[i]![luckKey] : undefined,
+            block_height: blockHeight,
+            pool_blocks_prior_epoch: poolBlocksPriorEpoch,
           });
         }
       }
       prev = d;
     }
     return out;
-  }, [points, rightAxisSeries]);
+  }, [points, rightAxisSeries, ourBlocks]);
 
   const chartData = useMemo(() => {
     if (points.length < 2) return null;
@@ -546,7 +663,7 @@ export const HashrateChart = memo(function HashrateChart({
                 maximumFractionDigits: 4,
               }).format(v)}%`,
             axisLabel: '% of Ocean',
-            stroke: '#c084fc',
+            stroke: COLOR_RIGHT_AXIS,
           };
         case 'network_difficulty':
           return {
@@ -559,7 +676,7 @@ export const HashrateChart = memo(function HashrateChart({
                 maximumFractionDigits: 2,
               })} T`,
             axisLabel: 'difficulty',
-            stroke: '#c084fc',
+            stroke: COLOR_RIGHT_AXIS,
           };
         case 'pool_hashrate':
           return {
@@ -574,7 +691,7 @@ export const HashrateChart = memo(function HashrateChart({
               return formatCompactNumber(v * factor, intlLocale);
             },
             axisLabel: `pool ${denomination.hashrateSuffix}`,
-            stroke: '#c084fc',
+            stroke: COLOR_RIGHT_AXIS,
           };
         case 'solo_hashrate': {
           // Project the per-tick fleet series onto the chart's x-axis.
@@ -595,7 +712,7 @@ export const HashrateChart = memo(function HashrateChart({
               return `${v.toFixed(0)} GH/s`;
             },
             axisLabel: 'solo hashrate',
-            stroke: '#c084fc',
+            stroke: COLOR_RIGHT_AXIS,
           };
         }
         case 'solo_device_count': {
@@ -604,7 +721,7 @@ export const HashrateChart = memo(function HashrateChart({
             values: projectSoloSeries(xs, soloSeries, (r) => r.device_count),
             formatTick: (v) => v.toFixed(0),
             axisLabel: 'solo devices',
-            stroke: '#c084fc',
+            stroke: COLOR_RIGHT_AXIS,
             // Whole-device counts only - prevents the degenerate
             // "constant value over a tight range" case where every
             // tick would round-format to the same integer.
@@ -619,7 +736,7 @@ export const HashrateChart = memo(function HashrateChart({
             values: projectSoloSeries(xs, soloSeries, (r) => convert(r.max_temp_c)),
             formatTick: (v) => `${v.toFixed(1)} °${tempUnit}`,
             axisLabel: tempUnit === 'F' ? 'solo max temp (°F)' : 'solo max temp (°C)',
-            stroke: '#c084fc',
+            stroke: COLOR_RIGHT_AXIS,
           };
         }
         case 'solo_best_diff': {
@@ -643,7 +760,7 @@ export const HashrateChart = memo(function HashrateChart({
               return v.toFixed(0);
             },
             axisLabel: 'solo best difficulty',
-            stroke: '#c084fc',
+            stroke: COLOR_RIGHT_AXIS,
           };
         }
         case 'pool_luck_24h':
@@ -661,7 +778,7 @@ export const HashrateChart = memo(function HashrateChart({
                 maximumFractionDigits: 2,
               }).format(v)}×`,
             axisLabel: label,
-            stroke: '#c084fc',
+            stroke: COLOR_RIGHT_AXIS,
           };
         }
       }
@@ -780,6 +897,33 @@ export const HashrateChart = memo(function HashrateChart({
       }
       shareLogYMin = shareLogYTicks[0] ?? 0;
       shareLogYMax = shareLogYTicks[shareLogYTicks.length - 1] ?? 1;
+      // #236 follow-up: when every tick renders to the same formatted
+      // label, the data is constant within the formatter's display
+      // precision (e.g. network difficulty over a 24h window where
+      // niceYTicks pads ±0.0001 around the central value but the
+      // trillion-scale "X.XX T" formatter rounds them all identically).
+      // Re-pad with a value-relative minimum (5%) so the surrounding
+      // scale shows distinct round-number ticks, and anchor the
+      // actual data value at the top so the line sits where the
+      // operator expects (138.96 T at top, 132/134/136 below). The
+      // collapsed-to-one-label variant of this fix turned out to be
+      // too austere - the operator wants a real scale, just an
+      // honest one.
+      if (rightAxis) {
+        const labels = new Set(shareLogYTicks.map((v) => rightAxis.formatTick(v)));
+        if (labels.size === 1 && shareLogYTicks.length > 1) {
+          const center = (slMin + slMax) / 2;
+          const pad = Math.max(Math.abs(center) * 0.05, 1);
+          const newFloor = Math.max(0, center - pad);
+          const newCeiling = center;
+          const niceTicks = niceYTicks(newFloor, newCeiling, 4);
+          const tooClose = pad * 0.2;
+          const filteredNice = niceTicks.filter((tk) => Math.abs(tk - center) > tooClose);
+          shareLogYTicks = [...filteredNice, center];
+          shareLogYMin = shareLogYTicks[0] ?? newFloor;
+          shareLogYMax = center;
+        }
+      }
     }
     const shareLogYScale = (y: number): number => {
       const usable = chartHeight - PADDING.top - PADDING.bottom;
@@ -1922,6 +2066,42 @@ export function RetargetTooltip({
       maximumFractionDigits: 2,
     }).format(v);
 
+  // #229: avg block time over the prior epoch, derived exactly from
+  // the difficulty delta. Bitcoin's retarget formula is
+  //   new_difficulty / old_difficulty = target_timespan / actual_timespan
+  // so actual avg block time = 600s × (old / new). Render as
+  // "9m 52s" with sub-minute precision.
+  const avgBlockSec = event.previous > 0 && event.difficulty > 0
+    ? 600 * (event.previous / event.difficulty)
+    : null;
+  const avgBlockText = avgBlockSec !== null
+    ? `${Math.floor(avgBlockSec / 60)}m ${Math.round(avgBlockSec % 60)}s`
+    : '-';
+
+  // #229: network hashrate from difficulty. `difficulty × 2^32 / 600`
+  // gives H/s. Bitcoin's network is in the high-hundreds-of-EH range
+  // at retarget time so always render EH/s with one decimal.
+  const hashrateEHs = event.difficulty * 2 ** 32 / 600 / 1e18;
+  const hashrateText = new Intl.NumberFormat(locale, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(hashrateEHs);
+
+  const heightText = event.block_height !== null && event.block_height !== undefined
+    ? new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(event.block_height)
+    : null;
+
+  // #229: pool blocks Ocean found in the prior epoch. Hidden when
+  // null (no nearby pool block available to derive the epoch range)
+  // or when the count is zero (Ocean had a no-luck epoch - surface
+  // it as a gap rather than misleadingly imply we know the count
+  // is exactly zero; in practice this is near-impossible).
+  const poolBlocksText = event.pool_blocks_prior_epoch !== null
+      && event.pool_blocks_prior_epoch !== undefined
+      && event.pool_blocks_prior_epoch > 0
+    ? new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(event.pool_blocks_prior_epoch)
+    : null;
+
   return (
     <div
       ref={ref}
@@ -1931,7 +2111,7 @@ export function RetargetTooltip({
     >
       <div className="flex items-start justify-between gap-3">
         <span className="font-semibold uppercase tracking-wider text-violet-300">
-          <Trans>DIFFICULTY RETARGET</Trans>
+          <Trans>DIFFICULTY ADJUSTMENT</Trans>
         </span>
         {pinned && (
           <button
@@ -1963,6 +2143,29 @@ export function RetargetTooltip({
           <span className="text-slate-500"><Trans>change</Trans></span>
           <span className={`font-mono tabular-nums ${pctColor}`}>{pctText}</span>
         </div>
+        {/* #229: enrichment fields below the existing three. All
+            derived from the event payload + the pool_blocks lookup;
+            no new daemon plumbing. */}
+        {heightText !== null && (
+          <div className="flex justify-between gap-3">
+            <span className="text-slate-500"><Trans>block height</Trans></span>
+            <span className="font-mono tabular-nums">{heightText}</span>
+          </div>
+        )}
+        <div className="flex justify-between gap-3">
+          <span className="text-slate-500"><Trans>avg block time</Trans></span>
+          <span className="font-mono tabular-nums">{avgBlockText}</span>
+        </div>
+        <div className="flex justify-between gap-3">
+          <span className="text-slate-500"><Trans>network hashrate</Trans></span>
+          <span className="font-mono tabular-nums">≈ {hashrateText} EH/s</span>
+        </div>
+        {poolBlocksText !== null && (
+          <div className="flex justify-between gap-3">
+            <span className="text-slate-500"><Trans>pool blocks this epoch</Trans></span>
+            <span className="font-mono tabular-nums">{poolBlocksText}</span>
+          </div>
+        )}
       </div>
 
       {hasLuck && (

@@ -92,8 +92,16 @@ export interface PayoutObserverOptions {
 export interface HistoricalBackfillResult {
   /** Number of new reward_events rows the backfill inserted. */
   inserted: number;
-  /** Number of coinbase transactions inspected. */
-  coinbaseSeen: number;
+  /**
+   * Number of transactions whose vout set contains at least one
+   * output paying the configured address (i.e. transactions that
+   * could have contributed a reward event - past or current). Used
+   * to be `coinbaseSeen` and gated by a strict `vin[0].coinbase`
+   * check; #240 reframed this because Ocean's batched-sweep payout
+   * model surfaces non-coinbase payments that the strict filter
+   * silently dropped.
+   */
+  withMatchingOutputs: number;
   /** Number of transactions in the address history (all kinds). */
   txSeen: number;
   /** Wall-clock duration of the backfill in milliseconds. */
@@ -483,20 +491,30 @@ export class PayoutObserver {
   }
 
   /**
-   * #170: walk the full address history via electrs's `get_history`
-   * and insert every previously-unseen coinbase output paying to the
-   * configured payout address into `reward_events`. Used by:
+   * #170 / #240: walk the full address history via electrs's
+   * `get_history` and insert every previously-unseen output paying
+   * the configured payout address into `reward_events`. Used by:
    *   - the periodic auto-loop (gated by `include_historical_payouts`)
    *   - the dashboard "Backfill now" button (ignores the gate; explicit
    *     operator action)
    *
-   * Coinbase-only filter: Ocean is non-custodial and pays via coinbase,
-   * so this is the right shape for genuine pool payouts. Non-coinbase
-   * receipts (operator self-send, accidental deposit, change from a
-   * swap) are skipped. The output match is on scriptPubKey hex - we
-   * compute the expected hex from the configured address once and
-   * compare byte-for-byte against each vout, which is invariant to
-   * each electrs build's choice of `vout.scriptPubKey.address` vs
+   * #240 dropped the original coinbase-only filter. Empirical case
+   * that surfaced the gap: Ocean payout to bc1qd4glstkn… on
+   * 2026-05-25 (tx 784542e9…) arrived as a 170-output BATCHED SWEEP
+   * from Ocean's pool wallet (P2SH 37dvwZZoT3D7RXpTCpN2yKzMmNs2i2Fd1n)
+   * - not a coinbase transaction. The upstream P2SH wallet IS funded
+   * by Ocean's coinbase outputs, but the payment to the operator's
+   * address is one hop further. Strict `vin[0].coinbase` filtering
+   * silently rejected the user's payout from both live and backfill
+   * paths. New behavior: any output at the configured address counts
+   * as a reward event. Edge cases (operator self-send, exchange
+   * withdrawal, swap change) get folded into the count too - the
+   * operator can correct via `historical_payouts_offset_sat`.
+   *
+   * The output match is on scriptPubKey hex - we compute the
+   * expected hex from the configured address once and compare
+   * byte-for-byte against each vout, which is invariant to each
+   * electrs build's choice of `vout.scriptPubKey.address` vs
    * `addresses` vs nothing-at-all.
    *
    * Idempotent: the `(txid, vout)` UNIQUE index on `reward_events`
@@ -504,7 +522,7 @@ export class PayoutObserver {
    * DO NOTHING drops duplicates at write time.
    *
    * Returns counts so the HTTP route and operator log can report
-   * "scanned N txs, M coinbase, inserted K".
+   * "scanned N txs, M matching, inserted K".
    */
   async runHistoricalBackfill(): Promise<HistoricalBackfillResult> {
     if (this.backfillRunning) {
@@ -526,7 +544,7 @@ export class PayoutObserver {
     const start = now();
     const baseResult: Omit<HistoricalBackfillResult, 'durationMs' | 'error'> = {
       inserted: 0,
-      coinbaseSeen: 0,
+      withMatchingOutputs: 0,
       txSeen: 0,
     };
 
@@ -588,7 +606,7 @@ export class PayoutObserver {
         `[payout] historical backfill: ${txSeen} txs at address, ${candidates.length} new to inspect`,
       );
 
-      let coinbaseSeen = 0;
+      let withMatchingOutputs = 0;
       let inserted = 0;
       const heightToTimeMs = new Map<number, number>();
 
@@ -605,15 +623,15 @@ export class PayoutObserver {
           );
           continue;
         }
-        const isCoinbase =
-          tx.vin.length > 0 && typeof tx.vin[0]?.coinbase === 'string';
-        if (!isCoinbase) continue;
-        coinbaseSeen += 1;
-
+        // #240: no longer gate on `vin[0].coinbase === string`. Ocean's
+        // batched-sweep payouts are not coinbase but they ARE the
+        // operator's pool payouts, and the strict filter silently
+        // dropped them. Anything paying our address counts.
         const matchingVouts = tx.vout.filter(
           (v) => v.scriptPubKey?.hex?.toLowerCase() === scriptPubKeyHex.toLowerCase(),
         );
         if (matchingVouts.length === 0) continue;
+        withMatchingOutputs += 1;
 
         // Resolve block time once per height (cache survives all txs
         // in the same block). Falls back to wall-clock if electrs
@@ -665,11 +683,11 @@ export class PayoutObserver {
       }
 
       this.options.log?.(
-        `[payout] historical backfill done: ${txSeen} txs scanned, ${coinbaseSeen} coinbase, ${inserted} new reward_events row(s) in ${now() - start}ms`,
+        `[payout] historical backfill done: ${txSeen} txs scanned, ${withMatchingOutputs} with matching outputs, ${inserted} new reward_events row(s) in ${now() - start}ms`,
       );
       return {
         inserted,
-        coinbaseSeen,
+        withMatchingOutputs,
         txSeen,
         durationMs: now() - start,
         error: null,
@@ -723,6 +741,22 @@ export class PayoutObserver {
 
   getLastError(): string | null {
     return this.lastError;
+  }
+
+  /**
+   * #240 follow-up: drop the in-memory snapshot. After a payout-
+   * address change we want the dashboard's "collected (on-chain)"
+   * tile to render as 'computing' (spinner) until the next scan
+   * lands - otherwise the operator sees the *old* address's total
+   * for up to one poll interval after switching addresses, which
+   * looks identical to "the address change didn't work".
+   *
+   * Pairs with calling `scanOnce()` straight after so the rescan
+   * is queued behind the reset.
+   */
+  resetSnapshot(): void {
+    this.lastSnapshot = null;
+    this.lastError = null;
   }
 
   /**

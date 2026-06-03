@@ -325,6 +325,18 @@ export interface AppConfig {
   notification_disabled_event_classes: string[];
   notify_on_pool_block_credit: boolean;
   notify_on_braiins_deposit: boolean;
+  /** #226: payout-initiated Telegram alert (Ocean debited unpaid_sat). Off by default. */
+  notify_on_payout_initiated: boolean;
+  /** #226: payout-confirmed Telegram alert (on-chain coinbase to payout address). Off by default. */
+  notify_on_payout_confirmed: boolean;
+  /** #227 follow-up: display number format ('system' | 'en-US' | 'nl-NL' | 'fr-FR' | 'no-grouping'). */
+  display_number_locale: string;
+  /** #227 follow-up: display date layout ('system' | 'us' | 'eu-spaced-24h' | 'slash-dmy-24h' | 'iso' | 'slash-mdy-12h'). */
+  display_date_layout: string;
+  /** #238: per-series chart color overrides as a JSON string. Empty
+   *  `'{}'` means use every series's built-in default. Parsed
+   *  defensively via `lib/chartColors.parseOverrides`. */
+  chart_color_overrides: string;
   notification_locale: 'en' | 'nl' | 'es';
   electrs_host: string | null;
   electrs_port: number | null;
@@ -665,7 +677,7 @@ export const api = {
       ok: boolean;
       error?: string;
       inserted: number;
-      coinbase_seen: number;
+      with_matching_outputs: number;
       tx_seen: number;
       duration_ms: number;
     }>('/api/payouts/backfill', { method: 'POST' }),
@@ -777,8 +789,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ url }),
     }),
-  bip110Scan: (blocks: number) =>
-    request<Bip110ScanResponse>(`/api/bip110/scan?blocks=${encodeURIComponent(String(blocks))}`),
+  /** #231 follow-up #3: two-option range - `current` (in-progress
+   *  epoch) or `all` (everything since the first known BIP 110
+   *  signaling block, height 938,903 on 2026-03-01). */
+  bip110Scan: (range: 'current' | 'all') =>
+    request<Bip110ScanResponse>(`/api/bip110/scan?range=${encodeURIComponent(range)}`),
   bitcoindTest: (creds: { url: string; user: string; password: string }) =>
     request<BitcoindTestResponse>('/api/bitcoind/test', {
       method: 'POST',
@@ -927,13 +942,27 @@ export interface Bip110ScanSignalingBlock {
   weight: number | null;
   subsidy_sat: number;
   total_fees_sat: number | null;
+  /** #237: pool identity from the coinbase. For Ocean blocks
+   *  normalised to the literal "Ocean"; for non-Ocean blocks it's
+   *  the longest printable run in the coinbase (Foundry USA Pool,
+   *  AntPool, etc.). Null when there are no printable runs ≥3 chars. */
   pool_tag: string | null;
+  /** #234 / #237: miner identity extracted from the coinbase. For Ocean
+   *  blocks this is the inner-miner tag (e.g. "Roughnecks"), NOT the
+   *  "<OCEAN.XYZ>" pool-wrapper signature. Null for non-Ocean blocks
+   *  (the two-actor pool/miner distinction doesn't apply). */
+  miner_tag: string | null;
 }
 
 export interface Bip110ScanDeployment {
   key: string;
   status: string | null;
   bit: number | null;
+  /** #235: block height at which the deployment transitioned to its
+   *  current status. Populated from bitcoind's `bip9.since`. Used to
+   *  distinguish MASF (since < UASF height) from UASF (since == UASF
+   *  height) activation in the ACTIVE-state tooltip. */
+  since: number | null;
   statistics: {
     count: number;
     elapsed: number;
@@ -942,12 +971,40 @@ export interface Bip110ScanDeployment {
   } | null;
 }
 
+/**
+ * #231: per-epoch signaling bucket. `start_height` is always a
+ * multiple of 2016. For completed epochs, `end_height` is
+ * `start_height + 2015` and `in_progress` is false. For the
+ * current epoch, `end_height` is the chain tip and `in_progress`
+ * is true; `signaling_pct` is therefore "progress so far" and is
+ * directly comparable to the 55% MASF activation threshold.
+ */
+export interface Bip110EpochBucket {
+  start_height: number;
+  end_height: number;
+  /** First and last block timestamps observed in the epoch's scanned
+   *  range. Null when the epoch had no headers in the scan (defensive). */
+  start_time_ms: number | null;
+  end_time_ms: number | null;
+  /** #233: linear-extrapolated forecast of when block 2016 of the
+   *  in-progress epoch will be mined, based on the average block
+   *  time observed in the bucket so far. Null for completed
+   *  epochs and when an average can't be computed. */
+  expected_end_time_ms: number | null;
+  scanned: number;
+  signaling_count: number;
+  signaling_pct: number;
+  in_progress: boolean;
+}
+
 export interface Bip110ScanResponse {
   rpc_available: boolean;
   tip_height: number | null;
   scanned: number;
   signaling_count: number;
   signaling_pct: number;
+  /** #231: per-epoch breakdown, ordered earliest-first. */
+  epochs: Bip110EpochBucket[];
   deployment: Bip110ScanDeployment | null;
   softfork_keys: string[] | null;
   signaling_blocks: Bip110ScanSignalingBlock[];

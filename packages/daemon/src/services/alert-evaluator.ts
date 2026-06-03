@@ -40,9 +40,36 @@ import { overheatingCeilingForAsic } from './axeos.js';
 import type { AlertsRepo } from '../state/repos/alerts.js';
 import type { PoolBlocksRepo } from '../state/repos/pool_blocks.js';
 import type { PoolBlocksTable } from '../state/types.js';
+import type { RewardEventsRepo } from '../state/repos/reward_events.js';
 import type { TickMetricsRepo } from '../state/repos/tick_metrics.js';
 import type { State } from '../controller/types.js';
 import { getAlertCopy } from '../i18n/alert-copy.js';
+// #227 + follow-up: locale-aware number formatting. Every Telegram
+// body used to hard-code en-US thousand / decimal separators; these
+// helpers + `resolveDisplayLocale(state.config.display_number_locale)`
+// thread the operator's Display & Logging preference into
+// Intl.NumberFormat. We deliberately read display_number_locale (the
+// dashboard's "number format" dropdown) rather than notification_locale
+// (which is the *language* of the message body); the two are
+// independent - an operator can have English Telegram copy with Dutch
+// number separators, or vice versa.
+import {
+  formatBtc,
+  formatFixed,
+  formatInteger,
+  formatPct,
+  resolveDisplayLocale,
+} from '../i18n/format-numbers.js';
+
+/**
+ * Pull the resolved display locale once per evaluator pass. All
+ * format helper calls in this file flow through this so the
+ * `display_number_locale` ↔ `{ bcp47, useGrouping }` translation
+ * happens in exactly one place.
+ */
+function numberLocale(state: State) {
+  return resolveDisplayLocale(state.config.display_number_locale);
+}
 
 const HOURS_3_MS = 3 * 60 * 60 * 1000;
 // Ocean's on-chain payout threshold per the TIDES + payouts mechanic.
@@ -74,13 +101,10 @@ function copyFor(state: State): ReturnType<typeof getAlertCopy> {
  * for ergonomics; below it stays in sat for legibility on small
  * deposits.
  */
-const SAT_PER_BTC = 100_000_000;
-function formatSatAsBtc(sat: number): string {
-  if (sat >= SAT_PER_BTC) {
-    return `${(sat / SAT_PER_BTC).toFixed(8)} BTC (${sat.toLocaleString('en-US')} sat)`;
-  }
-  return `${sat.toLocaleString('en-US')} sat`;
-}
+// #227: the local `formatSatAsBtc` helper was dead code in this file
+// (only defined, never called). braiins-deposit-watcher.ts has its
+// own copy that *is* called; it now lives centrally in
+// `format-numbers.ts` as `formatSatAmount`. Removed here entirely.
 
 interface EventState {
   readonly bad_since_ms: number | null;
@@ -128,6 +152,15 @@ export interface AlertEvaluatorOptions {
    * per new row above the watermark.
    */
   readonly poolBlocksRepo?: PoolBlocksRepo;
+  /**
+   * #226: optional reward-events read repo. When provided the
+   * evaluator hydrates a `lastNotifiedRewardEventId` watermark from
+   * `maxId()` at boot (silent baseline so a fresh-install backfill
+   * doesn't fire a flood of "payout confirmed" messages) and fires
+   * once per new row above the watermark. Without it
+   * `payout_confirmed` short-circuits safely.
+   */
+  readonly rewardEventsRepo?: RewardEventsRepo;
   /** Override clock for tests. */
   readonly now?: () => number;
   /**
@@ -212,10 +245,46 @@ export class AlertEvaluator {
    */
   private readonly soloShareRejectionLastFiredAt = new Map<number, number>();
 
+  /**
+   * #226: previous tick's `ocean_unpaid_sat` value, retained across
+   * ticks so the payout_initiated detector can compute a one-tick
+   * delta without an extra DB query. Null until the first tick we
+   * actually observe a finite value. Updated unconditionally at the
+   * end of every evaluatePayoutInitiated() call so subsequent ticks
+   * have a comparison baseline. In-memory only; on daemon restart
+   * the first tick re-baselines and the second tick has the
+   * comparison ready.
+   */
+  private payoutPrevUnpaidSat: number | null = null;
+  /**
+   * #239: unpaid_sat captured at the moment the previous
+   * `pool_block_credited` alert fired. The delta against the current
+   * unpaid is the operator's actual TIDES credit for this block - the
+   * share_log_pct × reward estimate computed below diverges from
+   * Ocean's real ledger when hashrate fluctuates inside the ~80-min
+   * TIDES window. The actual delta replaces the estimate in the
+   * single-alert-this-tick happy path; multi-block ticks and the
+   * first alert after a daemon restart fall back to the estimate
+   * with a "~" prefix.
+   */
+  private lastPoolBlockUnpaidSat: number | null = null;
+  /**
+   * #226: highest `reward_events.id` we've already considered for the
+   * `payout_confirmed` Telegram. Hydrated at boot from
+   * `rewardEventsRepo.maxId()` so the boot-time backfill of historical
+   * payouts doesn't fire a flood of "payout confirmed" messages. Same
+   * silent-baseline contract as `lastNotifiedBlockHeight` for #117.
+   * Sentinel `-1` means "table genuinely empty, fire on the very first
+   * row we ever see"; `null` means "uninitialised, baseline on next
+   * evaluator tick before firing anything."
+   */
+  private lastNotifiedRewardEventId: number | null = null;
+
   private readonly alertManager: AlertManager;
   private readonly axeOSPoller: AxeOSPoller | null;
   private readonly tickMetricsRepo: TickMetricsRepo | null;
   private readonly poolBlocksRepo: PoolBlocksRepo | null;
+  private readonly rewardEventsRepo: RewardEventsRepo | null;
   private readonly now: () => number;
   private readonly log: (msg: string) => void;
 
@@ -224,6 +293,7 @@ export class AlertEvaluator {
     this.axeOSPoller = opts.axeOSPoller ?? null;
     this.tickMetricsRepo = opts.tickMetricsRepo ?? null;
     this.poolBlocksRepo = opts.poolBlocksRepo ?? null;
+    this.rewardEventsRepo = opts.rewardEventsRepo ?? null;
     this.now = opts.now ?? (() => Date.now());
     this.log = opts.log ?? (() => {});
   }
@@ -270,6 +340,14 @@ export class AlertEvaluator {
         .maxHeight()
         .catch(() => null);
     }
+    // #226: same silent-baseline contract for the reward_events
+    // watermark. Without this, a daemon restart would re-fire
+    // payout_confirmed for every historical row in the ledger.
+    if (this.rewardEventsRepo) {
+      this.lastNotifiedRewardEventId = await this.rewardEventsRepo
+        .maxId()
+        .catch(() => null);
+    }
   }
 
   /**
@@ -289,6 +367,13 @@ export class AlertEvaluator {
     await this.evaluateWalletRunway(state, disabled);
     await this.evaluateMarketplaceEmpty(state, disabled);
     await this.evaluatePoolBlockCredited(state, disabled);
+    // #226: payout lifecycle. Order matters lightly: initiated reads
+    // state.ocean_unpaid_sat against the prior tick's snapshot, then
+    // confirmed scans new reward_events rows. Both are dedicated
+    // toggle-gated (notify_on_payout_initiated /
+    // notify_on_payout_confirmed) and silently short-circuit when off.
+    await this.evaluatePayoutInitiated(state, disabled);
+    await this.evaluatePayoutConfirmed(state, disabled);
     // #149: solo-mining alerts (Bitaxe / AxeOS). No-op when the
     // master toggle is off or the poller wasn't wired.
     if (state.config.solo_mining_enabled && this.axeOSPoller) {
@@ -341,8 +426,8 @@ export class AlertEvaluator {
       bodyForFiring: (durMs) =>
         copyFor(state).hashrate_below_floor_body({
           duration: formatDuration(durMs),
-          actual_ph: state.actual_hashrate.total_ph.toFixed(2),
-          floor_ph: state.config.minimum_floor_hashrate_ph.toFixed(2),
+          actual_ph: formatFixed(state.actual_hashrate.total_ph, 2, numberLocale(state)),
+          floor_ph: formatFixed(state.config.minimum_floor_hashrate_ph, 2, numberLocale(state)),
         }),
       bodyForRecovery: (durMs) =>
         copyFor(state).hashrate_below_floor_body_recovery({ duration: formatDuration(durMs) }),
@@ -541,23 +626,23 @@ export class AlertEvaluator {
       currentState: this.wallet_runway,
       disabledClasses,
       title: copyFor(state).wallet_runway_title({
-        runway_days: runwayDays.toFixed(1),
-        threshold_days: thresholdDays.toFixed(1),
+        runway_days: formatFixed(runwayDays, 1, numberLocale(state)),
+        threshold_days: formatFixed(thresholdDays, 1, numberLocale(state)),
       }),
       titleForRecovery: copyFor(state).wallet_runway_title_recovery({
-        runway_days: runwayDays.toFixed(1),
-        threshold_days: thresholdDays.toFixed(1),
+        runway_days: formatFixed(runwayDays, 1, numberLocale(state)),
+        threshold_days: formatFixed(thresholdDays, 1, numberLocale(state)),
       }),
       bodyForFiring: () =>
         copyFor(state).wallet_runway_body({
-          balance_sat: balanceSat.toLocaleString('en-US'),
-          burn_per_day_sat: Math.round(burnPerDaySat).toLocaleString('en-US'),
-          runway_days: runwayDays.toFixed(1),
+          balance_sat: formatInteger(balanceSat, numberLocale(state)),
+          burn_per_day_sat: formatInteger(Math.round(burnPerDaySat), numberLocale(state)),
+          runway_days: formatFixed(runwayDays, 1, numberLocale(state)),
           threshold_days: thresholdDays,
         }),
       bodyForRecovery: () =>
         copyFor(state).wallet_runway_body_recovery({
-          runway_days: runwayDays.toFixed(1),
+          runway_days: formatFixed(runwayDays, 1, numberLocale(state)),
           threshold_days: thresholdDays,
         }),
     });
@@ -673,6 +758,26 @@ export class AlertEvaluator {
     // Fire any entries whose deferral condition is satisfied.
     const fireFailsafeMs = 10 * 60 * 1000;
     const stillPending: typeof this.pendingPoolBlockCredits = [];
+    // #239: count how many pending entries will actually fire this
+    // round - the actual-delta path only kicks in when exactly one
+    // alert is being emitted (a multi-block tick would have to
+    // apportion the delta across N blocks, which we don't try).
+    const readyEntries = this.pendingPoolBlockCredits.filter((e) => {
+      const oceanCaughtUp =
+        state.ocean_unpaid_sat !== null &&
+        e.noticed_unpaid_sat !== null &&
+        state.ocean_unpaid_sat > e.noticed_unpaid_sat;
+      const failsafeReached = state.tick_at - e.noticed_at_ms >= fireFailsafeMs;
+      const unpaidNowAvailable =
+        e.noticed_unpaid_sat === null && state.ocean_unpaid_sat !== null;
+      return oceanCaughtUp || failsafeReached || unpaidNowAvailable;
+    });
+    const singleAlertThisTick = readyEntries.length === 1;
+    // Capture the previous anchor BEFORE the loop so the single-alert
+    // path sees the value at the moment the last alert fired (not a
+    // value updated mid-loop). On a multi-alert tick we don't use it
+    // anyway.
+    const prevAnchorUnpaidSat = this.lastPoolBlockUnpaidSat;
     for (const entry of this.pendingPoolBlockCredits) {
       const oceanCaughtUp =
         state.ocean_unpaid_sat !== null &&
@@ -694,19 +799,50 @@ export class AlertEvaluator {
             .nearestShareLogPct(blk.timestamp_ms, SHARE_LOG_AT_BLOCK_TOLERANCE_MS)
             .catch(() => null)
         : null;
-      const ourCreditSat =
+      const estimatedCreditSat =
         sharePct !== null && sharePct > 0
           ? Math.round((blk.total_reward_sat * sharePct) / 100)
           : null;
-      const heightStr = blk.height.toLocaleString('en-US');
-      const rewardBtc = (blk.total_reward_sat / 1e8).toFixed(8);
-      const sharePctStr = sharePct !== null ? `${sharePct.toFixed(4)}%` : 'unknown';
-      const creditStr =
-        ourCreditSat !== null ? `~${ourCreditSat.toLocaleString('en-US')} sat` : 'unknown (no nearby tick captured share_log)';
+      const locale = numberLocale(state);
+      const heightStr = formatInteger(blk.height, locale);
+      const rewardBtc = formatBtc(blk.total_reward_sat, locale);
+      const sharePctStr = sharePct !== null ? formatPct(sharePct, 4, locale) : 'unknown';
       const unpaidSat = state.ocean_unpaid_sat;
+      // #239: prefer the actual unpaid_sat delta as the credit
+      // number. Falls back to share_log_pct × reward estimate when:
+      //   - multiple alerts are being emitted this tick (can't
+      //     apportion the delta across N blocks)
+      //   - first alert (no previous anchor — daemon just restarted
+      //     or this is the first pool_block_credited ever)
+      //   - delta is negative (payout happened between alerts, or
+      //     Ocean's accounting did something the operator doesn't
+      //     want us to mis-attribute)
+      let actualCreditSat: number | null = null;
+      if (
+        singleAlertThisTick &&
+        prevAnchorUnpaidSat !== null &&
+        unpaidSat !== null &&
+        unpaidSat >= prevAnchorUnpaidSat
+      ) {
+        actualCreditSat = unpaidSat - prevAnchorUnpaidSat;
+      }
+      // Display string: actual = no tilde, estimate = "~" prefix.
+      // The presence/absence of the tilde signals to the operator
+      // whether the math should reconcile against unpaid_sat.
+      const creditStr =
+        actualCreditSat !== null
+          ? `${formatInteger(actualCreditSat, locale)} sat`
+          : estimatedCreditSat !== null
+            ? `~${formatInteger(estimatedCreditSat, locale)} sat`
+            : 'unknown (no nearby tick captured share_log)';
+      // The estimated credit is still what the payout-detection
+      // heuristic below uses (it predates this fix and asks "how
+      // much did unpaid drop vs what we expected to add"); fall
+      // back to the share_log estimate if we computed one.
+      const ourCreditSat = estimatedCreditSat;
       const unpaidStr =
         unpaidSat !== null
-          ? `${unpaidSat.toLocaleString('en-US')} sat (${((unpaidSat / OCEAN_PAYOUT_THRESHOLD_SAT) * 100).toFixed(1)}% of ${OCEAN_PAYOUT_THRESHOLD_SAT.toLocaleString('en-US')}-sat payout)`
+          ? `${formatInteger(unpaidSat, locale)} sat (${formatPct((unpaidSat / OCEAN_PAYOUT_THRESHOLD_SAT) * 100, 1, locale)} of ${formatInteger(OCEAN_PAYOUT_THRESHOLD_SAT, locale)}-sat payout)`
           : 'unknown';
       // #171: detect if this block triggered an on-chain payout.
       // payout_amount = what was unpaid before + our share - what's unpaid now.
@@ -722,8 +858,8 @@ export class AlertEvaluator {
       ) {
         const payoutAmountSat = entry.noticed_unpaid_sat + ourCreditSat - unpaidSat;
         if (payoutAmountSat >= 65_536) {
-          payoutSatStr = payoutAmountSat.toLocaleString('en-US');
-          payoutBtcStr = (payoutAmountSat / 1e8).toFixed(8);
+          payoutSatStr = formatInteger(payoutAmountSat, locale);
+          payoutBtcStr = formatBtc(payoutAmountSat, locale);
         }
       }
       await this.alertManager.recordAlert({
@@ -743,8 +879,166 @@ export class AlertEvaluator {
       if (blk.height > this.lastNotifiedBlockHeight) {
         this.lastNotifiedBlockHeight = blk.height;
       }
+      // #239: anchor moves to the post-alert unpaid value so the next
+      // pool_block_credited can compute its delta. Updated inside
+      // the loop (rather than once after) so the multi-alert case
+      // still leaves a sensible anchor for the following tick — the
+      // last alert in this tick anchors to the current unpaid.
+      if (unpaidSat !== null) {
+        this.lastPoolBlockUnpaidSat = unpaidSat;
+      }
     }
     this.pendingPoolBlockCredits = stillPending;
+  }
+
+  /**
+   * #226: `payout_initiated` - INFO Telegram alert the moment Ocean
+   * debits the operator's accumulated unpaid_sat balance. The trigger
+   * is a sharp one-tick drop in `state.ocean_unpaid_sat`: greater than
+   * 30% of the prior tick's value AND the residual is below the
+   * on-chain payout threshold (1,048,576 sat). Both gates matter -
+   * the percentage filter throws out tick noise / API jitter, the
+   * absolute-residual filter discriminates a real payout (residual
+   * ~0) from any other Ocean-side accounting bump that briefly
+   * lowers the unpaid count.
+   *
+   * Mirrors the dashboard's `unpaidDropMarkers` heuristic on
+   * PriceChart.tsx (~lines 1646-1668) so the operator sees the same
+   * event surfaced visually on the chart and audibly via Telegram.
+   *
+   * Idempotency: in-memory `payoutPrevUnpaidSat` is updated at the
+   * end of every call. After firing, the next tick's `prev` is the
+   * post-drop residual; subsequent drops would need a fresh build-up
+   * past 30%-of-residual, which only happens on the next genuine
+   * payout cycle. Daemon restart re-baselines on the first tick
+   * (no prev → no comparison → no fire); the second tick gets a
+   * comparison and the detector resumes normally. Acceptable cost:
+   * a payout landing exactly on a restart boundary would silently
+   * skip the initiation alert (but payout_confirmed still fires).
+   */
+  private async evaluatePayoutInitiated(
+    state: State,
+    disabledClasses: ReadonlySet<string>,
+  ): Promise<void> {
+    if (!state.config.notify_on_payout_initiated) return;
+    if (disabledClasses.has('payout_initiated')) return;
+    const cur = state.ocean_unpaid_sat;
+    const prev = this.payoutPrevUnpaidSat;
+    // Always update the prev baseline at the end, regardless of
+    // whether we fire. Captured before the early-returns so the
+    // baseline tracks the current observation even when the gate is
+    // off or the comparison isn't possible.
+    const updatePrev = () => {
+      this.payoutPrevUnpaidSat = cur;
+    };
+    if (cur === null) {
+      updatePrev();
+      return;
+    }
+    if (prev === null || prev <= 0) {
+      // No prior, or zero baseline. Can't compute a meaningful
+      // delta - re-baseline and wait.
+      updatePrev();
+      return;
+    }
+    const drop = prev - cur;
+    if (drop <= 0) {
+      // Unpaid went up or held flat - normal accumulation.
+      updatePrev();
+      return;
+    }
+    const dropFraction = drop / prev;
+    if (dropFraction <= 0.3) {
+      // Below the noise gate - not a payout event.
+      updatePrev();
+      return;
+    }
+    if (cur >= OCEAN_PAYOUT_THRESHOLD_SAT) {
+      // Residual is still above the threshold - a real payout
+      // always leaves residual near zero, so this is some other
+      // Ocean-side adjustment (a TIDES window rebalance, an
+      // accounting correction, etc.). Don't fire.
+      updatePrev();
+      return;
+    }
+    // All gates passed - fire once, advance the baseline.
+    const locale = numberLocale(state);
+    const payoutAmountSat = drop;
+    const payoutBtc = formatBtc(payoutAmountSat, locale);
+    const preDropStr = `${formatInteger(prev, locale)} sat`;
+    const residualStr = `${formatInteger(cur, locale)} sat`;
+    const payoutSatStr = formatInteger(payoutAmountSat, locale);
+    await this.alertManager.recordAlert({
+      severity: 'INFO',
+      title: copyFor(state).payout_initiated_title({ payout_btc: payoutBtc }),
+      body: copyFor(state).payout_initiated_body({
+        payout_sat: payoutSatStr,
+        payout_btc: payoutBtc,
+        pre_drop_unpaid: preDropStr,
+        residual_unpaid: residualStr,
+      }),
+      event_class: 'payout_initiated',
+    });
+    updatePrev();
+  }
+
+  /**
+   * #226: `payout_confirmed` - INFO Telegram alert when the on-chain
+   * scanner observes a coinbase output crediting the configured
+   * payout address. Detection: walk reward_events rows with `id` >
+   * `lastNotifiedRewardEventId` (and `reorged = 0`); fire one INFO
+   * per row; advance the watermark.
+   *
+   * Same silent-baseline contract as pool_block_credited: on first
+   * tick after a fresh boot where hydrate() didn't run, baseline
+   * from `maxId()` before processing so the boot-time backfill of
+   * historical rows doesn't flood Telegram.
+   */
+  private async evaluatePayoutConfirmed(
+    state: State,
+    disabledClasses: ReadonlySet<string>,
+  ): Promise<void> {
+    if (!state.config.notify_on_payout_confirmed) return;
+    if (disabledClasses.has('payout_confirmed')) return;
+    const repo = this.rewardEventsRepo;
+    if (!repo) return;
+    if (this.lastNotifiedRewardEventId === null) {
+      this.lastNotifiedRewardEventId = await repo.maxId().catch(() => null);
+      if (this.lastNotifiedRewardEventId === null) {
+        // Table genuinely empty - mark with -1 so the first ever
+        // row we see fires.
+        this.lastNotifiedRewardEventId = -1;
+      }
+      return;
+    }
+    const newRows = await repo
+      .sinceId(this.lastNotifiedRewardEventId)
+      .catch(() => [] as Awaited<ReturnType<typeof repo.sinceId>>);
+    const locale = numberLocale(state);
+    for (const row of newRows) {
+      const valueSatStr = formatInteger(row.value_sat, locale);
+      const valueBtcStr = formatBtc(row.value_sat, locale);
+      const heightStr = formatInteger(row.block_height, locale);
+      // #226 follow-up: txid intentionally omitted from the body for
+      // operator privacy. The chart already deep-links each payout
+      // marker to a block explorer; surfacing the txid in Telegram
+      // would broadcast it through whatever chat history the
+      // operator has retained, which is more exposure than the
+      // event itself warrants.
+      await this.alertManager.recordAlert({
+        severity: 'INFO',
+        title: copyFor(state).payout_confirmed_title({ payout_btc: valueBtcStr }),
+        body: copyFor(state).payout_confirmed_body({
+          payout_sat: valueSatStr,
+          payout_btc: valueBtcStr,
+          height: heightStr,
+        }),
+        event_class: 'payout_confirmed',
+      });
+      if (row.id > this.lastNotifiedRewardEventId) {
+        this.lastNotifiedRewardEventId = row.id;
+      }
+    }
   }
 
   // ---------------------------------------------------------------
@@ -943,7 +1237,7 @@ export class AlertEvaluator {
       disabledClasses: disabled,
       title: copyFor(state).solo_overheating_title({
         label: entry.device.label,
-        temp_c: reportedTemp.toFixed(1),
+        temp_c: formatFixed(reportedTemp, 1, numberLocale(state)),
         ceiling_c: reportedCeiling.toString(),
       }),
       titleForRecovery: copyFor(state).solo_overheating_title_recovery({
@@ -952,7 +1246,7 @@ export class AlertEvaluator {
       bodyForFiring: (durMs) =>
         copyFor(state).solo_overheating_body({
           label: entry.device.label,
-          temp_c: reportedTemp.toFixed(1),
+          temp_c: formatFixed(reportedTemp, 1, numberLocale(state)),
           ceiling_c: reportedCeiling.toString(),
           duration: formatDuration(durMs),
         }),
@@ -1069,7 +1363,7 @@ export class AlertEvaluator {
       title: copyFor(state).solo_share_rejection_title({ label: entry.device.label }),
       body: copyFor(state).solo_share_rejection_body({
         label: entry.device.label,
-        rate_pct: ratePct.toFixed(2),
+        rate_pct: formatFixed(ratePct, 2, numberLocale(state)),
         rejected: dRejected.toString(),
         total: total.toString(),
         window_min: state.config.solo_share_rejection_window_minutes.toString(),
@@ -1122,10 +1416,10 @@ export class AlertEvaluator {
     if (!result.isNewRecord || result.fleetMax === null) return;
     const prev = result.previousRecord;
     const copy = copyFor(state);
-    const diffStr = formatDifficultyCompact(result.fleetMax);
-    const prevStr = prev !== null ? formatDifficultyCompact(prev) : null;
+    const diffStr = formatDifficultyCompact(result.fleetMax, numberLocale(state));
+    const prevStr = prev !== null ? formatDifficultyCompact(prev, numberLocale(state)) : null;
     const improvementStr = prev !== null && prev > 0
-      ? (result.fleetMax / prev).toFixed(1)
+      ? formatFixed(result.fleetMax / prev, 1, numberLocale(state))
       : null;
     await this.alertManager.recordAlert({
       severity: 'INFO',
@@ -1150,14 +1444,20 @@ function pickLiveHashrate(entry: SoloMinerSnapshotEntry): number | null {
   return null;
 }
 
-function formatDifficultyCompact(v: number): string {
-  if (v >= 1e18) return `${(v / 1e18).toFixed(2)}E`;
-  if (v >= 1e15) return `${(v / 1e15).toFixed(2)}P`;
-  if (v >= 1e12) return `${(v / 1e12).toFixed(2)}T`;
-  if (v >= 1e9) return `${(v / 1e9).toFixed(2)}G`;
-  if (v >= 1e6) return `${(v / 1e6).toFixed(2)}M`;
-  if (v >= 1e3) return `${(v / 1e3).toFixed(2)}K`;
-  return v.toFixed(0);
+function formatDifficultyCompact(
+  v: number,
+  locale: Parameters<typeof formatFixed>[2],
+): string {
+  // SI-style prefix scaling. The trailing letter (E/P/T/G/M/K) is a
+  // unit suffix and stays the same across locales; only the numeric
+  // formatting differs.
+  if (v >= 1e18) return `${formatFixed(v / 1e18, 2, locale)}E`;
+  if (v >= 1e15) return `${formatFixed(v / 1e15, 2, locale)}P`;
+  if (v >= 1e12) return `${formatFixed(v / 1e12, 2, locale)}T`;
+  if (v >= 1e9) return `${formatFixed(v / 1e9, 2, locale)}G`;
+  if (v >= 1e6) return `${formatFixed(v / 1e6, 2, locale)}M`;
+  if (v >= 1e3) return `${formatFixed(v / 1e3, 2, locale)}K`;
+  return formatFixed(v, 0, locale);
 }
 
 function formatDuration(ms: number): string {
