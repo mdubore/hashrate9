@@ -19,9 +19,9 @@ Electrs, and Datum Gateway, backup hooks, and the runtime daemon entrypoint. `Ma
 StartOS-specific setup notes shown during install. The package build supports `x86_64` and `aarch64`; the
 `x86_64` package has been sideloaded and started on a StartOS server.
 
-Bug-fix note: the StartOS Bitcoin dependency must be declared as `bitcoind`, not `bitcoin`, so the package links
-correctly against Bitcoin Knots and Bitcoin Core services on StartOS. The StartOS package metadata is verified
-with dependency keys `bitcoind`, `electrs`, and `datum`.
+Current package note: this StartOS variation is synced with upstream Hashrate Autopilot v1.11.0 and carries the
+StartOS-specific build fixes needed to produce reproducible `.s9pk` packages from a clean checkout, including
+workspace library prebuilds, dashboard locale compilation before checks, and the v1.11.0 StartOS version graph.
 
 Use this repository when you want the StartOS package project. Use the original Umbrel metadata under
 `rdouma-hashrate-autopilot/` when targeting Umbrel.
