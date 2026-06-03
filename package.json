@@ -10,9 +10,11 @@
   },
   "scripts": {
     "build": "pnpm -r run build",
+    "build:workspace-libs": "pnpm --filter @hashrate-autopilot/shared --filter @hashrate-autopilot/bitcoind-client --filter @hashrate-autopilot/braiins-client run build",
     "build:startos": "rm -rf ./javascript && ncc build startos/index.ts -o ./javascript && node -e \"require('fs').writeFileSync('javascript/package.json', '{\\\"type\\\":\\\"commonjs\\\"}\\n')\"",
-    "typecheck": "pnpm -r run typecheck",
-    "test": "vitest run",
+    "prepare:checks": "pnpm run build:workspace-libs && pnpm --filter @hashrate-autopilot/dashboard run lingui:compile",
+    "typecheck": "pnpm run prepare:checks && pnpm -r run typecheck",
+    "test": "pnpm run prepare:checks && vitest run",
     "test:watch": "vitest",
     "check": "pnpm -w run lint && pnpm -w run typecheck && pnpm -w run test",
     "lint": "eslint .",

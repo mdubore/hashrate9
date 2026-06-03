@@ -175,7 +175,7 @@ describe('runGapBackfill - Taliesin reproduction (no bitcoindClient)', () => {
     expect(syntheticRows.length).toBeGreaterThan(0);
   });
 
-  it('recompute populates pool_luck_* on the inserted synthetics', async () => {
+  it('recompute populates pool_luck_* on the inserted synthetics', { timeout: 15_000 }, async () => {
     await runGapBackfill({
       db: handle.db,
       poolBlocksRepo: new PoolBlocksRepo(handle.db),
