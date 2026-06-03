@@ -791,95 +791,82 @@ export const HashrateChart = memo(function HashrateChart({
           // #243: per-window rejection rate from the cumulative-since-
           // bid-creation share counters. Braiins's counters update in
           // BATCHES (sometimes seconds, sometimes minutes between
-          // bumps). Most windows have Δpurchased = 0 (no batch sync
-          // yet), then one window has Δpurchased > 0 carrying the
-          // accumulated activity from prior idle windows.
+          // bumps); most ticks have Δpurchased = 0, then one tick has
+          // Δp > 0 carrying the accumulated activity.
           //
-          // Two earlier attempts both failed to match the operator's
-          // mental model:
-          //   - NULL on Δp=0: line was all gaps (95% of the chart).
-          //   - 0 on Δp=0:    line dropped to 0 between batches,
-          //                   visually pulling your eye toward "rate
-          //                   is near zero" while the card's
-          //                   weighted-average rate over the range
-          //                   was an order of magnitude higher.
-          //                   Operator caught this on a screenshot
-          //                   where the chart looked ~0% but the
-          //                   card said 0.05%.
-          //
-          // Fix: carry-forward the last known rate during batch
-          // gaps. Each batch-sync window emits a new measurement;
-          // intervening windows keep the previous reading. The line
-          // becomes a step function that reflects "this was the rate
-          // when we last had measurable activity." The
-          // chart-eye-average of a step-function line aligns with
-          // the card's weighted average over the same range -
-          // both reflect the same underlying truth.
+          // Compute by comparing each point to the PREVIOUS non-null
+          // counter point - no fixed window. This works uniformly
+          // across every range preset because the counters are
+          // cumulative: Δp / Δr over any spacing gives the rate for
+          // that interval. On raw-tick presets (3h/6h/12h/24h, 60 s
+          // spacing) Δp = 0 dominates and carry-forward fills the
+          // line between batch syncs. On bucketed presets (1w / 1m /
+          // 1y / All) each point is the end-of-bucket counter value
+          // and adjacent-point Δp is always meaningful, so the line
+          // emits a fresh measurement every bucket - which is why
+          // earlier builds with a fixed 5-min window had no visible
+          // line on 1w+ (5 min < bucket spacing → earliest-in-window
+          // was always the same point → no Δ computable).
           //
           // Semantics:
-          //   NULL = no measurement has happened yet within the
-          //          range (cold start before the first batch sync,
-          //          or just after a bid rotation reset). Line
-          //          starts dark.
-          //   carry = a previous batch sync produced a rate; no
-          //          fresher measurement in this window, so the
-          //          line holds the previous value.
-          //   new   = this window had Δp > 0; emit Δr/Δp * 100 as
-          //          the new measurement AND save it for carry-
-          //          forward by later windows.
+          //   NULL = no usable measurement yet (cold start before
+          //          the first non-null counter pair, or right after
+          //          a bid rotation reset).
+          //   carry = previous batch sync produced a rate; this
+          //          point has Δp = 0, so hold the previous value.
+          //          Visualises as a step function whose chart-eye
+          //          average matches the card's weighted average.
+          //   new   = this point has Δp > 0; emit Δr/Δp * 100 and
+          //          save for carry-forward.
           //
           // Bid rotation (Δp < 0 OR Δr < 0): reset to NULL so the
           // carry chain breaks; line goes dark across the rotation
           // until the new bid produces its first batch sync.
-          const windowMs = 5 * 60_000;
           const values: (number | null)[] = new Array(points.length);
           let lastKnown: number | null = null;
+          let prevIdx: number | null = null;
           for (let i = 0; i < points.length; i += 1) {
-            const tEnd = points[i]!.tick_at;
-            const tStart = tEnd - windowMs;
-            let earliestIdx = i;
-            while (
-              earliestIdx > 0 &&
-              points[earliestIdx - 1]!.tick_at >= tStart
-            ) {
-              earliestIdx -= 1;
-            }
-            if (earliestIdx === i) {
-              values[i] = lastKnown;
-              continue;
-            }
             const cp = points[i]!.primary_bid_shares_purchased_m;
-            const pp = points[earliestIdx]!.primary_bid_shares_purchased_m;
             const cr = points[i]!.primary_bid_shares_rejected_m;
-            const pr = points[earliestIdx]!.primary_bid_shares_rejected_m;
-            if (cp === null || pp === null || cr === null || pr === null) {
-              // Counters NULL across the window - either pre-#243
-              // rows (before column added) or getBidDetail failed
-              // throughout the window. Honest unknown; don't
-              // pollute carry-forward with stale value.
+            if (cp === null || cr === null) {
+              // Counter not captured this point (pre-#243 row or
+              // getBidDetail failed). Honest unknown; carry the
+              // last known rate. Don't advance prevIdx - keep
+              // referencing the last point with data.
               values[i] = lastKnown;
               continue;
             }
+            if (prevIdx === null) {
+              // First non-null counter in the range. Can't compute
+              // a delta yet; lock in as the baseline.
+              prevIdx = i;
+              values[i] = lastKnown;
+              continue;
+            }
+            const pp = points[prevIdx]!.primary_bid_shares_purchased_m!;
+            const pr = points[prevIdx]!.primary_bid_shares_rejected_m!;
             const dp = cp - pp;
             const dr = cr - pr;
             if (dp < 0 || dr < 0) {
-              // Bid rotation crossed the window. Reset carry-forward
-              // so the line goes dark until the new bid produces a
-              // measurement; carrying the OLD bid's rate forward
-              // across a reset would be wrong.
+              // Bid rotation between prev and curr (counter reset).
+              // Reset carry chain so the line goes dark until the
+              // new bid produces a measurement.
               lastKnown = null;
+              prevIdx = i;
               values[i] = null;
               continue;
             }
             if (dp === 0) {
-              // Batch-update gap: no shares cleared the window.
-              // Hold the last known rate. Most windows hit this.
+              // No fresh activity since the previous point. Hold
+              // the last known rate. Don't advance prevIdx - wait
+              // until Δp > 0 so we get a meaningful measurement.
               values[i] = lastKnown;
               continue;
             }
-            // New measurement: Δp > 0. Compute, save, emit.
+            // New measurement: Δp > 0. Compute, save, advance.
             lastKnown = (dr / dp) * 100;
             values[i] = lastKnown;
+            prevIdx = i;
           }
           return {
             values,
