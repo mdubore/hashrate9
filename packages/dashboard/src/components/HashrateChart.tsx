@@ -26,7 +26,12 @@ import {
 } from '@hashrate-autopilot/shared';
 
 import type { MetricPoint, OurBlockMarker } from '../lib/api';
-import { IpChangeMarkers, type IpChangeMarkerEvent } from './IpChangeMarkers';
+import {
+  IpChangeMarkers,
+  IpChangeTooltip,
+  type IpChangeMarkerEvent,
+  type IpChangeTooltipState,
+} from './IpChangeMarkers';
 import { getChartColor, parseOverrides } from '../lib/chartColors';
 import {
   formatAgeMinutes,
@@ -440,6 +445,8 @@ export const HashrateChart = memo(function HashrateChart({
   // chart; the marker only renders when the right axis is one of the
   // pool-luck variants (otherwise the line itself isn't drawn).
   const [stepTip, setStepTip] = useState<PoolLuckStepTooltipState | null>(null);
+  // #250: public-IP-change marker tooltip (router-icon hover).
+  const [ipChangeTip, setIpChangeTip] = useState<IpChangeTooltipState | null>(null);
   // #105: parity with PriceChart - operator can double chart height
   // for closer inspection of floor breaches / BIP 110 marker positions.
   // State is local; PriceChart's expand toggle is independent.
@@ -487,6 +494,27 @@ export const HashrateChart = memo(function HashrateChart({
     [],
   );
   const closeRetargetTip = useCallback(() => setRetargetTip(null), []);
+
+  const onIpChangeEnter = useCallback(
+    (event: IpChangeMarkerEvent, e: React.MouseEvent) => {
+      setIpChangeTip((prev) => {
+        if (prev?.pinned) return prev;
+        return { event, x: e.clientX, y: e.clientY, pinned: false };
+      });
+    },
+    [],
+  );
+  const onIpChangeLeave = useCallback(() => {
+    setIpChangeTip((prev) => (prev?.pinned ? prev : null));
+  }, []);
+  const onIpChangeClick = useCallback(
+    (event: IpChangeMarkerEvent, e: React.MouseEvent) => {
+      e.stopPropagation();
+      setIpChangeTip({ event, x: e.clientX, y: e.clientY, pinned: true });
+    },
+    [],
+  );
+  const closeIpChangeTip = useCallback(() => setIpChangeTip(null), []);
 
   const onStepEnter = useCallback(
     (event: PoolLuckStepEvent) => (e: React.MouseEvent) => {
@@ -1805,6 +1833,9 @@ export const HashrateChart = memo(function HashrateChart({
           dataMaxX={dataMaxX}
           topY={PADDING.top}
           bottomY={chartHeight - PADDING.bottom}
+          onMarkerEnter={onIpChangeEnter}
+          onMarkerLeave={onIpChangeLeave}
+          onMarkerClick={onIpChangeClick}
         />
 
         <defs>
@@ -1941,6 +1972,13 @@ export const HashrateChart = memo(function HashrateChart({
           explorerTemplate={blockExplorerTemplate ?? ''}
           locale={intlLocale}
           onClose={closeStepTip}
+        />
+      )}
+      {ipChangeTip && (
+        <IpChangeTooltip
+          tip={ipChangeTip}
+          onClose={closeIpChangeTip}
+          pinnedDomId="hashrate-chart-pinned-ipchange-tooltip"
         />
       )}
     </div>

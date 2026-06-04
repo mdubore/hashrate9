@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-06-04
+
+### `[UI]` IP-change marker now uses the styled tooltip and locale-aware date/time (#250 follow-up)
+
+The router-icon marker on the hashrate and price charts used to surface a native browser tooltip via the SVG `<title>` element, with the date rendered through `toLocaleString()` (no locale arg) - so users with non-en preferences saw `6/4/2026, 3:22:17 AM` regardless of their dashboard language. Replaced with the same floating panel that pool-block and difficulty-retarget markers use: sky-300 uppercase header, monospace IP pair separated by the Unicode arrow `→`, and the timestamp formatted through `useFormatters().timestamp()` so it picks up both the display locale and the configured date layout. Hover to preview, click to pin. Translations cover en + nl + es.
+
 ## 2026-06-03
 
 ### `[UI]` Chart bucket size now scales smoothly with the visible span (no more 30× cliff at 24h)
