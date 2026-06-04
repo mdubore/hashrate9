@@ -2,6 +2,10 @@
 
 ## 2026-06-04
 
+### `[UI]` Multi-event pool-luck tooltip: badges have fixed width and every block has its own explorer link
+
+Two refinements to the combined tooltip from build 597. The `found` / `aged out` badges have different intrinsic widths, so block heights following them didn't align vertically across the per-event panels. The badges now sit in a fixed-width centered slot, so heights line up cleanly down the tooltip. Also, each event panel now carries its own "open in explorer →" link instead of only the last panel — when two blocks contribute to the same step, both should be inspectable directly.
+
 ### `[Docs]` Rejection-rate tooltip cites both Braiins's inherent rate and realistic end-to-end values
 
 Build 594 introduced a tooltip on the Braiins rejection-rate row that called 0.05 % the "healthy baseline." That number is correct as Braiins's own published inherent marketplace-routing rate (per their academy / trading FAQ, recorded in `docs/research.md`), but it's only achievable when nothing miner-side is wrong — most end-to-end home setups land between 0.05 % and 0.5 % even when everything is healthy, and ChatGPT-style sources reasonably cite that wider range. Rewrote the tooltip to surface both anchors: 0.05 % as Braiins's inherent rate (best case), 0.05-0.5 % as the practical healthy range you'd typically see, and >1 % as the threshold for investigation. Added a sentence noting rejected shares are still paid for under Braiins's terms (the buyer is responsible for target-pool quality), which is the load-bearing reason to keep the rate visible at all. Translations updated en + nl + es.

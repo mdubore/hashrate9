@@ -2574,7 +2574,6 @@ function PoolLuckStepTooltip({
         const { kind, block } = ev;
         const url = applyExplorerTemplate(explorerTemplate, block);
         const rewardBtc = block.total_reward_sat / 1e8;
-        const isLast = i === events.length - 1;
         return (
           <div
             key={`${kind}-${block.height}`}
@@ -2586,8 +2585,11 @@ function PoolLuckStepTooltip({
           >
             <div className="flex items-baseline gap-2">
               {events.length > 1 && (
+                // Fixed-width centered slot so 'FOUND' and 'AGED OUT'
+                // occupy the same horizontal space and the following
+                // block heights line up across multi-event rows.
                 <span
-                  className={`text-[10px] uppercase tracking-wider px-1 py-0.5 rounded ${
+                  className={`text-[10px] uppercase tracking-wider px-1 py-0.5 rounded inline-block w-20 text-center ${
                     kind === 'in'
                       ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-800'
                       : 'bg-red-900/40 text-red-300 border border-red-800'
@@ -2625,7 +2627,7 @@ function PoolLuckStepTooltip({
             <div className="mt-1 space-y-0.5 text-slate-300">
               <BtcRow label={t`pool reward`} btc={rewardBtc} locale={locale} />
             </div>
-            {pinned && isLast && url && (
+            {pinned && url && (
               <div className="mt-2 flex items-center justify-end gap-3">
                 <a
                   href={url}
