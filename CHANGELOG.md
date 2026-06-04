@@ -2,6 +2,10 @@
 
 ## 2026-06-04
 
+### `[Infra]` Public-IP poll interval dropped from 5 min to 60 s
+
+The daemon polls api.ipify.org to keep its view of the box's public IPv4 in sync; that interval was 5 min, which meant up to 5 min between a router IP rotation and the DDNS updater noticing. Dropped to 60 s so the worst-case detection lag is now ~1 min, the DDNS A record gets refreshed correspondingly fast, and the rejection-rate spike that follows a router IP change (Datum and Braiins connections re-establishing) is shorter. ipify.org has no published rate limit and serves billions of requests/day; 60 calls/hour per box is well within "polite use."
+
 ### `[Fix]` Pool-luck step dots now place at the block's actual timestamp, not by scanning for count changes
 
 Two cases were producing wrong or missing dots on the pool-luck right-axis line:

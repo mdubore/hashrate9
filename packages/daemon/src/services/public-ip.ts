@@ -18,7 +18,14 @@
  */
 
 const IPIFY_URL = 'https://api.ipify.org';
-const DEFAULT_POLL_INTERVAL_MS = 5 * 60_000; // 5 min
+// 60 s default. ipify.org has no published rate limit and routinely
+// serves billions of requests/day - 60 calls/hour per box is well
+// within "polite." Tighter cadence cuts the worst-case
+// IP-change-detection lag from ~5 min to ~1 min, which shortens the
+// rejection-rate spike from a router rotation and gets the new IP
+// to the DDNS updater fast enough that the public DNS A record
+// matches reality within a poll-cycle.
+const DEFAULT_POLL_INTERVAL_MS = 60_000;
 
 export interface PublicIpSnapshot {
   readonly ip: string | null;
