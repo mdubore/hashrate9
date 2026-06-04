@@ -2584,20 +2584,21 @@ function PoolLuckStepTooltip({
             }
           >
             <div className="flex items-baseline gap-2">
-              {events.length > 1 && (
-                // Fixed-width centered slot so 'FOUND' and 'AGED OUT'
-                // occupy the same horizontal space and the following
-                // block heights line up across multi-event rows.
-                <span
-                  className={`text-[10px] uppercase tracking-wider px-1 py-0.5 rounded inline-block w-20 text-center ${
-                    kind === 'in'
-                      ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-800'
-                      : 'bg-red-900/40 text-red-300 border border-red-800'
-                  }`}
-                >
-                  {kind === 'in' ? <Trans>found</Trans> : <Trans>aged out</Trans>}
-                </span>
-              )}
+              {/* Green FOUND / red AGED OUT badge on every event panel,
+                  not only multi-event groups. The traffic-light cue
+                  is a fast visual read of what kind of step the dot
+                  represents. Fixed-width centered slot so 'FOUND' and
+                  'AGED OUT' occupy the same horizontal space and the
+                  block heights line up across rows. */}
+              <span
+                className={`text-[10px] uppercase tracking-wider px-1 py-0.5 rounded inline-block w-20 text-center ${
+                  kind === 'in'
+                    ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-800'
+                    : 'bg-red-900/40 text-red-300 border border-red-800'
+                }`}
+              >
+                {kind === 'in' ? <Trans>found</Trans> : <Trans>aged out</Trans>}
+              </span>
               <span className="font-mono text-slate-300">
                 #{block.height.toLocaleString(locale)}
               </span>

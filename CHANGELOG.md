@@ -2,6 +2,10 @@
 
 ## 2026-06-04
 
+### `[UI]` Green `FOUND` / red `AGED OUT` badge now appears on every pool-luck tooltip
+
+The badge was added in build 597 only when two events combined in one tick. Operator preference is to keep it visible on every pool-luck event panel - the traffic-light cue (green = block landed, red = block aged out) is a faster visual read than the +/- in the header. The badge stays in the same fixed-width centered slot so block heights line up cleanly under it regardless of whether the panel is part of a single- or multi-event tooltip.
+
 ### `[UI]` Multi-event pool-luck tooltip: badges have fixed width and every block has its own explorer link
 
 Two refinements to the combined tooltip from build 597. The `found` / `aged out` badges have different intrinsic widths, so block heights following them didn't align vertically across the per-event panels. The badges now sit in a fixed-width centered slot, so heights line up cleanly down the tooltip. Also, each event panel now carries its own "open in explorer →" link instead of only the last panel — when two blocks contribute to the same step, both should be inspectable directly.
