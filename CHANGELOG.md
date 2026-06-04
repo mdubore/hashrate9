@@ -2,6 +2,10 @@
 
 ## 2026-06-04
 
+### `[Docs]` Rejection-rate tooltip cites both Braiins's inherent rate and realistic end-to-end values
+
+Build 594 introduced a tooltip on the Braiins rejection-rate row that called 0.05 % the "healthy baseline." That number is correct as Braiins's own published inherent marketplace-routing rate (per their academy / trading FAQ, recorded in `docs/research.md`), but it's only achievable when nothing miner-side is wrong — most end-to-end home setups land between 0.05 % and 0.5 % even when everything is healthy, and ChatGPT-style sources reasonably cite that wider range. Rewrote the tooltip to surface both anchors: 0.05 % as Braiins's inherent rate (best case), 0.05-0.5 % as the practical healthy range you'd typically see, and >1 % as the threshold for investigation. Added a sentence noting rejected shares are still paid for under Braiins's terms (the buyer is responsible for target-pool quality), which is the load-bearing reason to keep the rate visible at all. Translations updated en + nl + es.
+
 ### `[UI]` Pool-luck dots group multi-event ticks into a single marker with a combined tooltip
 
 Build 595 fixed dots binding to the wrong block when two events landed in the same daemon tick, but it still showed two overlapping dots and each tooltip described only one block's contribution — misleading when, say, an aged-out and a found event cancel in the count but the luck still jumps (window denominator shifts). The marker now collapses all events at the same tick into a single dot. Tooltip behaviour: one event = the familiar single-block readout; multiple events = a "N events landed in the same daemon tick" summary plus a per-event block listing with a green `found` or red `aged out` badge, so the operator can see which blocks combined to produce the visible luck step. Translations cover en + nl + es.

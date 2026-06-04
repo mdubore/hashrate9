@@ -702,7 +702,7 @@ export function Status() {
                 maximumFractionDigits: 2,
               }).format(pct)}%`;
             })()}
-            tooltip={t`Share of Braiins-purchased shares the pool rejected, computed over the selected chart range. Server-side: (Δrejected_m / Δpurchased_m) × 100 across the first and last non-null cumulative counter samples in the range. Updates with the range selector above (3h / 6h / 24h / 1w / 1m / 1y / All). Healthy baseline is ~0.05 %; sustained values much above that mean shares are arriving stale (Datum behind on work) or invalid (worker identity misconfig, ASIC trouble).`}
+            tooltip={t`Share of Braiins-purchased shares the pool rejected, computed over the selected chart range. Server-side: (Δrejected_m / Δpurchased_m) × 100 across the first and last non-null cumulative counter samples in the range. Updates with the range selector above (3h / 6h / 24h / 1w / 1m / 1y / All). Reference points: Braiins documents ~0.05 % as their inherent marketplace-routing rate (best case when nothing miner-side is wrong); in practice, end-to-end values of 0.05-0.5 % are typical and considered healthy. Sustained values above ~1 % suggest something to investigate - stale shares from Datum being behind, worker identity misconfig, ASIC trouble, or pool-side issues. Rejected shares are still paid for under Braiins's terms (the buyer is responsible for target-pool quality).`}
           />
           {/* #144: gate on current-delivered-below-floor in addition to
               the daemon's debounce-held `below_floor_since` timer. The
