@@ -7,7 +7,7 @@ manifestVersion: 1
 id: rdouma-hashrate-autopilot
 category: bitcoin
 name: Hashrate Autopilot
-version: "1.11.0"
+version: "1.12.0"
 tagline: Autopilot for renting hashrate to mine on Ocean Mining
 icon: https://raw.githubusercontent.com/rdouma/hashrate-autopilot/main/assets/icon-512.png
 # Umbrel renders description literally - no YAML folding of soft
@@ -51,6 +51,33 @@ defaultPassword: ""
 submitter: Remco Douma
 submission: https://github.com/rdouma/hashrate-autopilot
 releaseNotes: |
+  v1.12.0 - public-IP change tracking, drag-to-reorder dashboard, configurable marker colors, return-on-spend, Bitaxe rename.
+
+  NEW
+  - Public-IP change tracking (#250): the daemon polls api.ipify.org every 60 seconds (down from 5 minutes) and writes a row to a new ip_change_events table whenever the public IPv4 actually changes. Each rotation shows up as a router-icon marker at the top of the hashrate chart with a styled tooltip listing the old → new IP pair and the locale-formatted detection time; the DDNS card on Config → Pool & Payout carries an "IP last changed" timestamp. The DDNS updater now also pushes immediately on a change instead of waiting for the next hourly heartbeat, so the public DNS A record stays in sync within ~60 seconds of an ISP rotation. Rejection-rate spikes can be lined up directly against IP rotations on the chart.
+  - Drag-to-reorder Status page (#244): every block on the dashboard is draggable. Hit "Rearrange" in the top bar, drag the cards into the order you want (e.g. lifetime P&L up top, or the hashrate and price charts reordered independently), then click "Done". Order is saved per device in the browser so your phone and your desktop each keep their own arrangement. New blocks in future releases slot into their default position rather than getting buried at the bottom.
+  - Configurable chart marker colors: five new override slots in the chart-color picker covering the BIP 110-signalling cube, difficulty-retarget pickaxe, public-IP-change router, on-chain payout gem, and Braiins deposit fuel-pump markers. The Config → Display & Logging chart-color section was reshuffled into three groups (Hashrate chart, Price chart, Markers) with a live SVG preview next to each row, so the row labelled "own pool block" actually shows the crown that will appear on the chart.
+  - Return on spend (#249): the lifetime Profit & Loss card now shows net divided by spent as a percentage in its own row under "= net". Reads as "how much have we made (or lost) relative to what we paid for hashrate". Near -100% at the start of a run when only spend has happened; walks toward 0% as Ocean earnings and on-chain payouts land; positive once total earnings exceed total spend. Translated en + nl + es.
+  - Braiins share-rejection rate (#243): per-tick snapshot of the primary owned bid's cumulative share counters from Braiins's /spot/bid/detail endpoint, surfaced as a "rejection rate" row on the Braiins service card and as a right-axis option on the Hashrate chart. The card and chart now use the same server-side calculation (rejected / purchased across the selected chart range) so values agree across 3h / 6h / 24h / 1w / 1m / 1y / All.
+
+  IMPROVEMENTS
+  - Pool-luck step dots reworked: the dots on the pool-luck right-axis line now anchor at the block's actual timestamp instead of scanning forward for a count change, so they no longer mis-label when two blocks' events interact. When two block events land in the same daemon tick (e.g. one block ages out while another is found) the markers collapse into a single dot with a combined tooltip that lists each contributing block under a green "FOUND" or red "AGED OUT" badge.
+  - Chart bucket scaling now smooth: scrolling the hashrate chart through 24h no longer produces a sudden 30x jump in detail level. The bucket size is a continuous function of the visible span (one bucket per minute at 24h, scaled proportionally for wider spans) instead of a 4-tier ladder with hard boundaries.
+  - "Solo miners" renamed to "Bitaxe miners" everywhere it's user-facing: dashboard card, Config tab, alert labels, right-axis series labels. The integration only ever supported AxeOS firmware, so the new name says what it actually does. Internal field names are unchanged so existing alert subscriptions and saved configurations keep working without operator intervention.
+  - Rejection-rate tooltip cites both Braiins's documented inherent rate (0.05%) and the practical end-to-end healthy range (0.05-0.5%) so the operator sees both anchors instead of an unrealistically tight number.
+  - Range-bound values now explain themselves on hover: the Braiins card's rejection rate, the stat-bar AVG cards (uptime / Braiins / Datum / Ocean / cost-vs-hashprice), and the per-day P&L mini-cards all carry tooltips that say "computed over the selected chart range" so it's clear which numbers move when you change the range selector.
+  - IP-change markers use the styled tooltip pattern (same dark slate panel + locale-aware date as pool-block markers), not the browser's native title attribute.
+  - Percent sign and Satoshi symbol now align consistently across cards: same small leading space and same muted slate colour on every row that ends in % or the sat glyph.
+  - Several small chart fixes: rejection-rate chart line appears on bucketed presets (1w / 1m / 1y / All) instead of dropping out, negative-Δrejected aggregation artefacts no longer produce nonsensical negative rates, the card and the chart line agree across every range preset.
+
+  FIXES
+  - Daemon crash safety net: the migration runner now catches "duplicate column name" and "already exists" errors and stamps the migration as applied, so a half-applied schema state self-heals on the next boot instead of crash-looping. Recovers cleanly from situations where a column was added by one release, the release was reverted, and a later release reused the same column name.
+  - Migration 0107 scrubs orphan May 5-6 share-counter rows left behind by the reverted #90 acceptance-ratio infrastructure. No-op on clean installs.
+  - The IP-change marker is only drawn on the Hashrate chart now (was also showing on the Price chart, where it added no signal).
+  - Hashrate-below-floor Telegram alert no longer fires on the same tick that the hashrate has already recovered (#242). The debounce-aware "is bad" flag and the actual current hashrate are reconciled before sending.
+
+  New migrations 0106-0109 (Braiins share counters, orphan-row scrub, dashboard card order, ip_change_events table). Safe to upgrade from any 1.11.x release.
+
   v1.11.0 - BIP 110 scanner restructure, Telegram payout-lifecycle alerts, chart color picker, offline-period reconstruction.
 
   NEW

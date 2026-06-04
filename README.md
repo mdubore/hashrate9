@@ -175,11 +175,13 @@ Full design: [`docs/spec.md`](docs/spec.md) · [`docs/architecture.md`](docs/arc
   5 min plus one at each detected difficulty retarget so the pool-luck line step-changes through the gap
   and retarget markers land at (close to) canonical time even after long outages, stats bar (uptime, three
   side-by-side avg-hashrate cards for Braiins / Datum / Ocean, cost metrics), service panels that include
-  a runway forecast AND an instantaneous Braiins share-rejection rate on the Braiins card (10-min rolling
-  window; also available as a chart right-axis series so the operator can see when the rate spiked - #243),
-  split P&L panels (period and lifetime - "collected (on-chain)"
-  reads lifetime received from `reward_events`, not current UTXO balance, so a payout that's been spent
-  still counts), live bid table with full IDs, and a full config editor with live reload.
+  a runway forecast AND a Braiins share-rejection rate on the Braiins card (computed server-side from
+  raw `tick_metrics` rows over the selected chart range; also available as a chart right-axis series so
+  the operator can see when the rate spiked - #243), split P&L panels (period and lifetime - "collected
+  (on-chain)" reads lifetime received from `reward_events`, not current UTXO balance, so a payout that's
+  been spent still counts; the lifetime panel also carries a dedicated **return on spend** row showing
+  `net / spent` as a percentage so the operator can read the rate of return alongside the absolute net
+  figure - #249), live bid table with full IDs, and a full config editor with live reload.
 - **Unit toggles in the header** - hashrate displays as TH/s, PH/s, or EH/s and prices as sat, ₿ (BTC), or
   USD. Both pickers persist per browser. The USD path uses a live BTC oracle (CoinGecko, Coinbase, Bitstamp,
   or Kraken; pick one) refreshed daemon-side every 4 minutes so it stays current even when the dashboard tab
@@ -196,38 +198,39 @@ Full design: [`docs/spec.md`](docs/spec.md) · [`docs/architecture.md`](docs/arc
   vocabulary so the rare events stand out. All markers use Lucide icons for visual consistency. **Own block** (Ocean credited the coinbase to your payout
   address - the lottery-win case) renders as a **gold crown**. **BIP 110-signalling pool block**
   (header version bit 4 set; Reduced Data Temporary Soft Fork) renders as a **yellow box**. **Default pool block**
-  renders as a **blue box**. **Difficulty retargets** show a **violet pickaxe**. **Solo fleet best difficulty records** show a **gold trophy** with a dashed vertical line. Tooltip header label and colour follow the same precedence (own > BIP 110 >
+  renders as a **blue box**. **Difficulty retargets** show a **violet pickaxe**. **Bitaxe miner best difficulty records** show a **gold trophy** with a dashed vertical line. Tooltip header label and colour follow the same precedence (own > BIP 110 >
   default). Detection happens daemon-side via your bitcoind RPC (`getblockheader`) or Electrs
-  (`blockchain.block.header`) - no third-party API. A separate **BIP 110 scan card** on the Status page
+  (`blockchain.block.header`) - no third-party API. **Public-IP change markers** (sky router icons) appear at the top of the Hashrate chart whenever the daemon's IP poller (60 s cadence to `api.ipify.org`) observes a different public IP; the marker's styled tooltip shows the old → new IP pair and locale-formatted detection time, and the DDNS card on the Pool & Payout tab carries an "IP last changed" timestamp so rejection-rate spikes can be correlated against ISP rotation events. Each pool-luck step-marker tooltip carries a green `FOUND` or red `AGED OUT` badge per contributing block; multiple events landing in the same daemon tick (e.g. one block ages out while another lands) collapse into a single dot with both blocks' detail panels. A separate **BIP 110 scan card** on the Status page
   lets you scan signaling by difficulty epoch (toggle: `Current epoch` for the live MASF window, or `All` for everything since block 938,903 - the first known BIP 110 signaling block, found 2026-03-01). Per-epoch breakdown rows expand to show their signaling blocks inline (Pool / Miner column split - Ocean blocks surface both the pool wrapper and the inner template-author tag; non-Ocean blocks show the pool tag alone). Each row carries a MASF progress bar against the 55% threshold (`ceil(2016 × 0.55) = 1109` signaling blocks). The deployment-status badge has a lifecycle-aware tooltip naming both paths: miner-activated (MASF, 55% in any epoch locks in early) and user-activated (UASF, block height 965,664 enforced unconditionally regardless of signaling); when LOCKED_IN or ACTIVE the wording adapts. The forecasted UASF date is dynamic - `now + (965,664 − tip) × 600s`, matching every block-time calculator (currently early-September 2026 at typical block rate). Block markers and retarget icons are mirrored onto the price chart, so the operator sees these events in
   context on both charts. **Braiins deposit markers** (purple fuel-pump icons) appear on the Price chart whenever Braiins credits a deposit to your marketplace wallet. The marker is positioned at the Bitcoin transaction timestamp from the Braiins API. When the right-axis series is `total_balance_sat`, a purple dot appears on the balance line at the step-up caused by the deposit, with a dotted connector line back to the fuel icon so the operator can visually trace which deposit caused which balance jump. Hovering either the fuel icon or the dot opens the same tooltip with deposit amount, transaction ID, and timing. **On-chain payout gems** (emerald) appear at the top of the Price chart with a dashed vertical line whenever a payout is detected on-chain; clicking opens a tooltip with block height, date, amount, and a block-explorer deep-link. A purple dot on the unpaid-earnings line marks the earlier moment Ocean debited the balance (payout initiated), bridging the visual gap between the unpaid drop and the on-chain confirmation.
 - **Telegram notifications** - three severity tiers across eighteen event classes. **IMPORTANT** (red, with a
   retry ladder and paired recovery messages): Datum stratum unreachable, hashrate below floor, zero
   hashrate, Braiins API unreachable, unknown bid detected, bid sustained-paused, wallet runway below
   threshold, and the Braiins-side compliance-returned deposit. **WARNING** (amber): Braiins beta-exit
-  fees detected. **INFO** (slate, opt-in good news): pool block credited via TIDES (with a "+ ON-CHAIN PAYOUT" title suffix and payout amount when the block triggers a payout), Braiins deposit detected (mempool / first-confirmation), Braiins deposit available (compliance-cleared and spendable), marketplace empty (reachable but no supply; won't double-fire with the API-unreachable alert during outages), solo fleet best difficulty (new all-time high share difficulty record).
+  fees detected. **INFO** (slate, opt-in good news): pool block credited via TIDES (with a "+ ON-CHAIN PAYOUT" title suffix and payout amount when the block triggers a payout), Braiins deposit detected (mempool / first-confirmation), Braiins deposit available (compliance-cleared and spendable), marketplace empty (reachable but no supply; won't double-fire with the API-unreachable alert during outages), Bitaxe miner best difficulty (new all-time high share difficulty record).
   Each event class has its own opt-out toggle; timer-driven events carry an inline minute threshold so
   the operator can tune "how long bad before I get paged" per-event. Messages localise to the operator's
   chosen language (English / Dutch / Spanish, independent of the dashboard's display language). Setup
   walkthrough at [`docs/setup-telegram.md`](docs/setup-telegram.md). The notifier is structured around a
   `NotificationSink` interface so a future Nostr / ntfy / email backend can slot in without touching the
   event detectors. Audit trail at the dedicated `/alerts` page.
-- **Solo-mining monitoring (Bitaxe / AxeOS)** - optional fleet monitor for home Bitaxe / Nerdaxe / ESP-Miner
-  units alongside the autopilot's rented Braiins hashrate. When enabled, the daemon polls each registered
-  device's `/api/system/info` every tick (2 s per-device timeout, parallel poll so one unreachable unit
-  doesn't block the rest). Per-device readings on the Status page: hashrate, ASIC + VR temperature, power
-  draw, share-rejection rate, best-ever-difficulty, uptime. Fleet footer aggregates total hashrate, total
-  watts, J/TH efficiency, and active-device count. Five Telegram event classes (independently
-  opt-out-able): four IMPORTANT - **overheating** (75 °C ASIC ceiling matching AxeOS firmware's THROTTLE_TEMP, with a
-  global override; VR has a separate 100 °C ceiling), **zero hashrate / unreachable**, **share-rejection
-  high** (rolling-window threshold), and **stratum URL drift** (firmware silently re-pointed at a
-  different pool) - plus one INFO: **fleet best difficulty** (new all-time high share difficulty record,
-  rendered as a staircase line with trophy markers on the Hashrate chart). Device management lives in Config -> Display & Logging -> Solo miners; a
-  "Scan local network" button probes the daemon's /24 subnet (or a CIDR you type in the
-  override field - required on Umbrel, where the daemon sits on the docker bridge subnet and
-  not the host LAN) and returns AxeOS-shaped responders so adding a fleet doesn't require
-  typing every IP. Master `solo_mining_enabled` toggle defaults off and
-  hides the Status card + alerts when disabled.
+- **Bitaxe miner monitoring** - optional fleet monitor for home Bitaxe / Nerdaxe / ESP-Miner units
+  (anything running AxeOS firmware) alongside the autopilot's rented Braiins hashrate. The integration is
+  AxeOS-specific, not solo-mining-in-general; a Bitaxe can mine to a pool just as easily as solo. When
+  enabled, the daemon polls each registered device's `/api/system/info` every tick (2 s per-device
+  timeout, parallel poll so one unreachable unit doesn't block the rest). Per-device readings on the
+  Status page: hashrate, ASIC + VR temperature, power draw, share-rejection rate, best-ever-difficulty,
+  uptime. Fleet footer aggregates total hashrate, total watts, J/TH efficiency, and active-device count.
+  Five Telegram event classes (independently opt-out-able): four IMPORTANT - **overheating** (75 °C ASIC
+  ceiling matching AxeOS firmware's THROTTLE_TEMP, with a global override; VR has a separate 100 °C
+  ceiling), **zero hashrate / unreachable**, **share-rejection high** (rolling-window threshold), and
+  **stratum URL drift** (firmware silently re-pointed at a different pool) - plus one INFO: **best
+  difficulty** (new all-time high share difficulty record, rendered as a staircase line with trophy
+  markers on the Hashrate chart). Device management lives in Config -> Display & Logging -> Bitaxe
+  miners; a "Scan local network" button probes the daemon's /24 subnet (or a CIDR you type in the
+  override field - required on Umbrel, where the daemon sits on the docker bridge subnet and not the host
+  LAN) and returns AxeOS-shaped responders so adding a fleet doesn't require typing every IP. Master
+  toggle defaults off and hides the Status card + alerts when disabled.
 - **Block-found audible cue** - optional sound when Ocean credits your address with a new pool block. Five
   bundled cues (cowbell, glass-drop-and-roll, two metallic clanks, and an "Ocean mining found a block"
   voice clip) plus custom MP3 / OGG / WAV / WebM upload up to 200 KB. Plays once per new block; the
@@ -300,7 +303,7 @@ live).
 
 ### Pool & Payout
 
-![Config → Pool & Payout tab](docs/images/config-pool-and-payout.jpg)
+![Config → Pool & Payout tab](docs/images/config-pool-and-payout.png)
 
 **Pool destination** (pool URL, BTC payout address, worker identity auto-derived from the address, Datum
 stats API URL), **Dynamic DNS** (No-IP / DuckDNS / generic dyndns2 - daemon-managed alternative to your
@@ -315,12 +318,12 @@ the sat ↔ USD header toggle; CoinGecko / Coinbase / Bitstamp / Kraken).
 
 ### Notifications
 
-![Config → Notifications tab](docs/images/config-notifications.jpg)
+![Config → Notifications tab](docs/images/config-notifications.png)
 
 **Telegram notifications** - bot token, chat id, optional instance label, retry interval, master
 **Send messages to Telegram** switch, and a language picker (alert copy can run in a different
 language from the dashboard if you'd rather read the chat in English while the UI is in Dutch). Below
-that, eighteen event-class tiles grouped by source (Datum / Braiins marketplace / Ocean / Solo miners), each with a
+that, eighteen event-class tiles grouped by source (Datum / Braiins marketplace / Ocean / Bitaxe miners), each with a
 severity pill (IMPORTANT red, WARNING amber, INFO slate) so the operator can tell at a glance which
 bucket each one fires at. Tiles for timer-driven events (Datum unreachable, hashrate floor, zero
 hashrate, API unreachable, sustained-paused, wallet runway) carry an inline minute input so the
@@ -335,7 +338,7 @@ drop, two metallic clanks, an "Ocean mining found a block" voice clip - or uploa
 
 ![Config → Display & Logging tab](docs/images/config-display-and-logging.png)
 
-**Display** (number format, date layout, and temperature unit (°C / °F) - now daemon-managed config so Telegram render path uses the same formatting as the dashboard; database stays in °C, conversion at the display boundary only), **Chart colors** (per-series color overrides for every named line and event marker on the Hashrate and Price charts - curated 12-swatch palette + native color picker + reset-to-default; #238), **Block
+**Display** (number format, date layout, and temperature unit (°C / °F) - now daemon-managed config so Telegram render path uses the same formatting as the dashboard; database stays in °C, conversion at the display boundary only), **Chart colors** (per-series and per-marker color overrides for every named element on the Hashrate and Price charts - curated 12-swatch palette + native color picker + reset-to-default. Organised into three groups: **Lines** for each chart's left/right-axis line series, **Markers** for the cross-chart icons (pool block cube, BIP 110-signalling cube, own-pool-block crown, difficulty-retarget pickaxe, public-IP-change router, on-chain payout gem, Braiins deposit fuel pump), and **Bid events** for the per-tick create/edit/cancel glyphs. Each row carries a live preview of its actual chart glyph so the picker shows what the marker will look like; #238), **Block
 explorer** (separate URL templates for blocks and transactions; preset buttons for mempool.space /
 blockstream.info / blockchair / btcscan / btc.com set both at once, custom self-hosted explorers can fill
 in either independently), **Chart smoothing** (rolling-mean window per-source on the hashrate chart plus
@@ -790,3 +793,9 @@ own funds, your own API keys, and the legal status of hashrate trading in your j
 ## License
 
 MIT - see [`LICENSE`](LICENSE).
+
+## Tip jar
+
+This is a passion project. I run it for my own setup and ship it because I think keeping mining decentralized is worth making easier. There's no paywall and never will be. But if it has saved you time, kept your hashrate profitable, or you just like that it exists, a tip is welcome.
+
+**Bitcoin:** `bc1qc5ad3ec655d8m4mt58pk39lkrsc222hk20rd73`

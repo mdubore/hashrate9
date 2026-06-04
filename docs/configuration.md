@@ -170,7 +170,7 @@ issue #60.
 | `BHA_BLOCK_FOUND_SOUND` | `block_found_sound` | `off`, `cartoon-cowbell`, `glass-drop-and-roll`, `metallic-clank-1`, `metallic-clank-2`, `ocean-mining-found-block`, `custom` |
 | `BHA_DISPLAY_NUMBER_LOCALE` | `display_number_locale` | `system` (default), `en-US`, `nl-NL`, `fr-FR`, `no-grouping` (#227 follow-up, migration 0102) |
 | `BHA_DISPLAY_DATE_LAYOUT` | `display_date_layout` | `system` (default), `us`, `eu-spaced-24h`, `slash-dmy-24h`, `iso`, `slash-mdy-12h` (#227 follow-up, migration 0102) |
-| `BHA_CHART_COLOR_OVERRIDES` | `chart_color_overrides` | JSON object keyed by series name with `#RRGGBB` values, default `{}` (#238, migration 0103) |
+| `BHA_CHART_COLOR_OVERRIDES` | `chart_color_overrides` | JSON object keyed by series/marker name with `#RRGGBB` values, default `{}`. Covers 22 named slots (11 line series + 7 marker icons + 4 bid-event glyphs); see `docs/spec.md` §8 for the full key list. (#238 + v1.12 marker keys, migration 0103) |
 | `BHA_DEBUG_API_ENABLED` | `debug_api_enabled` | boolean |
 
 ## Process-level env vars (not config overrides)

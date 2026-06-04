@@ -2,6 +2,10 @@
 
 ## 2026-06-04
 
+### `[Release]` v1.12.0
+
+Public-IP change tracking + chart markers (#250), drag-to-reorder Status page cards (#244), configurable marker colors with live SVG previews, return-on-spend P&L row (#249), Braiins share-rejection rate as chart series + card row (#243), pool-luck step-marker algorithm rewritten (timestamp-anchored + multi-event collapse), continuous chart-bucket scaling (no more 30× cliff at 24 h), "Solo miners" renamed to "Bitaxe miners" everywhere user-facing, migration runner self-heals half-applied schema state, public-IP poll dropped from 5 min to 60 s. New migrations 0106-0109. Safe to upgrade from any 1.11.x release. Refreshed `dashboard.png`, `config-display-and-logging.png`, `config-pool-and-payout.png`, `config-notifications.png` (the last two switched from `.jpg` to `.png` — README references updated). README gained a Tip jar section.
+
 ### `[UI]` Replaced the last ASCII `->` arrow in a tooltip with the Unicode `→` (U+2192)
 
 Sweep of every user-facing display string in the dashboard found one stray `->`: the AVG OCEAN tooltip's "Braiins -> Datum -> Ocean pipeline" wording. Updated to "Braiins → Datum → Ocean". Translations refreshed for en + nl + es. JSDoc comments, log statements, and the bid-summary parser regex (which intentionally accepts both forms because daemon-emitted strings can use either) were left as-is.
