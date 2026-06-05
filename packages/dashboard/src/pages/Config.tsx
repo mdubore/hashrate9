@@ -2188,12 +2188,18 @@ function ChartColorRowIcon({
       </svg>
     );
   }
-  // Bid event markers - mirror the chart glyph.
+  // Bid event markers - mirror the chart glyph (Lucide
+  // circle-plus / gauge / ban; EDIT_PRICE keeps its bare circle).
   if (keyId === 'events.create') {
     return (
-      <svg width="14" height="14" viewBox="0 0 14 14" className="shrink-0">
-        <line x1="2" y1="7" x2="12" y2="7" stroke={color} strokeWidth="2.2" />
-        <line x1="7" y1="2" x2="7" y2="12" stroke={color} strokeWidth="2.2" />
+      <svg
+        width="14" height="14" viewBox="0 0 24 24" className="shrink-0"
+        fill="none" stroke={color} strokeWidth="2"
+        strokeLinecap="round" strokeLinejoin="round"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <path d="M8 12h8" />
+        <path d="M12 8v8" />
       </svg>
     );
   }
@@ -2206,16 +2212,25 @@ function ChartColorRowIcon({
   }
   if (keyId === 'events.edit_speed') {
     return (
-      <svg width="14" height="14" viewBox="0 0 14 14" className="shrink-0">
-        <path d="M7 1 L13 7 L7 13 L1 7 Z" fill={color} stroke="#0f172a" strokeWidth="1.4" strokeLinejoin="round" />
+      <svg
+        width="14" height="14" viewBox="0 0 24 24" className="shrink-0"
+        fill="none" stroke={color} strokeWidth="2"
+        strokeLinecap="round" strokeLinejoin="round"
+      >
+        <path d="m12 14 4-4" />
+        <path d="M3.34 19a10 10 0 1 1 17.32 0" />
       </svg>
     );
   }
   if (keyId === 'events.cancel') {
     return (
-      <svg width="14" height="14" viewBox="0 0 14 14" className="shrink-0">
-        <line x1="2" y1="2" x2="12" y2="12" stroke={color} strokeWidth="2.2" />
-        <line x1="2" y1="12" x2="12" y2="2" stroke={color} strokeWidth="2.2" />
+      <svg
+        width="14" height="14" viewBox="0 0 24 24" className="shrink-0"
+        fill="none" stroke={color} strokeWidth="2"
+        strokeLinecap="round" strokeLinejoin="round"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <path d="m4.9 4.9 14.2 14.2" />
       </svg>
     );
   }

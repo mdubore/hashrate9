@@ -2,6 +2,10 @@
 
 ## 2026-06-05
 
+### `[UI]` Bid-event glyphs swapped for domain-meaningful Lucide icons (#265 follow-up x3)
+
+CREATE_BID now uses Lucide `circle-plus` (filled-feel new-bid mark), EDIT_SPEED uses `gauge` (literal speedometer for what's actually changing), CANCEL_BID uses `ban` (universal "no" symbol). Replaces the bare `plus` / `diamond` / `x` shapes from build 610 — same Lucide library, but icons that carry the meaning of the event rather than just acting as geometric markers. EDIT_PRICE stays as the bare yellow circle because the band-of-dots pattern *is* the meaning, no icon helps. Chart legend at the top and Config → Chart colors row-previews updated in lockstep so the operator's lookup ("see + in legend → find + on chart") keeps holding.
+
 ### `[UI]` Rare bid-event glyphs match the pool-block cube size and position + visible on zoom-out (#265 follow-up x2)
 
 Two regressions from the build 608 redesign that the operator caught against side-by-side cubes: (1) the +/◆/× glyphs at the chart top were 8×8 SVG units while the pool-block cubes next to them were 14×14, making the rare-event markers look ~75 % smaller; (2) the glyphs sat at `y = PADDING.top - 1` while the cubes sit at `y = PADDING.top - 11`, so the bid-event markers were 3 px lower than the blocks they were supposed to align with. Re-rendered as inline `<svg viewBox="0 0 24 24">` with Lucide-style paths (plus, x, diamond) at the same 14×14 footprint and same y as the cubes — visual parity at any zoom.

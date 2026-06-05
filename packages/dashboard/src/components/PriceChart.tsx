@@ -2149,14 +2149,16 @@ export const PriceChart = memo(function PriceChart({
           if (e.kind === 'CREATE_BID') {
             return (
               <g key={e.id} {...common}>
+                {/* Lucide `circle-plus`. */}
                 <svg
                   x={GLYPH_X} y={GLYPH_Y}
                   width={GLYPH_W} height={GLYPH_W} viewBox="0 0 24 24"
-                  fill="none" stroke={COLOR_CREATE} strokeWidth="2.6"
+                  fill="none" stroke={COLOR_CREATE} strokeWidth="2"
                   strokeLinecap="round" strokeLinejoin="round"
                 >
-                  <path d="M5 12h14" />
-                  <path d="M12 5v14" />
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M8 12h8" />
+                  <path d="M12 8v8" />
                 </svg>
                 {lineBottomY > lineTopY + 1 && (
                   <line
@@ -2181,14 +2183,15 @@ export const PriceChart = memo(function PriceChart({
           if (e.kind === 'EDIT_SPEED') {
             return (
               <g key={e.id} {...common}>
+                {/* Lucide `gauge`. */}
                 <svg
                   x={GLYPH_X} y={GLYPH_Y}
                   width={GLYPH_W} height={GLYPH_W} viewBox="0 0 24 24"
-                  fill="none" stroke={COLOR_EDIT_SPEED} strokeWidth="2.2"
+                  fill="none" stroke={COLOR_EDIT_SPEED} strokeWidth="2"
                   strokeLinecap="round" strokeLinejoin="round"
                 >
-                  {/* Lucide 'diamond' outline. */}
-                  <path d="M2.7 10.3a2.41 2.41 0 0 0 0 3.41l7.59 7.59a2.41 2.41 0 0 0 3.41 0l7.59-7.59a2.41 2.41 0 0 0 0-3.41l-7.59-7.59a2.41 2.41 0 0 0-3.41 0Z" />
+                  <path d="m12 14 4-4" />
+                  <path d="M3.34 19a10 10 0 1 1 17.32 0" />
                 </svg>
                 {lineBottomY > lineTopY + 1 && (
                   <line
@@ -2205,14 +2208,15 @@ export const PriceChart = memo(function PriceChart({
           if (e.kind === 'CANCEL_BID') {
             return (
               <g key={e.id} {...common}>
+                {/* Lucide `ban`. */}
                 <svg
                   x={GLYPH_X} y={GLYPH_Y}
                   width={GLYPH_W} height={GLYPH_W} viewBox="0 0 24 24"
-                  fill="none" stroke={COLOR_CANCEL} strokeWidth="2.6"
+                  fill="none" stroke={COLOR_CANCEL} strokeWidth="2"
                   strokeLinecap="round" strokeLinejoin="round"
                 >
-                  <path d="M18 6 6 18" />
-                  <path d="m6 6 12 12" />
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="m4.9 4.9 14.2 14.2" />
                 </svg>
                 {lineBottomY > lineTopY + 1 && (
                   <line
@@ -3427,13 +3431,28 @@ function Legend({ color, label, dashed }: { color: string; label: string; dashed
 
 function EventLegend({ kinds }: { kinds: readonly BidEventKind[] }) {
   const has = (k: BidEventKind) => kinds.includes(k);
+  // #265 v4: legend icons mirror the chart-top glyphs so the
+  // operator's mental "+ create" / "gauge edit speed" / "ban cancel"
+  // lookup carries over. Same Lucide paths as the in-chart markers,
+  // downscaled to 12x12 viewBox-coords-per-12px so the strokes
+  // stay legible inline.
+  const iconProps = {
+    width: 12,
+    height: 12,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    strokeWidth: 2,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+  };
   return (
     <span className="flex items-center gap-2 text-slate-400 pl-2 border-l border-slate-700 flex-wrap">
       {has('CREATE_BID') && (
         <span className="flex items-center gap-1 whitespace-nowrap">
-          <svg width="10" height="10">
-            <line x1="1" y1="5" x2="9" y2="5" stroke={COLOR_CREATE} strokeWidth="2" />
-            <line x1="5" y1="1" x2="5" y2="9" stroke={COLOR_CREATE} strokeWidth="2" />
+          <svg {...iconProps} stroke={COLOR_CREATE}>
+            <circle cx="12" cy="12" r="10" />
+            <path d="M8 12h8" />
+            <path d="M12 8v8" />
           </svg>
           <Trans>create</Trans>
         </span>
@@ -3448,22 +3467,18 @@ function EventLegend({ kinds }: { kinds: readonly BidEventKind[] }) {
       )}
       {has('EDIT_SPEED') && (
         <span className="flex items-center gap-1 whitespace-nowrap">
-          <svg width="10" height="10">
-            <polygon
-              points="5,1 9,5 5,9 1,5"
-              fill="none"
-              stroke={COLOR_EDIT_SPEED}
-              strokeWidth="1.4"
-            />
+          <svg {...iconProps} stroke={COLOR_EDIT_SPEED}>
+            <path d="m12 14 4-4" />
+            <path d="M3.34 19a10 10 0 1 1 17.32 0" />
           </svg>
           <Trans>edit speed</Trans>
         </span>
       )}
       {has('CANCEL_BID') && (
         <span className="flex items-center gap-1 whitespace-nowrap">
-          <svg width="10" height="10">
-            <line x1="1" y1="1" x2="9" y2="9" stroke={COLOR_CANCEL} strokeWidth="2" />
-            <line x1="9" y1="1" x2="1" y2="9" stroke={COLOR_CANCEL} strokeWidth="2" />
+          <svg {...iconProps} stroke={COLOR_CANCEL}>
+            <circle cx="12" cy="12" r="10" />
+            <path d="m4.9 4.9 14.2 14.2" />
           </svg>
           <Trans>cancel</Trans>
         </span>
