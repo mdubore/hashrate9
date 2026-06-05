@@ -412,12 +412,31 @@ export class AlertEvaluator {
   }
 
   private async evaluateBelowFloor(state: State, disabledClasses: ReadonlySet<string>): Promise<void> {
+    // `isBad` (= timer-arming condition) uses the debounce-aware
+    // `below_floor_since` so a brief recovery during the 10-min
+    // sustained window doesn't reset the timer.
+    //
+    // `suppressFire` (= firing veto) is true when the LIVE hashrate
+    // is back above the floor at the threshold-crossing tick. The
+    // debounce can stay set for up to FLOOR_DEBOUNCE_TICKS ticks
+    // after recovery, so without this veto the alert would fire
+    // with a body reading the now-recovered hashrate ("Current:
+    // 4.24 PH/s; floor: 1.00 PH/s") which contradicts itself and
+    // confuses the operator (#242). If the dip resumes before the
+    // debounce clears, the veto goes false and the alert fires
+    // properly with consistent body. If the recovery sticks, the
+    // debounce clears, `isBad` flips false, and `runTransition`
+    // takes the "not bad, no active alert -> INITIAL" path - no
+    // firing message, no recovery message either.
     const isBad = state.below_floor_since !== null;
+    const suppressFire =
+      state.actual_hashrate.total_ph >= state.config.minimum_floor_hashrate_ph;
     const thresholdMs = state.config.below_floor_alert_after_minutes * 60_000;
     this.hashrate_below_floor = await this.runTransition({
       event_class: 'hashrate_below_floor',
       severity: 'IMPORTANT',
       isBad,
+      suppressFire,
       thresholdMs,
       currentState: this.hashrate_below_floor,
       disabledClasses,
@@ -607,7 +626,6 @@ export class AlertEvaluator {
       spend3hSat = await this.tickMetricsRepo.actualSpendSatSince(sinceMs);
     } catch {
       // Query failure: fall through; runway treated as unknown.
-      spend3hSat = null;
     }
     if (spend3hSat === null || spend3hSat <= 0) {
       // No measurable burn -> runway is effectively infinite. No
@@ -1049,6 +1067,18 @@ export class AlertEvaluator {
     event_class: string;
     severity: 'IMPORTANT' | 'WARNING' | 'INFO';
     isBad: boolean;
+    /**
+     * #242: optional firing veto. When true, the threshold-crossing
+     * tick does NOT call `bodyForFiring` / `recordAlert`; the timer
+     * stays armed via the existing `bad_since_ms` return so the next
+     * tick re-evaluates. Used by `evaluateBelowFloor` to skip firing
+     * when the live hashrate has already recovered above the floor
+     * even though `below_floor_since` is still set by the debounce.
+     * Other detectors don't need this because their `isBad` is a
+     * direct read of the bad condition; recovery flips `isBad` to
+     * false immediately and `runTransition` returns INITIAL.
+     */
+    suppressFire?: boolean;
     thresholdMs: number;
     currentState: EventState;
     title: string;
@@ -1080,7 +1110,8 @@ export class AlertEvaluator {
         args.currentState.bad_since_ms === null ? nowMs : args.currentState.bad_since_ms;
       if (
         args.currentState.active_alert_id === null &&
-        nowMs - armedSince >= args.thresholdMs
+        nowMs - armedSince >= args.thresholdMs &&
+        !args.suppressFire
       ) {
         const id = await this.alertManager.recordAlert({
           severity: args.severity,
@@ -1090,7 +1121,7 @@ export class AlertEvaluator {
         });
         return { bad_since_ms: armedSince, active_alert_id: id };
       }
-      // Below threshold but armed - keep counting.
+      // Below threshold, armed, or fire-suppressed - keep counting.
       return { bad_since_ms: armedSince, active_alert_id: args.currentState.active_alert_id };
     }
 

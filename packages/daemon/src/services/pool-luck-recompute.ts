@@ -119,7 +119,7 @@ export async function runPoolLuckRecompute(deps: PoolLuckRecomputeDeps): Promise
   let cumPaidSat = 0;
   let payoutPtr = 0;
 
-  /* eslint-disable no-await-in-loop */
+
   while (true) {
     const batch = await deps.db
       .selectFrom('tick_metrics')
@@ -243,7 +243,7 @@ export async function runPoolLuckRecompute(deps: PoolLuckRecomputeDeps): Promise
       if (row.synthetic === 1) syntheticUpdated += 1;
     }
   }
-  /* eslint-enable no-await-in-loop */
+
 
   log(
     `pool-luck-recompute: scanned ${totalScanned}, updated ${totalUpdated} tick_metrics row(s) (${syntheticUpdated} synthetic) using pool_blocks data`,

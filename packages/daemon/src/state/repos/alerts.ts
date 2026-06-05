@@ -278,7 +278,7 @@ export class AlertsRepo {
       .selectFrom('alerts')
       .selectAll()
       .where('event_class', '=', eventClass)
-      .where(({ eb, not, exists, selectFrom }) =>
+      .where(({ not, exists, selectFrom }) =>
         not(
           exists(
             selectFrom('alerts as recovery')

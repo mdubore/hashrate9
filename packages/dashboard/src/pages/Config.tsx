@@ -517,7 +517,6 @@ function useSections(): Section[] {
       },
     ],
     // Re-derive when locale changes so all `t\`...\`` strings re-evaluate.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [i18n.locale],
   );
 }
@@ -920,9 +919,9 @@ function ConfigTabsAndContent({
       ],
     },
     'solo-miners': {
-      title: t`Solo miners (Bitaxe / AxeOS)`,
+      title: t`Bitaxe miners`,
       labels: [
-        t`Enable solo-mining monitoring`,
+        t`Enable Bitaxe miner monitoring`,
         t`Devices`,
         t`Add device`,
         t`Scan local network`,
@@ -974,7 +973,6 @@ function ConfigTabsAndContent({
       }
     }
     return out.slice(0, 12);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, sections, i18n.locale]);
 
   const jumpTo = (tabId: TabId, sectionId: string) => {
@@ -1947,39 +1945,63 @@ function ChartColorsSection({
   };
   const resetAll = () => onChange('chart_color_overrides', '{}');
 
-  const groups: { title: string; rows: Array<{ key: ChartColorKey; label: string }> }[] = [
+  // Groups follow chart layout: Hashrate chart (its lines), Price
+  // chart (its lines + bid-event markers, since events only render on
+  // the price chart), and Markers (block + icon markers that appear
+  // on both charts). Bid events are pinned under Price chart so the
+  // operator finds them where they actually render.
+  type Row = { key: ChartColorKey; label: string };
+  type Subgroup = { subtitle?: string; rows: Row[] };
+  const groups: Array<{ title: string; subgroups: Subgroup[] }> = [
     {
       title: t`Hashrate chart`,
-      rows: [
-        { key: 'hashrate.delivered', label: t`delivered (Braiins)` },
-        { key: 'hashrate.received_datum', label: t`received (Datum)` },
-        { key: 'hashrate.received_ocean', label: t`received (Ocean)` },
-        { key: 'hashrate.target', label: t`target` },
-        { key: 'hashrate.floor', label: t`floor` },
-        { key: 'hashrate.pool_block_ours', label: t`our pool blocks` },
-        { key: 'hashrate.pool_block_others', label: t`other pool blocks` },
-        { key: 'hashrate.right_axis', label: t`right-axis line` },
-      ],
+      subgroups: [{
+        rows: [
+          { key: 'hashrate.delivered', label: t`delivered (Braiins)` },
+          { key: 'hashrate.received_datum', label: t`received (Datum)` },
+          { key: 'hashrate.received_ocean', label: t`received (Ocean)` },
+          { key: 'hashrate.target', label: t`target` },
+          { key: 'hashrate.floor', label: t`floor` },
+          { key: 'hashrate.right_axis', label: t`right-axis line` },
+        ],
+      }],
     },
     {
       title: t`Price chart`,
-      rows: [
-        { key: 'price.our_bid', label: t`our bid` },
-        { key: 'price.fillable', label: t`fillable` },
-        { key: 'price.hashprice', label: t`hashprice` },
-        { key: 'price.max_bid', label: t`max bid` },
-        { key: 'price.unpaid', label: t`unpaid (sat)` },
-        { key: 'price.right_axis', label: t`right-axis line` },
+      subgroups: [
+        {
+          rows: [
+            { key: 'price.our_bid', label: t`our bid` },
+            { key: 'price.fillable', label: t`fillable` },
+            { key: 'price.hashprice', label: t`hashprice` },
+            { key: 'price.max_bid', label: t`max bid` },
+            { key: 'price.right_axis', label: t`right-axis line` },
+          ],
+        },
+        {
+          subtitle: t`Bid-event markers`,
+          rows: [
+            { key: 'events.create', label: t`create` },
+            { key: 'events.edit_price', label: t`edit price` },
+            { key: 'events.edit_speed', label: t`edit speed` },
+            { key: 'events.cancel', label: t`cancel` },
+          ],
+        },
       ],
     },
     {
-      title: t`Bid-event markers`,
-      rows: [
-        { key: 'events.create', label: t`create` },
-        { key: 'events.edit_price', label: t`edit price` },
-        { key: 'events.edit_speed', label: t`edit speed` },
-        { key: 'events.cancel', label: t`cancel` },
-      ],
+      title: t`Markers`,
+      subgroups: [{
+        rows: [
+          { key: 'hashrate.pool_block_ours', label: t`own pool block` },
+          { key: 'hashrate.pool_block_others', label: t`pool block` },
+          { key: 'hashrate.pool_block_bip110', label: t`BIP 110-signalling block` },
+          { key: 'hashrate.marker_retarget', label: t`difficulty retarget` },
+          { key: 'hashrate.marker_ip_change', label: t`public-IP change` },
+          { key: 'price.marker_payout_gem', label: t`on-chain payout` },
+          { key: 'price.marker_deposit', label: t`Braiins deposit` },
+        ],
+      }],
     },
   ];
 
@@ -2015,27 +2037,193 @@ function ChartColorsSection({
             <div className="text-[11px] uppercase tracking-wider text-slate-500 mb-2">
               {group.title}
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
-              {group.rows.map((row) => {
-                const def = CHART_COLOR_DEFAULTS[row.key];
-                const cur = getChartColor(row.key, overrides);
-                return (
-                  <div key={row.key} className="flex items-center justify-between gap-3">
-                    <span className="text-sm text-slate-300">{row.label}</span>
-                    <ChartColorPicker
-                      value={cur}
-                      defaultValue={def}
-                      onChange={(next) => setColor(row.key, next)}
-                      isOverridden={overrides[row.key] !== undefined}
-                    />
+            <div className="space-y-4">
+              {group.subgroups.map((sg, sgi) => (
+                <div key={sg.subtitle ?? `_${sgi}`}>
+                  {sg.subtitle && (
+                    <div className="text-[10px] uppercase tracking-wider text-slate-600 mb-1.5">
+                      {sg.subtitle}
+                    </div>
+                  )}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+                    {sg.rows.map((row) => {
+                      const def = CHART_COLOR_DEFAULTS[row.key];
+                      const cur = getChartColor(row.key, overrides);
+                      return (
+                        <div key={row.key} className="flex items-center justify-between gap-3">
+                          <span className="text-sm text-slate-300 flex items-center gap-2">
+                            <ChartColorRowIcon keyId={row.key} color={cur} />
+                            {row.label}
+                          </span>
+                          <ChartColorPicker
+                            value={cur}
+                            defaultValue={def}
+                            onChange={(next) => setColor(row.key, next)}
+                            isOverridden={overrides[row.key] !== undefined}
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           </div>
         ))}
       </div>
     </section>
+  );
+}
+
+/**
+ * Small SVG preview rendered to the left of each chart-color row's
+ * label. The shape mirrors what the operator sees on the chart so the
+ * row labelled "own pool block" actually shows the crown, not just the
+ * text. Lines render as a 14×3 horizontal stroke; markers replicate
+ * the chart's actual marker glyph in miniature; bid-event rows show
+ * the per-kind glyph (+, ●, ◆, ×). The `color` prop receives the
+ * resolved (override-or-default) hex so the preview updates live as
+ * the operator picks new colours.
+ */
+function ChartColorRowIcon({
+  keyId,
+  color,
+}: {
+  keyId: ChartColorKey;
+  color: string;
+}) {
+  // Lines and right-axis series render as a small horizontal stroke.
+  // Dashed for target/floor + hashprice, dotted-style is also dashed
+  // here for simplicity (the picker shows the swatch; the line preview
+  // is just kind cue).
+  if (keyId.endsWith('.target') || keyId.endsWith('.floor') || keyId === 'price.hashprice') {
+    return (
+      <svg width="18" height="10" viewBox="0 0 18 10" className="shrink-0">
+        <line x1="1" y1="5" x2="17" y2="5" stroke={color} strokeWidth="2" strokeDasharray="3 2" />
+      </svg>
+    );
+  }
+  if (keyId.includes('.right_axis') || keyId.startsWith('hashrate.delivered') || keyId.startsWith('hashrate.received') || keyId.startsWith('price.our_bid') || keyId === 'price.fillable' || keyId === 'price.max_bid') {
+    return (
+      <svg width="18" height="10" viewBox="0 0 18 10" className="shrink-0">
+        <line x1="1" y1="5" x2="17" y2="5" stroke={color} strokeWidth="2" />
+      </svg>
+    );
+  }
+  // Block cube (pool block + BIP 110 variant). Same Lucide `box`
+  // SVG path the chart uses for non-own pool blocks - copied verbatim
+  // from HashrateChart.tsx so the preview is byte-identical to what
+  // renders on the chart.
+  if (keyId === 'hashrate.pool_block_others' || keyId === 'hashrate.pool_block_bip110') {
+    return (
+      <svg width="14" height="14" viewBox="0 0 24 24" className="shrink-0"
+        fill="none" stroke={color} strokeWidth="2"
+        strokeLinecap="round" strokeLinejoin="round" opacity="0.95">
+        <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" fill={color} fillOpacity="0.25" />
+        <path d="m3.3 7 8.7 5 8.7-5" />
+        <path d="M12 22V12" />
+      </svg>
+    );
+  }
+  // Crown (own pool block).
+  if (keyId === 'hashrate.pool_block_ours') {
+    return (
+      <svg width="14" height="14" viewBox="0 0 14 14" className="shrink-0">
+        <path d="M1 11 L2.5 5 L5 8 L7 2 L9 8 L11.5 5 L13 11 Z" fill={color} fillOpacity="0.4" stroke={color} strokeWidth="1.3" strokeLinejoin="round" />
+        <line x1="1" y1="12.5" x2="13" y2="12.5" stroke={color} strokeWidth="1.4" />
+      </svg>
+    );
+  }
+  // Pickaxe (difficulty retarget) - Lucide pickaxe minified.
+  if (keyId === 'hashrate.marker_retarget') {
+    return (
+      <svg width="14" height="14" viewBox="0 0 24 24" className="shrink-0" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="m14 13-8.381 8.38a1 1 0 0 1-3.001-3L11 9.999" />
+        <path d="M15.973 4.027A13 13 0 0 0 5.902 2.373c-1.398.342-1.092 2.158.277 2.601a19.9 19.9 0 0 1 5.822 3.024" />
+        <path d="M16.001 11.999a19.9 19.9 0 0 1 3.024 5.824c.444 1.369 2.26 1.676 2.603.278A13 13 0 0 0 20 8.069" />
+        <path d="M18.352 3.352a1.205 1.205 0 0 0-1.704 0l-5.296 5.296a1.205 1.205 0 0 0 0 1.704l2.296 2.296a1.205 1.205 0 0 0 1.704 0l5.296-5.296a1.205 1.205 0 0 0 0-1.704z" />
+      </svg>
+    );
+  }
+  // Router (public-IP change).
+  if (keyId === 'hashrate.marker_ip_change') {
+    return (
+      <svg width="14" height="14" viewBox="0 0 24 24" className="shrink-0" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect width="20" height="8" x="2" y="14" rx="2" />
+        <path d="M6.01 18H6" />
+        <path d="M10.01 18H10" />
+        <path d="M15 10v4" />
+        <path d="M17.84 7.17a4 4 0 0 0-5.66 0" />
+        <path d="M20.66 4.34a8 8 0 0 0-11.31 0" />
+      </svg>
+    );
+  }
+  // On-chain payout gem - Lucide gem icon, copied verbatim from the
+  // reward-event marker rendering in PriceChart.tsx.
+  if (keyId === 'price.marker_payout_gem') {
+    return (
+      <svg width="14" height="14" viewBox="0 0 24 24" className="shrink-0"
+        fill="none" stroke={color} strokeWidth="2"
+        strokeLinecap="round" strokeLinejoin="round" opacity="0.95">
+        <path d="M17 3a2 2 0 0 1 1.6.8l3 4a2 2 0 0 1 .013 2.382l-7.99 10.986a2 2 0 0 1-3.247 0l-7.99-10.986A2 2 0 0 1 2.4 7.8l2.998-3.997A2 2 0 0 1 7 3z" fill={color} fillOpacity="0.25" />
+        <path d="M2 9h20" />
+        <path d="M10.5 3 8 9l4 13 4-13-2.5-6" />
+      </svg>
+    );
+  }
+  // Braiins deposit - Lucide "fuel" / refuelling-pump icon (operator
+  // calls it the refuelling icon), copied verbatim from the
+  // deposit-marker rendering in PriceChart.tsx.
+  if (keyId === 'price.marker_deposit') {
+    return (
+      <svg width="14" height="14" viewBox="0 0 24 24" className="shrink-0"
+        fill="none" stroke={color} strokeWidth="2"
+        strokeLinecap="round" strokeLinejoin="round" opacity="0.95">
+        <path d="M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 4 0v-6.998a2 2 0 0 0-.59-1.42L18 5" />
+        <path d="M14 21V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v16" />
+        <path d="M2 21h13" />
+        <path d="M3 9h11" />
+      </svg>
+    );
+  }
+  // Bid event markers - mirror the chart glyph.
+  if (keyId === 'events.create') {
+    return (
+      <svg width="14" height="14" viewBox="0 0 14 14" className="shrink-0">
+        <line x1="2" y1="7" x2="12" y2="7" stroke={color} strokeWidth="2.2" />
+        <line x1="7" y1="2" x2="7" y2="12" stroke={color} strokeWidth="2.2" />
+      </svg>
+    );
+  }
+  if (keyId === 'events.edit_price') {
+    return (
+      <svg width="14" height="14" viewBox="0 0 14 14" className="shrink-0">
+        <circle cx="7" cy="7" r="4.5" fill={color} stroke="#0f172a" strokeWidth="1.5" />
+      </svg>
+    );
+  }
+  if (keyId === 'events.edit_speed') {
+    return (
+      <svg width="14" height="14" viewBox="0 0 14 14" className="shrink-0">
+        <path d="M7 1 L13 7 L7 13 L1 7 Z" fill={color} stroke="#0f172a" strokeWidth="1.4" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (keyId === 'events.cancel') {
+    return (
+      <svg width="14" height="14" viewBox="0 0 14 14" className="shrink-0">
+        <line x1="2" y1="2" x2="12" y2="12" stroke={color} strokeWidth="2.2" />
+        <line x1="2" y1="12" x2="12" y2="2" stroke={color} strokeWidth="2.2" />
+      </svg>
+    );
+  }
+  // Fallback: a small swatch square.
+  return (
+    <span
+      className="shrink-0 inline-block w-3.5 h-3.5 rounded-sm"
+      style={{ backgroundColor: color }}
+      aria-hidden="true"
+    />
   );
 }
 
@@ -2094,7 +2282,7 @@ function SoloMinersSection({
     <section className="bg-slate-900 border border-slate-800 rounded-lg p-4">
       <header className="mb-3">
         <h3 className="text-sm uppercase tracking-wider text-amber-400">
-          <Trans>Solo miners (Bitaxe / AxeOS)</Trans>
+          <Trans>Bitaxe miners</Trans>
         </h3>
         <p className="text-xs text-slate-500 mt-1">
           <Trans>
@@ -2112,7 +2300,7 @@ function SoloMinersSection({
           onChange={(e) => onChange('solo_mining_enabled', e.target.checked)}
           className="accent-amber-400 h-4 w-4"
         />
-        <Trans>Enable solo-mining monitoring</Trans>
+        <Trans>Enable Bitaxe miner monitoring</Trans>
       </label>
 
       {enabled && (
@@ -3266,15 +3454,15 @@ function EventClassSubscriptions({
     ? [
         {
           id: 'solo_overheating',
-          label: t`Solo miner overheating`,
-          help: t`Fires when the ASIC temp crosses 75 °C (configurable on Display & Logging → Solo miners) OR the VR temp crosses 100 °C, sustained for ~90 s. Thresholds match AxeOS firmware's own throttle points so the alert lines up with when the miner itself starts taking action. Recovery paired.`,
+          label: t`Bitaxe miner overheating`,
+          help: t`Fires when the ASIC temp crosses 75 °C (configurable on Display & Logging → Bitaxe miners) OR the VR temp crosses 100 °C, sustained for ~90 s. Thresholds match AxeOS firmware's own throttle points so the alert lines up with when the miner itself starts taking action. Recovery paired.`,
           enabled: !disabled.has('solo_overheating'),
           setEnabled: (n) => toggleClass('solo_overheating', n),
           severity: 'IMPORTANT',
         },
         {
           id: 'solo_zero_hashrate',
-          label: t`Solo miner offline / zero hashrate`,
+          label: t`Bitaxe miner offline / zero hashrate`,
           help: t`Fires when a device is unreachable OR reports 0 H/s for the configured number of consecutive minutes. Recovery paired.`,
           enabled: !disabled.has('solo_zero_hashrate'),
           setEnabled: (n) => toggleClass('solo_zero_hashrate', n),
@@ -3282,7 +3470,7 @@ function EventClassSubscriptions({
         },
         {
           id: 'solo_share_rejection',
-          label: t`Solo miner share-rejection high`,
+          label: t`Bitaxe miner share-rejection high`,
           help: t`Fires when share rejection rate over the rolling window exceeds the configured threshold. Re-armed once per window so a sustained bad period only fires periodically.`,
           enabled: !disabled.has('solo_share_rejection'),
           setEnabled: (n) => toggleClass('solo_share_rejection', n),
@@ -3290,7 +3478,7 @@ function EventClassSubscriptions({
         },
         {
           id: 'solo_stratum_drift',
-          label: t`Solo miner stratum URL drift`,
+          label: t`Bitaxe miner stratum URL drift`,
           help: t`Fires once whenever a device's stratum URL changes from the previously-observed value. Baselined silently on first poll so adding a device doesn't fire a spurious "drift detected" alert.`,
           enabled: !disabled.has('solo_stratum_drift'),
           setEnabled: (n) => toggleClass('solo_stratum_drift', n),
@@ -3298,7 +3486,7 @@ function EventClassSubscriptions({
         },
         {
           id: 'solo_best_difficulty',
-          label: t`Solo fleet best difficulty record`,
+          label: t`Bitaxe miner best difficulty record`,
           help: t`Fires whenever the fleet-wide best share difficulty exceeds the all-time high-water mark. One-shot (no recovery pairing). The message includes the new record, previous best, improvement factor, and the device that found it.`,
           enabled: !disabled.has('solo_best_difficulty'),
           setEnabled: (n) => toggleClass('solo_best_difficulty', n),
@@ -3469,7 +3657,7 @@ function EventClassSubscriptions({
           {oceanTiles.map(renderTile)}
           {soloTiles.length > 0 && (
             <>
-              {sectionHeader(t`Solo miners (Bitaxe / AxeOS)`)}
+              {sectionHeader(t`Bitaxe miners`)}
               {soloTiles.map(renderTile)}
             </>
           )}
@@ -3506,18 +3694,6 @@ function SeverityPill({ severity }: { severity: AlertSeverity }) {
       }
     >
       {label}
-    </span>
-  );
-}
-
-/** Small (i) glyph that pairs with a `title=` tooltip on the parent. */
-function HelpDot() {
-  return (
-    <span
-      aria-hidden="true"
-      className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-slate-600 text-[9px] text-slate-500 leading-none"
-    >
-      i
     </span>
   );
 }
@@ -4994,6 +5170,29 @@ function DdnsSection({
                           timestamp, which formatAge then interpreted
                           as "time since epoch zero" ≈ today. */}
                       {formatAge(r.ddns.last_pushed_at)}
+                    </span>
+                  )}
+                </span>
+              </div>
+              {/* #250: the real "IP last changed" - distinct from the
+                  hourly-heartbeat push above. Only meaningful once a
+                  rotation has been recorded. */}
+              <div className="flex flex-wrap gap-x-4">
+                <span className="text-slate-400 w-44 shrink-0">
+                  <Trans>IP last changed:</Trans>
+                </span>
+                <span className="text-slate-100">
+                  {r?.last_ip_change ? (
+                    <>
+                      {r.last_ip_change.old_ip ? `${r.last_ip_change.old_ip} → ` : ''}
+                      {r.last_ip_change.new_ip}
+                      <span className="text-slate-500 ml-2">
+                        {formatAge(r.last_ip_change.occurred_at)}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-slate-500">
+                      <Trans>no change observed yet</Trans>
                     </span>
                   )}
                 </span>

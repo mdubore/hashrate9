@@ -256,13 +256,11 @@ function DetailRow({ label, value }: { label: string; value: string }): React.JS
 
 function SignalingBlockTable({
   blocks,
-  tipHeight,
   explorerTemplate,
   intlLocale,
   fmtTimestamp,
 }: {
   blocks: Bip110ScanSignalingBlock[];
-  tipHeight: number | null;
   explorerTemplate: string;
   intlLocale: string | undefined;
   fmtTimestamp: (ms: number | null | undefined) => string;
@@ -679,7 +677,6 @@ function EpochBreakdown({
                       <td colSpan={5} className="px-3 py-3">
                         <SignalingBlockTable
                           blocks={epochBlocks}
-                          tipHeight={tipHeight}
                           explorerTemplate={explorerTemplate}
                           intlLocale={intlLocale}
                           fmtTimestamp={fmtTimestamp}

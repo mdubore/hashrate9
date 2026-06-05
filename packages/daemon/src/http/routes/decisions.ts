@@ -53,7 +53,7 @@ export async function registerDecisionsRoutes(
 
   // Decorate a thin findById helper. (Avoids adding method churn to the
   // repo at this milestone; we just grab the row shape directly.)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   app.decorate('decisionsQuery', async (id: number) => {
     const row = await deps.decisionsRepo['db']
       .selectFrom('decisions')

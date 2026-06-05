@@ -68,15 +68,10 @@ const HEIGHT = 200;
 // padding only needs to keep the last X-axis timestamp from clipping.
 const PADDING = { top: 16, right: 16, bottom: 24, left: 80 };
 
-// Tailwind amber-500 - shared with the Hashrate chart's delivered
-// (Braiins) line so the two charts speak the same visual language
-// for "our bid / what we pay Braiins for".
-const COLOR_PRICE = '#f59e0b';
 const COLOR_CREATE = '#34d399';
 const COLOR_EDIT = '#fbbf24';
 const COLOR_EDIT_SPEED = '#60a5fa';
 const COLOR_CANCEL = '#f87171';
-const COLOR_DEPOSIT = '#c084fc';
 
 interface TooltipState {
   event: BidEventView;
@@ -132,14 +127,6 @@ function rollingMeanPoints(
   return out;
 }
 
-const COLOR_HASHPRICE = '#a78bfa'; // violet-400
-const COLOR_MAXBID = '#f87171'; // red-400
-// fillable_ask = cheapestAskForDepth(orderbook, target_hashrate_ph).
-// This is what the controller tracks: bid = fillable + overpay,
-// clamped to the cap. Drawing it below the amber bid makes the
-// overpay cushion visually explicit - every bid edit is explained
-// by a move in this line.
-const COLOR_FILLABLE = '#22d3ee'; // cyan-400
 // Effective rate - what Braiins actually charged, per-tick from
 // primary_bid_consumed_sat deltas. Emerald so it's clearly a
 // "realised" number distinct from the bid (amber) and the market
@@ -382,18 +369,23 @@ export const PriceChart = memo(function PriceChart({
     () => parseOverrides(chartColorOverrides),
     [chartColorOverrides],
   );
-  /* eslint-disable @typescript-eslint/no-shadow */
+
   const COLOR_PRICE = getChartColor('price.our_bid', _colorOverrides);
   const COLOR_FILLABLE = getChartColor('price.fillable', _colorOverrides);
   const COLOR_HASHPRICE = getChartColor('price.hashprice', _colorOverrides);
   const COLOR_MAXBID = getChartColor('price.max_bid', _colorOverrides);
-  const COLOR_DEPOSIT = getChartColor('price.unpaid', _colorOverrides);
+  const COLOR_DEPOSIT = getChartColor('price.marker_deposit', _colorOverrides);
+  const COLOR_PAYOUT_GEM = getChartColor('price.marker_payout_gem', _colorOverrides);
+  const COLOR_OUR_BLOCK = getChartColor('hashrate.pool_block_ours', _colorOverrides);
+  const COLOR_POOL_BLOCK = getChartColor('hashrate.pool_block_others', _colorOverrides);
+  const COLOR_BIP110 = getChartColor('hashrate.pool_block_bip110', _colorOverrides);
+  const COLOR_RETARGET = getChartColor('hashrate.marker_retarget', _colorOverrides);
   const COLOR_CREATE = getChartColor('events.create', _colorOverrides);
   const COLOR_EDIT = getChartColor('events.edit_price', _colorOverrides);
   const COLOR_EDIT_SPEED = getChartColor('events.edit_speed', _colorOverrides);
   const COLOR_CANCEL = getChartColor('events.cancel', _colorOverrides);
   const COLOR_RIGHT_AXIS = getChartColor('price.right_axis', _colorOverrides);
-  /* eslint-enable @typescript-eslint/no-shadow */
+
   const containerRef = useRef<HTMLDivElement>(null);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
   // Per-marker tooltip state for the new on-line dots: pool-block
@@ -833,7 +825,7 @@ export const PriceChart = memo(function PriceChart({
           return {
             values: projectSoloSeries(xs, soloSeries, (r) => r.total_power_w),
             stroke: COLOR_RIGHT_AXIS,
-            axisLabel: 'solo power (W)',
+            axisLabel: 'Bitaxe power (W)',
             // Watts displayed without the `k` shortening - home Bitaxe
             // fleets are typically 15-100W where kW scale would round
             // to zero.
@@ -1767,7 +1759,7 @@ export const PriceChart = memo(function PriceChart({
     );
   }
 
-  const { pricePoints, minX, maxX, dataMinX, dataMaxX, hasPrice, priceMin, priceMax, xScale, yScale, pricePath, priceAreaPath, hashpricePath, fillablePath, fillableHasData, effectivePath, effectiveHasData, capPath, capExclusionPolygon, yTicks, xTickInterval, xTicks, visibleEvents, rightAxis, hasRightAxis, rightAxisPath, rightYTicks, rightYScale, padRight, marketplaceEmptyIntervals, braiinsUnreachableIntervals, daemonOfflineIntervals } = chartData;
+  const { dataMinX, dataMaxX, hasPrice, xScale, yScale, pricePath, priceAreaPath, hashpricePath, fillablePath, fillableHasData, effectiveHasData, capPath, capExclusionPolygon, yTicks, xTickInterval, xTicks, visibleEvents, rightAxis, hasRightAxis, rightAxisPath, rightYTicks, rightYScale, padRight, marketplaceEmptyIntervals, braiinsUnreachableIntervals, daemonOfflineIntervals } = chartData;
 
   // Format Y-axis tick values via the denomination context so the
   // numbers track the currency + hashrate-unit toggle. The full
@@ -2247,7 +2239,7 @@ export const PriceChart = memo(function PriceChart({
               cx={cx}
               cy={cy}
               r="4.5"
-              fill={COLOR_PAYOUT}
+              fill={COLOR_PAYOUT_GEM}
               stroke="#0f172a"
               strokeWidth="1.5"
             />
@@ -2267,7 +2259,7 @@ export const PriceChart = memo(function PriceChart({
               cx={d.cx}
               cy={d.cy}
               r="4.5"
-              fill="#c084fc"
+              fill={COLOR_DEPOSIT}
               stroke="#0f172a"
               strokeWidth="1.5"
             />
@@ -2279,7 +2271,7 @@ export const PriceChart = memo(function PriceChart({
             same rich tooltip the Hashrate chart uses (reward, our
             share, BIP-110 signal, explorer link). */}
         {visiblePoolBlockMarkers.map(({ block: b, cx, cy, blockCx }) => {
-          const fill = b.found_by_us ? '#fbbf24' : '#38bdf8';
+          const fill = b.found_by_us ? COLOR_OUR_BLOCK : COLOR_POOL_BLOCK;
           return (
             <g
               key={`pool-block-${b.block_hash || b.height}`}
@@ -2320,7 +2312,7 @@ export const PriceChart = memo(function PriceChart({
             const x = xScale(b.timestamp_ms);
             const isOurs = b.found_by_us;
             const isBip110 = !isOurs && b.signals_bip110 === true;
-            const color = isOurs ? '#fbbf24' : isBip110 ? '#fde047' : '#3b82f6';
+            const color = isOurs ? COLOR_OUR_BLOCK : isBip110 ? COLOR_BIP110 : COLOR_POOL_BLOCK;
             return (
               <g
                 key={`block-icon-${b.block_hash || b.height}`}
@@ -2380,7 +2372,7 @@ export const PriceChart = memo(function PriceChart({
                 <line
                   x1={x} x2={x}
                   y1={PADDING.top + 8} y2={chartHeight - PADDING.bottom}
-                  stroke={COLOR_PAYOUT}
+                  stroke={COLOR_PAYOUT_GEM}
                   strokeWidth="1"
                   strokeDasharray="2 3"
                   opacity="0.55"
@@ -2390,11 +2382,11 @@ export const PriceChart = memo(function PriceChart({
                 <svg
                   x={x - 7} y={PADDING.top - 11}
                   width="14" height="14" viewBox="0 0 24 24"
-                  fill="none" stroke={COLOR_PAYOUT} strokeWidth="2"
+                  fill="none" stroke={COLOR_PAYOUT_GEM} strokeWidth="2"
                   strokeLinecap="round" strokeLinejoin="round"
                   opacity="0.85"
                 >
-                  <path d="M17 3a2 2 0 0 1 1.6.8l3 4a2 2 0 0 1 .013 2.382l-7.99 10.986a2 2 0 0 1-3.247 0l-7.99-10.986A2 2 0 0 1 2.4 7.8l2.998-3.997A2 2 0 0 1 7 3z" fill={COLOR_PAYOUT} fillOpacity="0.25" />
+                  <path d="M17 3a2 2 0 0 1 1.6.8l3 4a2 2 0 0 1 .013 2.382l-7.99 10.986a2 2 0 0 1-3.247 0l-7.99-10.986A2 2 0 0 1 2.4 7.8l2.998-3.997A2 2 0 0 1 7 3z" fill={COLOR_PAYOUT_GEM} fillOpacity="0.25" />
                   <path d="M2 9h20" />
                   <path d="M10.5 3 8 9l4 13 4-13-2.5-6" />
                 </svg>
@@ -2516,14 +2508,14 @@ export const PriceChart = memo(function PriceChart({
                 <line
                   x1={x} x2={x}
                   y1={PADDING.top + 8} y2={chartHeight - PADDING.bottom}
-                  stroke="#c084fc" strokeWidth="1" strokeDasharray="2 3" opacity="0.4"
+                  stroke={COLOR_RETARGET} strokeWidth="1" strokeDasharray="2 3" opacity="0.4"
                   pointerEvents="none"
                 />
                 <rect x={x - 9} y={PADDING.top - 13} width={18} height={18} fill="transparent" />
                 <svg
                   x={x - 7} y={PADDING.top - 11}
                   width="14" height="14" viewBox="0 0 24 24"
-                  fill="none" stroke="#c084fc" strokeWidth="2"
+                  fill="none" stroke={COLOR_RETARGET} strokeWidth="2"
                   strokeLinecap="round" strokeLinejoin="round"
                   opacity="0.85"
                 >
@@ -2535,6 +2527,11 @@ export const PriceChart = memo(function PriceChart({
               </g>
             );
           })}
+
+        {/* #250: public-IP change markers live on the hashrate chart
+            only - they correlate with delivered-vs-received hashrate
+            (Datum/Braiins re-establishing connections after a router
+            IP rotation), not with the price-axis content. */}
         </g>
 
         {hasRightAxis && rightAxis && (

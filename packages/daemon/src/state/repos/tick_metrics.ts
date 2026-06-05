@@ -75,6 +75,10 @@ export interface InsertTickMetricArgs {
   readonly pool_blocks_30d_count: number | null;
   readonly pool_hashrate_ph_avg_30d: number | null;
   readonly braiins_reachable: number | null;
+  /** #243: snapshot of primary owned bid's cumulative share counters from Braiins /spot/bid/detail. */
+  readonly primary_bid_shares_purchased_m: number | null;
+  readonly primary_bid_shares_accepted_m: number | null;
+  readonly primary_bid_shares_rejected_m: number | null;
   readonly run_mode: TickMetricsTable['run_mode'];
   readonly action_mode: TickMetricsTable['action_mode'];
 }
@@ -122,6 +126,10 @@ export interface AggregatedTickMetricRow {
   braiins_reachable: number | null;
   /** #224 (#222): config.bid_edit_deadband_pct at the tick. */
   bid_edit_deadband_pct: number;
+  /** #243: primary owned bid's cumulative share counters. Aggregated as MAX over the bucket so the chart's per-bucket delta is monotonically meaningful. */
+  primary_bid_shares_purchased_m: number | null;
+  primary_bid_shares_accepted_m: number | null;
+  primary_bid_shares_rejected_m: number | null;
 }
 
 export class TickMetricsRepo {
@@ -200,6 +208,9 @@ export class TickMetricsRepo {
         pool_hashrate_ph_avg_30d: r.pool_hashrate_ph_avg_30d,
         braiins_reachable: r.braiins_reachable,
         bid_edit_deadband_pct: r.bid_edit_deadband_pct,
+        primary_bid_shares_purchased_m: r.primary_bid_shares_purchased_m,
+        primary_bid_shares_accepted_m: r.primary_bid_shares_accepted_m,
+        primary_bid_shares_rejected_m: r.primary_bid_shares_rejected_m,
       }));
     }
 
@@ -292,6 +303,13 @@ export class TickMetricsRepo {
         sql<number>`AVG(bid_edit_deadband_pct)`.as('bid_edit_deadband_pct'),
         sql<number | null>`AVG(pool_hashrate_ph_avg_30d)`.as('pool_hashrate_ph_avg_30d'),
         sql<number | null>`MIN(braiins_reachable)`.as('braiins_reachable'),
+        // #243: cumulative share counters - MAX gives end-of-bucket
+        // value so bucket-to-bucket deltas yield the actual per-bucket
+        // shares purchased / accepted / rejected. AVG would smear the
+        // ramp and break the derived rejection rate.
+        sql<number | null>`MAX(primary_bid_shares_purchased_m)`.as('primary_bid_shares_purchased_m'),
+        sql<number | null>`MAX(primary_bid_shares_accepted_m)`.as('primary_bid_shares_accepted_m'),
+        sql<number | null>`MAX(primary_bid_shares_rejected_m)`.as('primary_bid_shares_rejected_m'),
       ])
       .where('tick_at', '>=', sinceMs)
       .$if(untilMs !== undefined, (qb) => qb.where('tick_at', '<=', untilMs!))
@@ -453,6 +471,66 @@ export class TickMetricsRepo {
       ticks_total: Number(row?.ticks_total ?? 0),
       ticks_below: Number(row?.ticks_below ?? 0),
     };
+  }
+
+  /**
+   * #243: range-true rejection rate from the cumulative-since-bid-creation
+   * share counters. Returns the percentage `(last - first) of rejected_m
+   * divided by (last - first) of purchased_m * 100`, computed against raw
+   * tick_metrics rows in the range (NOT the bucketed chart data that
+   * loses precision via MAX aggregation on long ranges).
+   *
+   * Bypasses the bucket-MAX information loss the operator caught on
+   * 2026-06-02: the chart endpoint with 1d-bucketed All-range data only
+   * captured end-of-bucket values, so the card's per-bucket delta walk
+   * computed the rate of the most recent partial day instead of the
+   * full range. Reading first/last directly from raw rows gives the
+   * actual total range delta.
+   *
+   * Returns null when:
+   *  - no non-null counter samples in range (pre-#243 only / observer disabled)
+   *  - Δpurchased <= 0 (no shares cleared, or counter reset on a single bid rotation)
+   *  - Δrejected < 0 (bid rotation across range where rejected reset)
+   *
+   * Doesn't try to segment across multiple bid rotations - a single
+   * rotation inside the range with both deltas ending up positive but
+   * fictitious would give a slightly off number. Acceptable for the
+   * card; the chart's per-window carry-forward path shows the
+   * granular behavior.
+   */
+  async braiinsRejectionPctSince(
+    sinceMs: number | null,
+    untilMs?: number,
+  ): Promise<number | null> {
+    const baseSelect = this.db
+      .selectFrom('tick_metrics')
+      .select(['primary_bid_shares_purchased_m', 'primary_bid_shares_rejected_m'])
+      .where('primary_bid_shares_purchased_m', 'is not', null)
+      .where('primary_bid_shares_rejected_m', 'is not', null);
+    const ranged = (qb: typeof baseSelect): typeof baseSelect => {
+      let q = qb;
+      if (sinceMs !== null) q = q.where('tick_at', '>=', sinceMs);
+      if (untilMs !== undefined) q = q.where('tick_at', '<=', untilMs);
+      return q;
+    };
+
+    const [first, last] = await Promise.all([
+      ranged(baseSelect).orderBy('tick_at', 'asc').limit(1).executeTakeFirst(),
+      ranged(baseSelect).orderBy('tick_at', 'desc').limit(1).executeTakeFirst(),
+    ]);
+    if (!first || !last) return null;
+    if (
+      first.primary_bid_shares_purchased_m === null ||
+      last.primary_bid_shares_purchased_m === null ||
+      first.primary_bid_shares_rejected_m === null ||
+      last.primary_bid_shares_rejected_m === null
+    ) {
+      return null;
+    }
+    const dp = last.primary_bid_shares_purchased_m - first.primary_bid_shares_purchased_m;
+    const dr = last.primary_bid_shares_rejected_m - first.primary_bid_shares_rejected_m;
+    if (dp <= 0 || dr < 0) return null;
+    return (dr / dp) * 100;
   }
 
   /**

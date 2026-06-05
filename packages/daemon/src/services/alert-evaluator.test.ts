@@ -193,6 +193,94 @@ describe('AlertEvaluator - hashrate_below_floor', () => {
     expect(mgr.recordAlert).toHaveBeenCalledTimes(1);
     expect(mgr.recorded[0]!.event_class).toBe('hashrate_below_floor');
   });
+
+  it('#242: does NOT fire when actual_hashrate has recovered above floor at the threshold-crossing tick', async () => {
+    // Sequence: hashrate dips, debounce arms below_floor_since, then
+    // hashrate recovers above floor while the FLOOR_DEBOUNCE_TICKS
+    // counter (3 above-floor ticks before below_floor_since clears)
+    // hasn't finished counting down. The threshold-crossing tick
+    // arrives with below_floor_since still set (isBad=true) but
+    // actual >= floor. Previously the alert fired with a body that
+    // said "Current: <recovered>; floor: <X>" - a self-contradiction
+    // the operator caught in Telegram. suppressFire in runTransition
+    // now skips the fire while keeping the timer armed.
+    const mgr = makeManager();
+    let now = 0;
+    const ev = new AlertEvaluator({ alertManager: mgr, now: () => now });
+    // Tick 1: dip starts. below_floor_since set.
+    await ev.evaluate(
+      makeState({
+        below_floor_since: 0,
+        actual_hashrate: { owned_ph: 0.2, unknown_ph: 0, total_ph: 0.2 },
+      }),
+    );
+    // Tick 2: 10 min later, threshold elapsed, BUT actual has
+    // recovered above floor and the debounce hasn't cleared yet
+    // (below_floor_since still set).
+    now += 10 * 60_000;
+    await ev.evaluate(
+      makeState({
+        below_floor_since: 0,
+        actual_hashrate: { owned_ph: 4.24, unknown_ph: 0, total_ph: 4.24 },
+      }),
+    );
+    expect(mgr.recordAlert).not.toHaveBeenCalled();
+  });
+
+  it('#242: still fires when actual_hashrate stays below floor through threshold (the normal happy path)', async () => {
+    // Same shape as the existing "fires after the configured
+    // threshold" test, repeated explicitly under the #242 banner so
+    // the regression coverage spells out that we did NOT just gate
+    // the fire away for everyone - only suppress when actual has
+    // already recovered.
+    const mgr = makeManager();
+    let now = 0;
+    const ev = new AlertEvaluator({ alertManager: mgr, now: () => now });
+    const stillBad = makeState({
+      below_floor_since: 0,
+      actual_hashrate: { owned_ph: 0.2, unknown_ph: 0, total_ph: 0.2 },
+    });
+    await ev.evaluate(stillBad);
+    now += 10 * 60_000;
+    await ev.evaluate(stillBad);
+    expect(mgr.recordAlert).toHaveBeenCalledTimes(1);
+  });
+
+  it('#242: fires on a NEXT tick if the dip resumes before the debounce clears', async () => {
+    // Recovery suppresses fire; dip resumes on a later tick within
+    // the same below_floor_since window; alert fires then.
+    const mgr = makeManager();
+    let now = 0;
+    const ev = new AlertEvaluator({ alertManager: mgr, now: () => now });
+    // Tick 1: dip starts.
+    await ev.evaluate(
+      makeState({
+        below_floor_since: 0,
+        actual_hashrate: { owned_ph: 0.2, unknown_ph: 0, total_ph: 0.2 },
+      }),
+    );
+    // Tick 2: 10 min later, threshold reached, but recovered.
+    // Fire suppressed.
+    now += 10 * 60_000;
+    await ev.evaluate(
+      makeState({
+        below_floor_since: 0,
+        actual_hashrate: { owned_ph: 4.24, unknown_ph: 0, total_ph: 4.24 },
+      }),
+    );
+    expect(mgr.recordAlert).not.toHaveBeenCalled();
+    // Tick 3: 60s later, dip resumes. below_floor_since still set
+    // (debounce never cleared because we only saw 1 above-floor
+    // tick), threshold elapsed long ago. Fire now.
+    now += 60_000;
+    await ev.evaluate(
+      makeState({
+        below_floor_since: 0,
+        actual_hashrate: { owned_ph: 0.1, unknown_ph: 0, total_ph: 0.1 },
+      }),
+    );
+    expect(mgr.recordAlert).toHaveBeenCalledTimes(1);
+  });
 });
 
 // #226: payout_initiated detection. The trigger is a sharp drop in

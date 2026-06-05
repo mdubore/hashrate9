@@ -131,6 +131,10 @@ describe('openDatabase - migrations', () => {
       '0103_chart_color_overrides.sql',
       '0104_tick_metrics_synthetic.sql',
       '0105_runtime_state_last_backfilled_payout_address.sql',
+      '0106_tick_metrics_braiins_shares.sql',
+      '0107_scrub_orphan_acceptance_data.sql',
+      '0108_dashboard_card_order.sql',
+      '0109_ip_change_events.sql',
     ]);
     expect(handle.migrations.skipped).toEqual([]);
   });

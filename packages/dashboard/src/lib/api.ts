@@ -177,6 +177,17 @@ export interface MetricPoint {
    * migration 0100 for pre-existing rows.
    */
   bid_edit_deadband_pct: number;
+  /**
+   * #243: primary owned bid's cumulative-since-bid-creation share
+   * counters sampled from Braiins `/spot/bid/detail.counters_committed`.
+   * The chart's `braiins_rejection_pct` right-axis series derives the
+   * instantaneous per-tick rate as `Δrejected / Δpurchased × 100`,
+   * NULL-skipping ticks where Δpurchased ≤ 0 (counter reset on bid
+   * rotation, or no shares purchased in the bucket).
+   */
+  primary_bid_shares_purchased_m: number | null;
+  primary_bid_shares_accepted_m: number | null;
+  primary_bid_shares_rejected_m: number | null;
 }
 
 export interface BidEventView {
@@ -337,6 +348,11 @@ export interface AppConfig {
    *  `'{}'` means use every series's built-in default. Parsed
    *  defensively via `lib/chartColors.parseOverrides`. */
   chart_color_overrides: string;
+  /** #244: RESERVED / dormant. Daemon-side card-order column kept for
+   *  forward compatibility; the dashboard stores the drag-chosen order
+   *  per-device in localStorage (see lib/cardOrder) and does not read or
+   *  write this field. Always `'[]'` in practice. */
+  dashboard_card_order: string;
   notification_locale: 'en' | 'nl' | 'es';
   electrs_host: string | null;
   electrs_port: number | null;
@@ -513,6 +529,14 @@ export interface DdnsSnapshot {
   last_error: string | null;
 }
 
+// #250: one observed public-IP rotation (old -> new) at a point in time.
+export interface IpChangeEvent {
+  id: number;
+  occurred_at: number;
+  old_ip: string | null;
+  new_ip: string;
+}
+
 export interface DdnsRouteResponse {
   daemon_public_ip: string | null;
   daemon_public_ip_checked_at: number | null;
@@ -521,6 +545,9 @@ export interface DdnsRouteResponse {
   pool_url_resolves_to: string | null;
   pool_url_resolve_error: string | null;
   ddns: DdnsSnapshot;
+  /** #250: last time the public IP actually changed (distinct from the
+   *  DDNS heartbeat push). Null until a rotation has been recorded. */
+  last_ip_change: { occurred_at: number; old_ip: string | null; new_ip: string } | null;
   checked_at: number;
 }
 
@@ -669,6 +696,11 @@ export const api = {
   bidEventsViewport: (since: number, until: number) =>
     request<{ events: BidEventView[] }>(
       `/api/bid-events?since=${since}&until=${until}`,
+    ),
+  // #250: public-IP change markers for the charts.
+  ipChangesViewport: (since: number, until: number) =>
+    request<{ events: IpChangeEvent[] }>(
+      `/api/ip-changes?since=${since}&until=${until}`,
     ),
   payouts: () => request<PayoutsResponse>('/api/payouts'),
   scanPayouts: () => request<{ ok: boolean; error?: string }>('/api/payouts/scan', { method: 'POST' }),
@@ -1095,6 +1127,15 @@ export interface FinanceRangeResponse {
   projected_income_per_day_sat: number | null;
   net_per_day_sat: number | null;
   insufficient_history: boolean;
+  /**
+   * #243: Braiins primary-bid share rejection rate over the
+   * selected range, computed server-side from raw `tick_metrics`
+   * (NOT bucketed chart data). Bypasses the bucket-MAX precision
+   * loss that made the card-from-chart-data calculation inconsistent
+   * across range presets. Null on no data / no shares cleared / bid
+   * rotation.
+   */
+  braiins_rejection_pct: number | null;
 }
 
 export interface FinanceResponse {

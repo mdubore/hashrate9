@@ -16,16 +16,10 @@ const MIN = 60_000;
 const HOUR = 60 * MIN;
 const DAY = 24 * HOUR;
 
-// Block heights matching reality: Bitcoin block 951,552 is a retarget
-// boundary (951,552 % 2016 === 0). Block 953,568 is the next retarget.
-const RETARGET_A = 951_552;
-const RETARGET_B = 953_568;
-
 const RETARGET_A_TIME_MS = Date.UTC(2026, 4, 29, 10, 29, 46); // 2026-05-29 10:29:46 UTC
 const RETARGET_B_TIME_MS = Date.UTC(2026, 5, 1, 20, 59, 34); // 2026-06-01 20:59:34 UTC
 
 const DIFF_BEFORE = 134_000_000_000_000;
-const DIFF_AFTER_A = 136_610_000_000_000;
 const DIFF_AFTER_B = 138_960_000_000_000;
 
 const PREV_TICK_AT = Date.UTC(2026, 4, 28, 12, 0, 0); // 2026-05-28 12:00 UTC

@@ -125,23 +125,6 @@ function formatUsd(usd: number, locale?: string): string {
   return `$${n}`;
 }
 
-function formatBtc(sat: number, locale?: string): string {
-  const btc = sat / SAT_PER_BTC;
-  // Adaptive precision: sub-1 BTC needs all 8 decimals to be
-  // legible (a sat is 1e-8 BTC); >=1 BTC reads better with 4.
-  // The autopilot's typical bid budgets sit well under 1 BTC, so
-  // the 8-decimal branch is the common case.
-  const fractionDigits = Math.abs(btc) < 1 ? 8 : 4;
-  return `${new Intl.NumberFormat(locale, {
-    minimumFractionDigits: fractionDigits,
-    maximumFractionDigits: fractionDigits,
-  }).format(btc)} ₿`;
-}
-
-function formatSatNumber(sat: number, locale?: string): string {
-  return new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(sat);
-}
-
 const defaultContext: DenominationContextValue = {
   mode: 'sats',
   setMode: () => undefined,

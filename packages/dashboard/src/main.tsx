@@ -81,7 +81,7 @@ function AppShell() {
 // render path) and let the app start.
 loadAndActivate(getInitialLocale())
   .catch((err) => {
-    // eslint-disable-next-line no-console
+
     console.error('i18n catalog load failed; falling back to source strings', err);
   })
   .finally(() => {

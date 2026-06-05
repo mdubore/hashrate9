@@ -50,6 +50,37 @@
 > chart's bucket-AVG aggregation doesn't smear the marker. Downstream `runPoolLuckRecompute` was
 > updated in the same release to bypass its 30d-eligibility gate for `synthetic = 1` rows so fresh
 > installs with shallow pool_blocks history still get pool_luck populated on gap synthetics.
+>
+> **v1.15** (2026-06-04, covers the v1.12.0 release window).
+> Migration 0106 (#243) adds `tick_metrics.primary_bid_shares_purchased_m / _accepted_m /
+> _rejected_m` (REAL nullable) for per-tick snapshots of the primary owned bid's
+> cumulative-since-bid-creation share counters from Braiins's `/spot/bid/detail.counters_committed`
+> block; one extra GET per tick because the bids list response doesn't carry counters. Drives the
+> dashboard's Braiins rejection-rate card row and the hashrate chart right-axis series, both
+> computed server-side via `TickMetricsRepo.braiinsRejectionPctSince(since_ms, until_ms)` which
+> queries raw rows for first/last cumulative values across the selected chart range. Migration 0107
+> NULLs those three columns for rows older than 2026-05-08 UTC to scrub orphan data left over from
+> the reverted #90 acceptance-ratio infrastructure (which had used the same column names on its
+> brief life on May 5-6); no-op on clean installs. The migration runner now catches
+> `duplicate column name` / `already exists` errors and stamps `_migrations` as applied, so a
+> half-applied schema state self-heals on the next boot instead of crash-looping. Migration 0108
+> adds `dashboard_card_order TEXT NOT NULL DEFAULT '[]'` for the dashboard drag-to-reorder feature
+> (#244). The column is currently dormant: the operator chose per-device ordering, so the
+> dashboard stores the chosen block order in browser localStorage and does not write the column.
+> It is kept in place (cheaper than reverting an already-shipped migration, and avoids schema
+> divergence) with the plumbing ready should cross-device sync be wanted later. Migration 0109 adds
+> the `ip_change_events` table (#250): an append-only log of public-IP rotations written from the
+> `PublicIpService.onIpChange` hook (60 s poll cadence, dropped from 5 min in this release),
+> surfaced as an "IP last changed" line in the DDNS card and router-icon markers on the hashrate
+> chart, so the operator can line a public-IP rotation up against a rejection-rate spike. The same
+> release renames every user-facing "Solo miners" string to "Bitaxe miners" (the integration only
+> ever supported AxeOS firmware); internal table/field names retain the `solo_*` prefix.
+> Chart bucket scaling was rewritten from a 4-tier ladder to a continuous formula
+> (`bucketMs = ceil(spanMs / 1440)` clamped to the 60 s tick floor) to remove the 30× cliff when a
+> chart viewport span crossed 24 h. Five new `chart_color_overrides` keys cover BIP-110-signalling,
+> retarget, IP-change, on-chain payout, and Braiins deposit markers; the parser carries a one-key
+> alias (`price.unpaid → price.marker_deposit`) so saved overrides under the old name transparently
+> migrate.
 
 ## 1. High-level shape
 
@@ -126,7 +157,7 @@ hashrate-autopilot/
 │   │   ├── src/state/
 │   │   │   ├── db.ts               (better-sqlite3 + migrations)
 │   │   │   ├── migrations/
-│   │   │   └── repos/              (config, decisions, owned_bids, runtime_state, tick_metrics)
+│   │   │   └── repos/              (config, decisions, owned_bids, runtime_state, tick_metrics + braiinsRejectionPctSince, ip_change_events, reward_events, deposits, solo_miners, pool_blocks, alerts)
 │   │   ├── src/services/
 │   │   │   ├── braiins-service.ts
 │   │   │   ├── payout-observer.ts  (Electrs-preferred; bitcoind fallback)
@@ -143,6 +174,8 @@ hashrate-autopilot/
 │   │   │   ├── axeos.ts            (#149 - AxeOS REST client types + per-device fetch)
 │   │   │   ├── axeos-poller.ts     (#149 - per-tick fleet poll; Promise.allSettled; 2 s per-device timeout)
 │   │   │   ├── axeos-scanner.ts    (#149 / #156 - /24 subnet sweep with operator-supplied CIDR override for docker / Umbrel installs)
+│   │   │   ├── public-ip.ts        (#250 - polls api.ipify.org every 60 s; emits onIpChange to DDNS updater + writes ip_change_events row)
+│   │   │   ├── ddns-updater.ts     (#221 - No-IP / DuckDNS / dyndns2 push; hourly heartbeat + immediate on IP change)
 │   │   │   └── retention.ts        (hourly pruner for tick_metrics + decisions + alerts)
 │   │   ├── src/controller/
 │   │   │   ├── loop.ts             (tick driver)
@@ -316,6 +349,12 @@ CREATE TABLE config (
   -- unknown keys, non-string values, and non-hex strings are silently
   -- dropped at parse time on the dashboard.
   chart_color_overrides TEXT NOT NULL DEFAULT '{}',
+  -- Dashboard block display order (#244, migration 0108). RESERVED /
+  -- dormant: the operator chose per-device ordering, so the dashboard
+  -- persists the drag-chosen order in browser localStorage and does not
+  -- write this column (it stays at `'[]'`). Kept in place for forward
+  -- compatibility / optional cross-device sync later.
+  dashboard_card_order TEXT NOT NULL DEFAULT '[]',
   -- Dynamic DNS (#111, migrations 0067-0068)
   ddns_provider TEXT NOT NULL DEFAULT '',                            -- '' | 'noip' | 'duckdns' | 'dyndns2'
   ddns_hostname TEXT NOT NULL DEFAULT '',
@@ -458,6 +497,13 @@ CREATE TABLE tick_metrics (
   -- existing rows to the legacy `overpay / 5` equivalent.
   bid_edit_deadband_pct REAL NOT NULL DEFAULT 20,
   -- #92 (migrations 0055-0057): pool-block / pool-luck plot
+  -- #243 (migration 0106): per-tick snapshot of the primary owned
+  -- bid's cumulative-since-bid-creation share counters from Braiins
+  -- /spot/bid/detail.counters_committed. The bids list response
+  -- doesn't include counters, hence one extra GET per tick.
+  primary_bid_shares_purchased_m REAL,    -- cumulative shares purchased
+  primary_bid_shares_accepted_m REAL,     -- cumulative shares accepted by target
+  primary_bid_shares_rejected_m REAL,     -- cumulative shares rejected by target
   pool_blocks_24h_count INTEGER,          -- pool blocks observed in last 24h
   pool_blocks_7d_count INTEGER,           -- pool blocks observed in last 7d
   pool_hashrate_ph_avg_24h REAL,          -- trailing 24h mean of pool_hashrate_ph (luck denominator)
@@ -581,6 +627,19 @@ CREATE TABLE bid_events (
   max_overpay_vs_hashprice_sat_per_eh_day INTEGER -- migration 0077; snapshot at write time
 );
 CREATE INDEX idx_bid_events_occurred_at ON bid_events (occurred_at);
+
+-- #250 (migration 0109): append-only log of public-IP rotations. One
+-- row per observed change of the box's public IPv4, written from the
+-- public-IP poll's onIpChange hook. Drives the "IP last changed" line
+-- in the Dynamic DNS card and the router-icon markers on the hashrate /
+-- price charts (to correlate IP rotations against rejection-rate spikes).
+CREATE TABLE ip_change_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  occurred_at INTEGER NOT NULL,
+  old_ip TEXT,                      -- nullable; populated in practice (hook fires only on non-null -> different)
+  new_ip TEXT NOT NULL
+);
+CREATE INDEX idx_ip_change_events_occurred_at ON ip_change_events (occurred_at);
 
 -- Block-header version cache for BIP 110 detection (#94, migration 0058)
 CREATE TABLE block_version_cache (
@@ -799,6 +858,17 @@ concern (not by order; the file names are authoritative):
   was using browser defaults, not Display & Logging settings). 0103 (#238)
   adds `chart_color_overrides` JSON to config, keyed by series name with
   `#RRGGBB` values, for the Display & Logging chart-color picker.
+
+- **Per-tick Braiins share counters (0106):** 0106 (#243) adds
+  `tick_metrics.primary_bid_shares_purchased_m / _accepted_m /
+  _rejected_m` (REAL nullable). Sourced from a per-tick GET on
+  `/spot/bid/detail/{order_id}` (`counters_committed` block; the
+  bids list response doesn't carry them). The dashboard's Hashrate
+  chart adds a `rejection rate (Braiins)` right-axis series and the
+  Braiins service panel adds a `rejection rate` row, both derived
+  client-side from per-tick deltas (`Δrejected / Δpurchased × 100`)
+  with NULL on bid-rotation ticks (counter reset → negative
+  Δpurchased) and on ticks where Δpurchased ≤ 0.
 
 - **Gap-backfill + boot-time payout refresh (0104-0105):** 0104 (#241)
   adds `tick_metrics.synthetic INTEGER NOT NULL DEFAULT 0` marking rows

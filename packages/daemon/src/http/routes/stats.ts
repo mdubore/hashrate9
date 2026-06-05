@@ -20,7 +20,6 @@ import {
   CHART_RANGE_SPECS,
   DEFAULT_CHART_RANGE,
   parseChartRange,
-  pickBucketForSpan,
   type ChartRange,
 } from '@hashrate-autopilot/shared';
 

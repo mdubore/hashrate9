@@ -461,6 +461,16 @@ export const AppConfigSchema = z.object({
   // chart.
   chart_color_overrides: z.string().default('{}'),
 
+  // #244: RESERVED / currently dormant. JSON array of dashboard block
+  // IDs for the drag-to-reorder feature. The operator chose per-device
+  // ordering (a phone and a desktop want different layouts), so the
+  // dashboard persists the order in browser localStorage and does NOT
+  // write here. The column is kept (migration 0108 already shipped) and
+  // the plumbing is ready should cross-device sync ever be wanted; for
+  // now it stays at the `[]` default. Validated as a string, same cheap
+  // pattern as chart_color_overrides.
+  dashboard_card_order: z.string().default('[]'),
+
   // #111: daemon-managed DDNS updater. When ddns_provider is non-empty
   // the daemon pushes the current public IP to the configured DDNS
   // provider every 5 minutes (and forces a heartbeat at least hourly,
@@ -651,6 +661,8 @@ export const APP_CONFIG_DEFAULTS: Omit<
   display_date_layout: 'system',
   // #238: empty JSON object = "use every series's built-in default".
   chart_color_overrides: '{}',
+  // #244: empty JSON array = "use the built-in dashboard block order".
+  dashboard_card_order: '[]',
 
   ddns_provider: '',
   ddns_hostname: '',

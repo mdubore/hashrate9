@@ -2,7 +2,7 @@ import { Trans } from '@lingui/react/macro';
 import { t } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import {
@@ -22,16 +22,15 @@ import { ModeBadge } from '../components/ModeBadge';
 import { BtcSymbol } from '../components/BtcSymbol';
 import { SatSymbol } from '../components/SatSymbol';
 import { StaleUrlBanner } from '../components/StaleUrlBanner';
+import { SortableDashboard, type DashboardBlock } from '../components/SortableDashboard';
 import { Tooltip } from '../components/Tooltip';
 import {
   api,
   UnauthorizedError,
   type BalanceView,
-  type BidView,
   type FinanceResponse,
   type FinanceRangeResponse,
   type NextActionView,
-  type OceanResponse,
   type ProposalView,
   type StatsResponse,
   type TickNowResponse,
@@ -39,10 +38,8 @@ import {
 } from '../lib/api';
 import {
   formatAge,
-  formatAgePrecise,
   formatCountdownPrecise,
   formatNumber,
-  formatSatPerPH,
   formatSats,
   formatTimestampUtc,
 } from '../lib/format';
@@ -53,6 +50,7 @@ import { actionModeLabel, bidStatusClass, bidStatusLabel } from '../lib/labels';
 import { useDateTimeLocale, useFormatters, useLocale } from '../lib/locale';
 import { localizedRangeLabel } from '../lib/range-label';
 import { useChartViewport } from '../lib/useChartViewport';
+import { useCardOrderContext } from '../lib/cardOrderContext';
 
 const RUN_MODES = ['DRY_RUN', 'LIVE', 'PAUSED'] as const;
 const STATUS_QUERY_KEY = ['status'] as const;
@@ -68,6 +66,9 @@ const EMPTY_BID_EVENTS: readonly never[] = Object.freeze([]) as readonly never[]
 const EMPTY_REWARD_EVENTS: readonly never[] = Object.freeze([]) as readonly never[];
 const EMPTY_OUR_BLOCKS: readonly never[] = Object.freeze([]) as readonly never[];
 const EMPTY_DEPOSITS: readonly never[] = Object.freeze([]) as readonly never[];
+// #250: frozen sentinel so the IP-change marker prop stays referentially
+// stable until real data arrives (charts are React.memo'd).
+const EMPTY_IP_CHANGES: readonly never[] = Object.freeze([]) as readonly never[];
 
 // #93: per-chart secondary Y-axis selection, persisted per-browser.
 const HASHRATE_RIGHT_AXIS_KEY = 'hashrate-autopilot.hashrateRightAxis';
@@ -92,7 +93,8 @@ function readStoredHashrateRightAxis(
     raw === 'solo_hashrate' ||
     raw === 'solo_device_count' ||
     raw === 'solo_max_temp' ||
-    raw === 'solo_best_diff'
+    raw === 'solo_best_diff' ||
+    raw === 'braiins_rejection_pct'
   ) {
     return raw;
   }
@@ -172,6 +174,13 @@ export function Status() {
     window.localStorage.setItem(PRICE_RIGHT_AXIS_KEY, priceRightAxis);
   }, [priceRightAxis]);
 
+  // #244: operator-defined dashboard block order (drag to reorder),
+  // stored per-device in localStorage. The order + the "Rearrange"
+  // edit-mode flag live in CardOrderProvider (mounted in Layout) so the
+  // toggle can sit in the global header instead of costing page height.
+  const cardOrder = useCardOrderContext();
+  const rearranging = cardOrder.rearranging;
+
   const query = useQuery({
     queryKey: ['status'],
     queryFn: api.status,
@@ -230,6 +239,15 @@ export function Status() {
   const bidEventsQuery = useQuery({
     queryKey: ['bid-events', fetchBounds.since_ms, fetchBounds.until_ms],
     queryFn: () => api.bidEventsViewport(fetchBounds.since_ms, fetchBounds.until_ms),
+    placeholderData: keepPreviousData,
+    refetchInterval: vp.liveEdge ? 60_000 : false,
+  });
+
+  // #250: public-IP change markers, keyed off the same viewport bounds
+  // as the other chart-marker overlays.
+  const ipChangesQuery = useQuery({
+    queryKey: ['ip-changes', fetchBounds.since_ms, fetchBounds.until_ms],
+    queryFn: () => api.ipChangesViewport(fetchBounds.since_ms, fetchBounds.until_ms),
     placeholderData: keepPreviousData,
     refetchInterval: vp.liveEdge ? 60_000 : false,
   });
@@ -473,11 +491,12 @@ export function Status() {
     s.market !== null &&
     s.market.fillable_ask_sat_per_ph_day === null &&
     s.actual_hashrate_ph < 0.05;
-  return (
-    <div className="space-y-5">
-      {/* #113: stale-URL banner. Renders only when there's a real
-          mismatch between config and an active bid - silent otherwise. */}
-      <StaleUrlBanner />
+  // #244: each top-level dashboard block is a draggable unit. Build the
+  // nodes keyed by stable ID here, then render them in the operator's
+  // saved order (cardOrder) via <SortableDashboard>. StaleUrlBanner and
+  // the rearrange controls stay pinned outside the sortable region.
+  const blockNodes: Record<string, React.ReactNode> = {
+    hero: (
       <section className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         <div className="lg:col-span-2 h-full">
           <OperationsCard
@@ -498,17 +517,17 @@ export function Status() {
           />
         </div>
       </section>
-
+    ),
+    period: (
       <FilterBar
-        range={chartRange}
         activePreset={chartViewport.viewport.activePreset}
         onRangeChange={setChartRange}
         isLiveEdge={chartViewport.isLiveEdge}
         onResetToLive={chartViewport.goLive}
       />
-
-      <StatsBar statsData={statsQuery.data} />
-
+    ),
+    indicators: <StatsBar statsData={statsQuery.data} />,
+    hashrate: (
       <div className="space-y-1">
         <div className="flex justify-end items-center gap-2 text-[11px] text-slate-400">
           <Trans>right axis</Trans>
@@ -526,21 +545,20 @@ export function Status() {
             <option value="pool_luck_24h">{t`pool luck (24h)`}</option>
             <option value="pool_luck_7d">{t`pool luck (7d)`}</option>
             <option value="pool_luck_30d">{t`pool luck (30d)`}</option>
+            <option value="braiins_rejection_pct">{t`rejection rate (Braiins)`}</option>
             {/* #149: solo-mining series only listed when the master toggle is on. */}
             {soloMiningEnabled && (
               <>
-                <option value="solo_hashrate">{t`solo hashrate`}</option>
-                <option value="solo_device_count">{t`solo device count`}</option>
-                <option value="solo_max_temp">{t`solo max temp`}</option>
-                <option value="solo_best_diff">{t`solo best difficulty`}</option>
+                <option value="solo_hashrate">{t`Bitaxe hashrate`}</option>
+                <option value="solo_device_count">{t`Bitaxe device count`}</option>
+                <option value="solo_max_temp">{t`Bitaxe max temp`}</option>
+                <option value="solo_best_diff">{t`Bitaxe best difficulty`}</option>
               </>
             )}
           </select>
         </div>
         <HashrateChart
           points={metricsQuery.data?.points ?? EMPTY_METRIC_POINTS}
-          range={chartRange}
-          onRangeChange={setChartRange}
           ourBlocks={visibleOurBlocks}
           blockExplorerTemplate={configQuery.data?.config?.block_explorer_url_template}
           shareLogPct={oceanQuery.data?.user?.share_log_pct ?? null}
@@ -557,8 +575,11 @@ export function Status() {
           viewportSince={effectiveViewportSince}
           viewportUntil={chartViewport.viewport.until_ms}
           chartColorOverrides={configQuery.data?.config?.chart_color_overrides}
+          ipChangeEvents={ipChangesQuery.data?.events ?? EMPTY_IP_CHANGES}
         />
       </div>
+    ),
+    price: (
       <div className="space-y-1">
         <div className="flex justify-end items-center gap-2 text-[11px] text-slate-400">
           <Trans>right axis</Trans>
@@ -583,7 +604,7 @@ export function Status() {
             <option value="avg_overpay_settled">{t`avg overpay (settled)`}</option>
             {/* #149: solo power (W) only listed when the master toggle is on. */}
             {soloMiningEnabled && (
-              <option value="solo_power_watts">{t`solo power (W)`}</option>
+              <option value="solo_power_watts">{t`Bitaxe power (W)`}</option>
             )}
           </select>
         </div>
@@ -622,15 +643,13 @@ export function Status() {
           chartColorOverrides={configQuery.data?.config?.chart_color_overrides}
         />
       </div>
-
-      {/*
-       * Pipeline order: Braiins → Datum → Ocean (a share travels
-       * Braiins-marketplace → Datum-gateway → Ocean-pool). Caps
-       * live inside the Braiins card because they only describe
-       * what we do in the marketplace. P&L sits below Bids as its
-       * own full-width section; it's a financial summary of the
-       * pipeline, not a pipeline step.
-       */}
+    ),
+    // Pipeline order: Braiins -> Datum -> Ocean (a share travels
+    // Braiins-marketplace -> Datum-gateway -> Ocean-pool). Caps live
+    // inside the Braiins card because they only describe what we do in
+    // the marketplace. P&L sits below Bids as its own full-width
+    // section; it's a financial summary of the pipeline, not a step.
+    pipeline: (
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         <Card
           title="Braiins"
@@ -655,6 +674,28 @@ export function Status() {
             }
           />
           <Row k={t`floor`} v={denomination.formatHashrate(s.config_summary.minimum_floor_hashrate_ph)} />
+          {/* #243: range-true Braiins rejection rate, computed
+              server-side from raw tick_metrics rows (NOT the bucketed
+              chart data the chart line uses). Comes through
+              financeRangeQuery, which is already keyed off chartRange.
+              Bypasses the bucket-MAX precision loss that previously
+              made the card inconsistent across range presets - the
+              operator caught it on 2026-06-02 when 6h read 0.04% but
+              All read 0.17% on the same underlying data. Server picks
+              first/last non-null cumulative values in the range and
+              returns one number. */}
+          <Row
+            k={t`rejection rate`}
+            v={(() => {
+              const pct = financeRangeQuery.data?.braiins_rejection_pct;
+              if (pct === null || pct === undefined) return '—';
+              return `${new Intl.NumberFormat(intlLocale, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              }).format(pct)}%`;
+            })()}
+            tooltip={t`Share of Braiins-purchased shares the pool rejected, computed over the selected chart range. Server-side: (Δrejected_m / Δpurchased_m) × 100 across the first and last non-null cumulative counter samples in the range. Updates with the range selector above (3h / 6h / 24h / 1w / 1m / 1y / All). Reference points: Braiins documents ~0.05 % as their inherent marketplace-routing rate (best case when nothing miner-side is wrong); in practice, end-to-end values of 0.05-0.5 % are typical and considered healthy. Sustained values above ~1 % suggest something to investigate - stale shares from Datum being behind, worker identity misconfig, ASIC trouble, or pool-side issues. Rejected shares are still paid for under Braiins's terms (the buyer is responsible for target-pool quality).`}
+          />
           {/* #144: gate on current-delivered-below-floor in addition to
               the daemon's debounce-held `below_floor_since` timer. The
               timer is kept non-null for ~3 above-floor ticks after a
@@ -746,7 +787,8 @@ export function Status() {
         />
         <OceanPanel />
       </section>
-
+    ),
+    bids: (
       <section>
         <h3 className="text-xs uppercase tracking-wider text-slate-100 mb-2"><Trans>Bids</Trans></h3>
         {s.bids.length === 0 ? (
@@ -865,7 +907,8 @@ export function Status() {
           </>
         )}
       </section>
-
+    ),
+    finance: (
       <section>
         <FinancePanel
           data={financeQuery.data}
@@ -879,8 +922,9 @@ export function Status() {
           refreshing={financeQuery.isFetching || financeRangeQuery.isFetching}
         />
       </section>
-
-      {s.last_proposals.length > 0 && (
+    ),
+    proposals:
+      s.last_proposals.length > 0 ? (
         <section>
           <h3 className="text-xs uppercase tracking-wider text-slate-100 mb-2"><Trans>Last tick proposals</Trans></h3>
           <ul className="space-y-1">
@@ -891,11 +935,74 @@ export function Status() {
             ))}
           </ul>
         </section>
+      ) : null,
+    bip110: <Bip110ScanCard />,
+    solo: <SoloMinersCard />,
+  };
+
+  // #244: render blocks in the operator's saved order. Skip any whose
+  // node is null this cycle (e.g. `proposals` when there's no last-tick
+  // data) - the ID keeps its slot in the saved order for when it
+  // returns.
+  const blockLabels: Record<string, string> = {
+    hero: t`Operations & next action`,
+    period: t`Period selector`,
+    indicators: t`Indicators`,
+    hashrate: t`Hashrate chart`,
+    price: t`Price chart`,
+    pipeline: t`Pipeline`,
+    bids: t`Bids`,
+    finance: t`Profit & Loss`,
+    proposals: t`Last tick proposals`,
+    bip110: t`BIP-110 scan`,
+    solo: t`Bitaxe miners`,
+  };
+  const orderedBlocks: DashboardBlock[] = cardOrder.order
+    .filter((id) => blockNodes[id] != null)
+    .map((id) => ({ id, label: blockLabels[id] ?? id, node: blockNodes[id] }));
+
+  return (
+    <div className="space-y-5">
+      {/* #113: stale-URL banner. Renders only when there's a real
+          mismatch between config and an active bid - silent otherwise. */}
+      <StaleUrlBanner />
+      {/* #244: the Rearrange toggle lives in the global header (zero
+          page height when idle). While editing, this one-line bar
+          carries the hint plus an always-visible Done (and reset), so
+          on mobile the operator doesn't have to reopen the hamburger
+          to confirm - the header toggle and this Done are deliberately
+          redundant. The order is saved on every drag, so Done just
+          exits edit mode; nothing is persisted on click. */}
+      {rearranging && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[11px] text-slate-500">
+          <span>
+            <Trans>Drag the cards by their title bar to reorder.</Trans>{' '}
+            <Trans>Your layout is saved on this device.</Trans>
+          </span>
+          {cardOrder.isCustomized && (
+            <button
+              type="button"
+              onClick={cardOrder.reset}
+              className="text-slate-400 underline underline-offset-2 hover:text-slate-200"
+            >
+              <Trans>Reset to default order</Trans>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => cardOrder.setRearranging(false)}
+            className="ml-auto inline-flex items-center gap-1.5 rounded border border-emerald-600 bg-emerald-600/20 px-2.5 py-1 font-medium text-emerald-300 hover:bg-emerald-600/30"
+          >
+            <Trans>Done rearranging</Trans>
+          </button>
+        </div>
       )}
-
-      <Bip110ScanCard />
-
-      <SoloMinersCard />
+      <SortableDashboard
+        blocks={orderedBlocks}
+        editing={rearranging}
+        onReorder={cardOrder.setOrder}
+        dragHint={t`Drag to reorder`}
+      />
     </div>
   );
 }
@@ -1631,13 +1738,11 @@ const EH_PER_PH = 1000;
 
 
 function FilterBar({
-  range,
   activePreset,
   onRangeChange,
   isLiveEdge,
   onResetToLive,
 }: {
-  range: ChartRange;
   activePreset: ChartRange | null;
   onRangeChange: (r: ChartRange) => void;
   isLiveEdge: boolean;
@@ -1723,7 +1828,7 @@ function StatsBar({ statsData }: { statsData: StatsResponse | undefined }) {
       <StatCard
         label={t`uptime`}
         value={uptime_pct !== null ? `${formatNumber(uptime_pct, { minimumFractionDigits: 1, maximumFractionDigits: 1 }, intlLocale)}%` : '\u2014'}
-        tooltip={t`Duration-weighted % of time with delivered hashrate > 0. Each tick is weighted by its actual duration (time until the next tick) so gaps after restarts count proportionally.`}
+        tooltip={t`Duration-weighted % of time with delivered hashrate > 0, computed over the selected chart range. Each tick is weighted by its actual duration (time until the next tick) so gaps after restarts count proportionally. Updates with the range selector above.`}
         color={
           uptime_pct === null
             ? 'text-slate-400'
@@ -1737,17 +1842,17 @@ function StatsBar({ statsData }: { statsData: StatsResponse | undefined }) {
       <StatCard
         label={t`avg braiins`}
         value={denomination.formatHashrate(avg_hashrate_ph, intlLocale)}
-        tooltip={t`Duration-weighted average of the hashrate Braiins reports delivering. Includes downtime (where delivered = 0) so a bad stretch shows up in the average, not just the live card.`}
+        tooltip={t`Duration-weighted average of the hashrate Braiins reports delivering, computed over the selected chart range. Includes downtime (where delivered = 0) so a bad stretch shows up in the average, not just the live card. Updates with the range selector above.`}
       />
       <StatCard
         label={t`avg datum`}
         value={denomination.formatHashrate(avg_datum_hashrate_ph, intlLocale)}
-        tooltip={t`Duration-weighted average of the hashrate Datum measures at the gateway. A sustained gap below Avg Braiins means Braiins is billing for hashrate Datum never saw arrive.`}
+        tooltip={t`Duration-weighted average of the hashrate Datum measures at the gateway, computed over the selected chart range. A sustained gap below Avg Braiins means Braiins is billing for hashrate Datum never saw arrive. Updates with the range selector above.`}
       />
       <StatCard
         label={t`avg ocean`}
         value={denomination.formatHashrate(avg_ocean_hashrate_ph, intlLocale)}
-        tooltip={t`Duration-weighted average of the hashrate Ocean credits to our payout address. Each tick (every 60 s) the daemon calls Ocean's /v1/user_hashrate endpoint and reads the \`hashrate_300s\` field - Ocean's own 5-minute sliding-window estimate for this wallet. So: sampled every minute, each sample is a 5-minute smoothed value. A sustained gap below Avg Braiins / Avg Datum means the pool isn't crediting work we think we delivered.`}
+        tooltip={t`Duration-weighted average of the hashrate Ocean credits to our payout address, computed over the selected chart range. Each tick (every 60 s) the daemon calls Ocean's /v1/user_hashrate endpoint and reads the \`hashrate_300s\` field - Ocean's own 5-minute sliding-window estimate for this wallet. So: sampled every minute, each sample is a 5-minute smoothed value. A sustained gap below Avg Braiins / Avg Datum means the pool isn't crediting work we think we delivered. Updates with the range selector above.`}
       />
       <StatCard
         label={t`avg cost delivered`}
@@ -1757,7 +1862,7 @@ function StatsBar({ statsData }: { statsData: StatsResponse | undefined }) {
       <StatCard
         label={t`avg cost vs hashprice`}
         value={avg_overpay_vs_hashprice_sat_per_ph_day !== null ? denomination.formatSatPerPhDay(Math.round(avg_overpay_vs_hashprice_sat_per_ph_day), intlLocale) : '\u2014'}
-        tooltip={t`(avg cost delivered) minus the delta-weighted average hashprice during periods we were actually billed. Negative means we paid below break-even (good - cheaper than mining at current difficulty), positive means above. Same delta weighting as the avg cost card so the two stay consistent.`}
+        tooltip={t`(avg cost delivered) minus the delta-weighted average hashprice during periods we were actually billed, computed over the selected chart range. Negative means we paid below break-even (good - cheaper than mining at current difficulty), positive means above. Same delta weighting as the avg cost card so the two stay consistent. Updates with the range selector above.`}
         color={
           avg_overpay_vs_hashprice_sat_per_ph_day === null
             ? 'text-slate-100'
@@ -1850,31 +1955,6 @@ function OverpayMiniCard({
       </div>
     </Tooltip>
   );
-}
-
-function formatFillTime(ms: number): string {
-  const sec = Math.round(ms / 1000);
-  if (sec < 60) return `${sec}s`;
-  const min = Math.round(sec / 60);
-  if (min < 60) return `${min}m`;
-  const hrs = Math.floor(min / 60);
-  return `${hrs}h ${min % 60}m`;
-}
-
-// ---------------------------------------------------------------------------
-
-/**
- * Self-ticking "updated X ago" label. Re-renders every 10 s so the
- * operator actually sees the age climb (previously it was pinned to
- * "0s ago" because `checked_at_ms` was Date.now() on every response).
- */
-function TickingAge({ epochMs }: { epochMs: number | null | undefined }) {
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setTick((n) => n + 1), 1_000);
-    return () => clearInterval(id);
-  }, []);
-  return <span><Trans>updated {formatAgePrecise(epochMs)}</Trans></span>;
 }
 
 /**
@@ -2223,7 +2303,7 @@ function OceanPanel() {
           <Row
             k={t`ocean hashrate`}
             v={denomination.formatHashrate(o.user.hashrate_5m_ph, intlLocale)}
-            tooltip={t`Hashrate Ocean credits to our payout address (5-min sliding window). Sourced per-tick from /v1/user_hashrate.hashrate_300s. Compare against AVG BRAIINS / AVG DATUM at the top of the page; sustained gaps mean shares are getting lost somewhere in the Braiins -> Datum -> Ocean pipeline.`}
+            tooltip={t`Hashrate Ocean credits to our payout address (5-min sliding window). Sourced per-tick from /v1/user_hashrate.hashrate_300s. Compare against AVG BRAIINS / AVG DATUM at the top of the page; sustained gaps mean shares are getting lost somewhere in the Braiins → Datum → Ocean pipeline.`}
           />
           {o.user.hashprice_sat_per_ph_day != null && (
             <Row
@@ -2813,6 +2893,46 @@ function FinancePanel({
             valueClass={netColor}
             tooltip={t`Collected on-chain + pre-installation (manual) + Ocean's unpaid earnings − spent on bids. Missing collected is treated as 0 (the on-chain row still shows - so the operator sees the gap). Negative = still recouping the initial deposit.`}
           />
+          {/* #249: rate of return on its own row so the sat column
+              stays right-aligned across all four lines above. Same
+              green/red sentiment as `= net` since it's the same
+              quantity expressed as a ratio. Empty sign slot keeps the
+              label aligned under "net". splitUnit pulls the `%` into
+              its own muted span so the percent symbol gets the same
+              recede-into-the-background treatment as the sat symbol
+              on the rows above. */}
+          {data.net_sat !== null && data.spent_sat > 0 && (() => {
+            const pct = (data.net_sat / data.spent_sat) * 100;
+            const signStr = pct >= 0 ? '+' : '';
+            const pctStr = `${signStr}${formatNumber(
+              pct,
+              { minimumFractionDigits: 1, maximumFractionDigits: 1 },
+              intlLocale,
+            )}%`;
+            const split = splitUnit(pctStr);
+            return (
+              <Tooltip
+                text={t`Net divided by spent, expressed as a percentage. −100% means we've spent everything with nothing to show, 0% means we've broken even, and positive means we've earned more than we paid for hashrate.`}
+              >
+                <div className="cursor-help flex items-baseline text-xs py-0.5 gap-2 text-slate-500">
+                  <span className="font-mono tabular-nums w-3" aria-hidden="true" />
+                  <span className="flex-1">{t`return on spend`}</span>
+                  <span className={`font-mono ${netColor}`}>
+                    {split ? (
+                      <>
+                        {split.num}
+                        <span className="text-slate-500 text-[11px] ml-1">
+                          <SatUnit unit={split.unit} />
+                        </span>
+                      </>
+                    ) : (
+                      pctStr
+                    )}
+                  </span>
+                </div>
+              </Tooltip>
+            );
+          })()}
         </div>
       </div>
     </section>
@@ -3055,7 +3175,6 @@ function DatumPanel({
   const [copied, setCopied] = useState(false);
   const { i18n } = useLingui();
   void i18n;
-  const { intlLocale } = useLocale();
   const denomination = useDenomination();
 
   // Split the pool URL into scheme / host / port so the card doesn't
@@ -3257,6 +3376,15 @@ function FormattedValue({ v, className = '' }: { v: string; className?: string }
  * symbol icon. Handles "sat", "sat/PH/day", "PH/s" (no replacement
  * for non-sat units). Only applies in sats mode - USD values like
  * "$4.75/PH/day" don't match splitUnit so they render as plain text.
+ *
+ * Single-character symbols (≡, %, ₿) get a fixed-width centered slot
+ * (`w-3 text-center`) so their visible centers align across rows
+ * even though their intrinsic glyph widths differ - without this,
+ * a row showing `0,0107 %` and a row showing `722.513 ≡` right-align
+ * the bounding boxes of the unit spans but the visible glyphs drift
+ * a couple of pixels because % is wider than ≡. Compound units like
+ * `≡/PH/day` skip the fixed slot and render naturally - they're not
+ * the alignment-sensitive case.
  */
 function SatUnit({ unit }: { unit: string }) {
   const { i18n } = useLingui();
@@ -3267,6 +3395,16 @@ function SatUnit({ unit }: { unit: string }) {
   // (e.g. "(in this range)") that we don't want to lose.
   const phDayLabel = t`/PH/day`;
   const localized = unit.replace('/PH/day', phDayLabel);
+  if (localized === 'sat' || localized === '₿') {
+    return (
+      <span className="inline-block w-3 text-center">
+        {localized === 'sat' ? <SatSymbol className="opacity-70" /> : localized}
+      </span>
+    );
+  }
+  if (localized === '%') {
+    return <span className="inline-block w-3 text-center">{localized}</span>;
+  }
   if (localized.startsWith('sat')) {
     return (
       <>
@@ -3468,6 +3606,14 @@ function splitUnit(v: string): { num: string; unit: string } | null {
   // USD-prefixed rate: "$4.75/PH/day" -> { num: "$4.75", unit: "/PH/day" }
   const usdRate = v.match(/^(.+?)(\/(?:TH|PH|EH)\/day)$/);
   if (usdRate?.[1] && usdRate[2]) return { num: usdRate[1], unit: usdRate[2] };
+  // Trailing percent sign, no whitespace. Lets share log / uptime /
+  // return-on-spend / rejection rate all share the same number-then-
+  // muted-unit treatment the sat values get: small space between
+  // number and symbol, symbol in muted slate. Asked for by the
+  // operator: "Why is the Satoshi symbol muted gray and the
+  // percentage symbol not? Just makes it a bit more logical."
+  const pct = v.match(/^(.+?)(%)$/);
+  if (pct?.[1] && pct[2]) return { num: pct[1], unit: pct[2] };
   return null;
 }
 

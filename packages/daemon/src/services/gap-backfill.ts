@@ -173,7 +173,7 @@ export async function runGapBackfill(deps: GapBackfillDeps): Promise<void> {
   log(`[gap-backfill] found ${gaps.length} gap(s) to process: ${gaps.map((g) => `${new Date(g.gapStart).toISOString().slice(0, 16)}+${(g.gapMs / 3_600_000).toFixed(1)}h`).join(', ')}`);
 
   for (const gap of gaps) {
-    // eslint-disable-next-line no-await-in-loop
+
     await processGap({ ...deps, log }, gap);
   }
 }
@@ -224,7 +224,7 @@ async function findAllGaps(
   // for the synthetic insertion).
   const results: DetectedGap[] = [];
   for (const pair of gapPairs) {
-    // eslint-disable-next-line no-await-in-loop
+
     const prevTick = await db
       .selectFrom('tick_metrics')
       .selectAll()
@@ -232,7 +232,7 @@ async function findAllGaps(
       .where('tick_at', '=', pair.prevAt)
       .limit(1)
       .executeTakeFirst();
-    // eslint-disable-next-line no-await-in-loop
+
     const lastTick = await db
       .selectFrom('tick_metrics')
       .selectAll()
@@ -337,7 +337,7 @@ async function collectRetargets(args: CollectRetargetsArgs): Promise<readonly Re
       let timeMs: number;
       let difficulty: number;
       try {
-        // eslint-disable-next-line no-await-in-loop
+
         const hashResp = await bitcoindClient.batch<string>([
           { method: 'getblockhash', params: [h] },
         ]);
@@ -345,7 +345,7 @@ async function collectRetargets(args: CollectRetargetsArgs): Promise<readonly Re
         if (!blockHash) break;
         // Second round-trip for the header. Can't batch with the hash
         // call because the header request depends on the hash result.
-        // eslint-disable-next-line no-await-in-loop
+
         const headerResp = await bitcoindClient.batch<{ time: number; difficulty: number }>([
           { method: 'getblockheader', params: [blockHash, true] },
         ]);
@@ -507,11 +507,11 @@ async function insertSyntheticGapTicks(args: InsertSyntheticsArgs): Promise<void
   // SQLite's default parameter cap is 999. Each row uses ~42 params,
   // so 20 rows per batch (840 params) stays comfortably below.
   const BATCH = 20;
-  /* eslint-disable no-await-in-loop */
+
   for (let i = 0; i < rows.length; i += BATCH) {
     await db.insertInto('tick_metrics').values(rows.slice(i, i + BATCH)).execute();
   }
-  /* eslint-enable no-await-in-loop */
+
 
   const gapHrs = (gapMs / 3_600_000).toFixed(1);
   log(`[gap-backfill] inserted ${rows.length} synthetic tick(s) across ${gapHrs}h gap; ${retargets.length} retarget(s) embedded${retargets.length > 0 ? ` (sources: ${retargets.map((r) => r.source).join(',')})` : ''}`);

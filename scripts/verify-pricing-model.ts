@@ -444,17 +444,6 @@ async function main(): Promise<void> {
     // Global ratio - immune to per-bid overlap artifacts. Sum of all
     // autopilot-observed actual consumption vs sum of tick_metrics'
     // modeled spend (already computed at pay-your-bid in the daemon).
-    const globalActual = countRows(
-      raw,
-      'SELECT COALESCE(SUM(amount_consumed_sat), 0) AS n FROM owned_bids',
-    );
-    const globalExpected = countRows(
-      raw,
-      'SELECT COALESCE(SUM(spend_sat), 0) AS n FROM tick_metrics WHERE spend_sat IS NOT NULL',
-    );
-    const globalRatio =
-      globalExpected > 0 ? globalActual / globalExpected : NaN;
-
     console.log('');
     console.log(
       'ID               | state    | life(h) | avg PH | PH-days | consumed sat | avg bid/PH/day | expected@bid | actual/expected',

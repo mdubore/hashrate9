@@ -107,7 +107,7 @@ export class RetentionService {
     }
     const t = this.now();
 
-    let tickMetricsDeleted = 0;
+    const tickMetricsDeleted = 0;
     if (cfg.tick_metrics_retention_days > 0) {
       const cutoff = t - cfg.tick_metrics_retention_days * DAY_MS;
       try {

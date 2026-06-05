@@ -15,7 +15,6 @@ import { Trans } from '@lingui/react/macro';
 import { t } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 
 import { LanguagePicker } from '../components/LanguagePicker';
 import { api, type AppConfig, type SetupInfoResponse } from '../lib/api';
@@ -52,7 +51,6 @@ interface FormState {
 type Step = 'access' | 'mining' | 'review' | 'submitting';
 
 export function Setup() {
-  const navigate = useNavigate();
   const { i18n } = useLingui();
   void i18n;
   const [info, setInfo] = useState<SetupInfoResponse | null>(null);

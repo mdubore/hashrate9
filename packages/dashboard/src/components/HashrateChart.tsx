@@ -16,28 +16,29 @@ import { memo, useCallback, useEffect, useMemo, useState, useRef, useLayoutEffec
 import type React from 'react';
 
 import {
-  CHART_RANGES,
-  CHART_RANGE_SPECS,
   formatTimeTick,
   localAlignedTimeTicks,
   niceYTicks,
   pickTimeTickInterval,
-  type ChartRange,
 } from '@hashrate-autopilot/shared';
 
 import type { MetricPoint, OurBlockMarker } from '../lib/api';
+import {
+  IpChangeMarkers,
+  IpChangeTooltip,
+  type IpChangeMarkerEvent,
+  type IpChangeTooltipState,
+} from './IpChangeMarkers';
 import { getChartColor, parseOverrides } from '../lib/chartColors';
 import {
   formatAgeMinutes,
   formatCompactNumber,
   formatDuration,
-  formatNumber,
   formatTimestampUtc,
 } from '../lib/format';
 import { useDenomination } from '../lib/denomination';
 import { useDateTimeLocale, useFormatters, useLocale, useTemperatureUnit } from '../lib/locale';
 import { applyExplorerTemplate } from '../lib/blockExplorer';
-import { localizedRangeLabel } from '../lib/range-label';
 
 const WIDTH = 880;
 const HEIGHT = 200;
@@ -50,40 +51,6 @@ const PADDING = { top: 16, right: 16, bottom: 24, left: 80 };
 // (right-hand) Y-axis. Mirror the left-axis padding so the violet axis
 // labels have the same breathing room as PH/s on the left.
 const PADDING_RIGHT_WITH_SHARE_LOG = 80;
-
-// Tailwind amber-500 - the deeper "our bid" amber on the PriceChart.
-// Previously #fbbf24 (amber-400); nudged a shade darker at the
-// operator's eyecheck so the Braiins-delivered line reads as a
-// saturated amber/orange rather than pale yellow. The PriceChart
-// "our bid" line shares this constant.
-const COLOR_DELIVERED = '#f59e0b';
-// Green - measured locally at the DATUM gateway.
-const COLOR_DATUM = '#34d399';
-// Same saturated blue as the TIDES-credited block cubes on this
-// chart - reinforces the "Ocean → blue" association and contrasts
-// harder against the green Datum line than cyan did.
-const COLOR_OCEAN = '#3b82f6';
-const COLOR_TARGET = '#94a3b8';
-const COLOR_FLOOR = '#64748b';
-// Gold for the rare "we found this block ourselves" case
-// (found_by_us === true). Reads as "jackpot" against the dark
-// background. After #115 this colour drives the celebratory
-// CROWN marker for own blocks - the most attention-grabbing
-// shape on the chart for the highest-value event.
-const COLOR_OUR_BLOCK = '#fbbf24';
-// Same hue as COLOR_OCEAN by design - TIDES-credited block cubes
-// and the Ocean hashrate line share the Ocean-is-blue association.
-const COLOR_POOL_BLOCK = '#3b82f6';
-// Tailwind yellow-300 - distinct from the amber/gold of own blocks
-// and from the saturated Ocean blue of vanilla pool blocks. After
-// #115 this colour drives the BIP 110-signalling marker (a compact
-// yellow cube). Visually softer than the gold crown so the rare
-// own-block stays the loudest thing on the row.
-const COLOR_BIP110 = '#fde047';
-// Tailwind violet-400 - distinct from amber/green/blue/gray; reads
-// well against the slate background. Used for the opt-in `% of Ocean`
-// (share_log) overlay on the right Y-axis.
-const COLOR_SHARE_LOG = '#a78bfa';
 
 /**
  * Rolling-mean smoother over a time window. For each point at time
@@ -250,7 +217,13 @@ export type HashrateRightAxis =
   | 'solo_hashrate'
   | 'solo_device_count'
   | 'solo_max_temp'
-  | 'solo_best_diff';
+  | 'solo_best_diff'
+  // #243: per-tick instantaneous share-rejection rate for the
+  // primary owned bid. Derived client-side from per-tick deltas
+  // of MetricPoint.primary_bid_shares_rejected_m /
+  // primary_bid_shares_purchased_m. Null on bid-rotation ticks
+  // (negative delta) and on ticks where the purchased delta is 0.
+  | 'braiins_rejection_pct';
 
 /** Per-tick aggregated fleet series row from /api/solo-miners/series. */
 export interface SoloSeriesRow {
@@ -326,8 +299,6 @@ interface RightAxisSpec {
 
 export const HashrateChart = memo(function HashrateChart({
   points,
-  range,
-  onRangeChange,
   ourBlocks = [],
   blockExplorerTemplate = 'https://mempool.space/block/{hash}',
   shareLogPct = null,
@@ -336,6 +307,7 @@ export const HashrateChart = memo(function HashrateChart({
   rightAxisSeries = 'none',
   soloSeries = [],
   bestDiffEvents = [],
+  ipChangeEvents = [],
   markersHiddenCount = 0,
   viewportHandlers,
   wheelRef,
@@ -346,8 +318,6 @@ export const HashrateChart = memo(function HashrateChart({
   chartColorOverrides,
 }: {
   points: readonly MetricPoint[];
-  range: ChartRange;
-  onRangeChange: (r: ChartRange) => void;
   /** Pool blocks credited to our wallet (every recent pool block
    *  under TIDES while mining, plus a gold-flagged subset for the
    *  rare solo-finder case). */
@@ -377,6 +347,8 @@ export const HashrateChart = memo(function HashrateChart({
   soloSeries?: ReadonlyArray<SoloSeriesRow>;
   /** #204: record-breaking best difficulty events for trophy markers on the chart. */
   bestDiffEvents?: ReadonlyArray<{ recorded_at: number; difficulty: number }>;
+  /** #250: public-IP change events, drawn as router-icon markers. */
+  ipChangeEvents?: ReadonlyArray<IpChangeMarkerEvent>;
   /** #172: number of markers hidden by the global marker cap. */
   markersHiddenCount?: number;
   viewportHandlers?: {
@@ -402,12 +374,12 @@ export const HashrateChart = memo(function HashrateChart({
   // #238: resolve per-series colors from the operator's config.
   // These shadow the module-scope `COLOR_*` defaults so the rest of
   // the component body keeps using the same names without changes.
-  // eslint-disable-next-line @typescript-eslint/no-shadow
+
   const _colorOverrides = useMemo(
     () => parseOverrides(chartColorOverrides),
     [chartColorOverrides],
   );
-  /* eslint-disable @typescript-eslint/no-shadow */
+
   const COLOR_DELIVERED = getChartColor('hashrate.delivered', _colorOverrides);
   const COLOR_DATUM = getChartColor('hashrate.received_datum', _colorOverrides);
   const COLOR_OCEAN = getChartColor('hashrate.received_ocean', _colorOverrides);
@@ -415,8 +387,11 @@ export const HashrateChart = memo(function HashrateChart({
   const COLOR_FLOOR = getChartColor('hashrate.floor', _colorOverrides);
   const COLOR_OUR_BLOCK = getChartColor('hashrate.pool_block_ours', _colorOverrides);
   const COLOR_POOL_BLOCK = getChartColor('hashrate.pool_block_others', _colorOverrides);
+  const COLOR_BIP110 = getChartColor('hashrate.pool_block_bip110', _colorOverrides);
+  const COLOR_RETARGET = getChartColor('hashrate.marker_retarget', _colorOverrides);
+  const COLOR_IP_CHANGE = getChartColor('hashrate.marker_ip_change', _colorOverrides);
   const COLOR_RIGHT_AXIS = getChartColor('hashrate.right_axis', _colorOverrides);
-  /* eslint-enable @typescript-eslint/no-shadow */
+
   const dateTimeLocale = useDateTimeLocale();
   const denomination = useDenomination();
   const tempUnit = useTemperatureUnit();
@@ -430,6 +405,8 @@ export const HashrateChart = memo(function HashrateChart({
   // chart; the marker only renders when the right axis is one of the
   // pool-luck variants (otherwise the line itself isn't drawn).
   const [stepTip, setStepTip] = useState<PoolLuckStepTooltipState | null>(null);
+  // #250: public-IP-change marker tooltip (router-icon hover).
+  const [ipChangeTip, setIpChangeTip] = useState<IpChangeTooltipState | null>(null);
   // #105: parity with PriceChart - operator can double chart height
   // for closer inspection of floor breaches / BIP 110 marker positions.
   // State is local; PriceChart's expand toggle is independent.
@@ -478,11 +455,32 @@ export const HashrateChart = memo(function HashrateChart({
   );
   const closeRetargetTip = useCallback(() => setRetargetTip(null), []);
 
-  const onStepEnter = useCallback(
-    (event: PoolLuckStepEvent) => (e: React.MouseEvent) => {
-      setStepTip((prev) => {
+  const onIpChangeEnter = useCallback(
+    (event: IpChangeMarkerEvent, e: React.MouseEvent) => {
+      setIpChangeTip((prev) => {
         if (prev?.pinned) return prev;
         return { event, x: e.clientX, y: e.clientY, pinned: false };
+      });
+    },
+    [],
+  );
+  const onIpChangeLeave = useCallback(() => {
+    setIpChangeTip((prev) => (prev?.pinned ? prev : null));
+  }, []);
+  const onIpChangeClick = useCallback(
+    (event: IpChangeMarkerEvent, e: React.MouseEvent) => {
+      e.stopPropagation();
+      setIpChangeTip({ event, x: e.clientX, y: e.clientY, pinned: true });
+    },
+    [],
+  );
+  const closeIpChangeTip = useCallback(() => setIpChangeTip(null), []);
+
+  const onStepEnter = useCallback(
+    (group: PoolLuckStepGroup) => (e: React.MouseEvent) => {
+      setStepTip((prev) => {
+        if (prev?.pinned) return prev;
+        return { group, x: e.clientX, y: e.clientY, pinned: false };
       });
     },
     [],
@@ -491,9 +489,9 @@ export const HashrateChart = memo(function HashrateChart({
     setStepTip((prev) => (prev?.pinned ? prev : null));
   }, []);
   const onStepClick = useCallback(
-    (event: PoolLuckStepEvent) => (e: React.MouseEvent) => {
+    (group: PoolLuckStepGroup) => (e: React.MouseEvent) => {
       e.stopPropagation();
-      setStepTip({ event, x: e.clientX, y: e.clientY, pinned: true });
+      setStepTip({ group, x: e.clientX, y: e.clientY, pinned: true });
     },
     [],
   );
@@ -711,7 +709,7 @@ export const HashrateChart = memo(function HashrateChart({
               if (v >= 1000) return `${(v / 1000).toFixed(2)} TH/s`;
               return `${v.toFixed(0)} GH/s`;
             },
-            axisLabel: 'solo hashrate',
+            axisLabel: 'Bitaxe hashrate',
             stroke: COLOR_RIGHT_AXIS,
           };
         }
@@ -720,7 +718,7 @@ export const HashrateChart = memo(function HashrateChart({
           return {
             values: projectSoloSeries(xs, soloSeries, (r) => r.device_count),
             formatTick: (v) => v.toFixed(0),
-            axisLabel: 'solo devices',
+            axisLabel: 'Bitaxe devices',
             stroke: COLOR_RIGHT_AXIS,
             // Whole-device counts only - prevents the degenerate
             // "constant value over a tight range" case where every
@@ -735,7 +733,7 @@ export const HashrateChart = memo(function HashrateChart({
           return {
             values: projectSoloSeries(xs, soloSeries, (r) => convert(r.max_temp_c)),
             formatTick: (v) => `${v.toFixed(1)} °${tempUnit}`,
-            axisLabel: tempUnit === 'F' ? 'solo max temp (°F)' : 'solo max temp (°C)',
+            axisLabel: tempUnit === 'F' ? 'Bitaxe max temp (°F)' : 'Bitaxe max temp (°C)',
             stroke: COLOR_RIGHT_AXIS,
           };
         }
@@ -759,7 +757,7 @@ export const HashrateChart = memo(function HashrateChart({
               if (v >= 1e3) return `${(v / 1e3).toFixed(1)}K`;
               return v.toFixed(0);
             },
-            axisLabel: 'solo best difficulty',
+            axisLabel: 'Bitaxe best difficulty',
             stroke: COLOR_RIGHT_AXIS,
           };
         }
@@ -778,6 +776,98 @@ export const HashrateChart = memo(function HashrateChart({
                 maximumFractionDigits: 2,
               }).format(v)}×`,
             axisLabel: label,
+            stroke: COLOR_RIGHT_AXIS,
+          };
+        }
+        case 'braiins_rejection_pct': {
+          // #243: per-window rejection rate from the cumulative-since-
+          // bid-creation share counters. Braiins's counters update in
+          // BATCHES (sometimes seconds, sometimes minutes between
+          // bumps); most ticks have Δpurchased = 0, then one tick has
+          // Δp > 0 carrying the accumulated activity.
+          //
+          // Compute by comparing each point to the PREVIOUS non-null
+          // counter point - no fixed window. This works uniformly
+          // across every range preset because the counters are
+          // cumulative: Δp / Δr over any spacing gives the rate for
+          // that interval. On raw-tick presets (3h/6h/12h/24h, 60 s
+          // spacing) Δp = 0 dominates and carry-forward fills the
+          // line between batch syncs. On bucketed presets (1w / 1m /
+          // 1y / All) each point is the end-of-bucket counter value
+          // and adjacent-point Δp is always meaningful, so the line
+          // emits a fresh measurement every bucket - which is why
+          // earlier builds with a fixed 5-min window had no visible
+          // line on 1w+ (5 min < bucket spacing → earliest-in-window
+          // was always the same point → no Δ computable).
+          //
+          // Semantics:
+          //   NULL = no usable measurement yet (cold start before
+          //          the first non-null counter pair, or right after
+          //          a bid rotation reset).
+          //   carry = previous batch sync produced a rate; this
+          //          point has Δp = 0, so hold the previous value.
+          //          Visualises as a step function whose chart-eye
+          //          average matches the card's weighted average.
+          //   new   = this point has Δp > 0; emit Δr/Δp * 100 and
+          //          save for carry-forward.
+          //
+          // Bid rotation (Δp < 0 OR Δr < 0): reset to NULL so the
+          // carry chain breaks; line goes dark across the rotation
+          // until the new bid produces its first batch sync.
+          const values: (number | null)[] = new Array(points.length);
+          let lastKnown: number | null = null;
+          let prevIdx: number | null = null;
+          for (let i = 0; i < points.length; i += 1) {
+            const cp = points[i]!.primary_bid_shares_purchased_m;
+            const cr = points[i]!.primary_bid_shares_rejected_m;
+            if (cp === null || cr === null) {
+              // Counter not captured this point (pre-#243 row or
+              // getBidDetail failed). Honest unknown; carry the
+              // last known rate. Don't advance prevIdx - keep
+              // referencing the last point with data.
+              values[i] = lastKnown;
+              continue;
+            }
+            if (prevIdx === null) {
+              // First non-null counter in the range. Can't compute
+              // a delta yet; lock in as the baseline.
+              prevIdx = i;
+              values[i] = lastKnown;
+              continue;
+            }
+            const pp = points[prevIdx]!.primary_bid_shares_purchased_m!;
+            const pr = points[prevIdx]!.primary_bid_shares_rejected_m!;
+            const dp = cp - pp;
+            const dr = cr - pr;
+            if (dp < 0 || dr < 0) {
+              // Bid rotation between prev and curr (counter reset).
+              // Reset carry chain so the line goes dark until the
+              // new bid produces a measurement.
+              lastKnown = null;
+              prevIdx = i;
+              values[i] = null;
+              continue;
+            }
+            if (dp === 0) {
+              // No fresh activity since the previous point. Hold
+              // the last known rate. Don't advance prevIdx - wait
+              // until Δp > 0 so we get a meaningful measurement.
+              values[i] = lastKnown;
+              continue;
+            }
+            // New measurement: Δp > 0. Compute, save, advance.
+            lastKnown = (dr / dp) * 100;
+            values[i] = lastKnown;
+            prevIdx = i;
+          }
+          return {
+            values,
+            formatTick: (v) =>
+              `${new Intl.NumberFormat(intlLocale, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              }).format(v)}%`,
+            axisLabel: 'rejection rate (Braiins)',
             stroke: COLOR_RIGHT_AXIS,
           };
         }
@@ -800,14 +890,6 @@ export const HashrateChart = memo(function HashrateChart({
     const smoothedYs = rollingMean(xs, rawYs, braiinsSmoothingMinutes).map((v) => v ?? 0);
     const ys: readonly number[] = smoothedYs;
     const datumYs = rollingMean(xs, rawDatumYs, datumSmoothingMinutes);
-    const datumMax = datumYs.reduce<number>(
-      (acc, v) => (v !== null && v > acc ? v : acc),
-      0,
-    );
-    const oceanMax = oceanYs.reduce<number>(
-      (acc, v) => (v !== null && v > acc ? v : acc),
-      0,
-    );
     const hasOcean = oceanYs.some((v) => v !== null);
 
     const dataMinX = xs[0]!;
@@ -885,7 +967,15 @@ export const HashrateChart = memo(function HashrateChart({
             yFloor = 0;
             yCeiling = 1;
           } else {
-            const pad = Math.max(Math.abs(slMax) * 0.1, 1);
+            // #243: pad proportional to magnitude, no absolute floor.
+            // The previous `Math.max(..., 1)` floor was a safety against
+            // tiny magnitudes but it stretched the axis 7x for a 0.14%
+            // rejection rate (pad=1 made the scale 0-1% and the line
+            // visually invisible near the X axis). Pure 10% of magnitude
+            // gives a tight range for percentages AND keeps trillion-
+            // scale series (network_difficulty) from sitting on the top
+            // rule.
+            const pad = Math.abs(slMax) * 0.1;
             yFloor = Math.max(0, slMax - pad);
             yCeiling = slMax + pad;
           }
@@ -1112,16 +1202,32 @@ export const HashrateChart = memo(function HashrateChart({
   //          numerator goes from N to N+1, line steps up)
   //   - 'out' at  block.timestamp_ms + windowMs (the moment it ages
   //          out of the rolling window - line steps down)
-  // The marker positions on the new value (post-step), found by
-  // scanning `points` for the first tick at-or-after the event time
-  // and reading its persisted pool_luck column. Skips the event when
-  // we have no point that close (predates our tick history; the line
-  // wouldn't be drawn there either).
+  //
+  // Both events get a dot at the first tick at-or-after the event
+  // time, with `luckBefore` from the tick immediately preceding it.
+  // The dot's Y is that tick's persisted pool_luck reading; the
+  // tooltip's `before -> after` numbers come from the two flanking
+  // ticks. This anchors the dot at the block's actual timestamp
+  // rather than at "the first tick where the count visibly stepped" -
+  // necessary because two events (e.g. one 'in' and one 'out')
+  // landing within the same tick cancel in the count even though
+  // the luck still changes (the window denominator shifted). Earlier
+  // versions used a count-delta scan over the next 15 ticks; that
+  // misattributed dots when a later block's actual count step
+  // happened to land within the scan window (e.g. block A's 'out'
+  // ended up drawn at block B's count drop because A and B's
+  // simultaneous in/out cancelled), and it dropped dots entirely
+  // when the cancellation hid the step (#250-something).
   const visibleLuckStepMarkers = useMemo(() => {
     const empty: Array<{
-      event: PoolLuckStepEvent;
+      group: PoolLuckStepGroup;
       cx: number;
       cy: number;
+      /** X position of the contributing block(s) - used for the dashed
+       *  connector when the dot sits later than the block icon. When a
+       *  group contains multiple events at different block timestamps
+       *  this picks the earliest, so the connector spans the full
+       *  region the group covers. */
       blockCx: number;
     }> = [];
     if (!chartData) return empty;
@@ -1137,71 +1243,65 @@ export const HashrateChart = memo(function HashrateChart({
                    : rightAxisSeries === 'pool_luck_7d' ? 7 * DAY_MS
                    : 30 * DAY_MS;
     const { dataMinX, dataMaxX, xScale, shareLogYScale } = chartData;
-    const countKey = rightAxisSeries === 'pool_luck_24h' ? 'pool_blocks_24h_count'
-                   : rightAxisSeries === 'pool_luck_7d' ? 'pool_blocks_7d_count'
-                   : 'pool_blocks_30d_count';
     const luckKey = rightAxisSeries as 'pool_luck_24h' | 'pool_luck_7d' | 'pool_luck_30d';
-    // The block-count column updates with the Ocean refresher's cadence
-    // (~few minutes), not on the on-chain block timestamp. If we picked
-    // `before`/`after` as the two ticks straddling the event time, both
-    // would still have the pre-event count and the tooltip would report
-    // "luck went from 0.47× to 0.47×" even when the chart line visibly
-    // steps a few ticks later (#161). Find instead the first tick where
-    // the count actually changed in the direction we expect and use
-    // that as `after`; `before` is the tick immediately preceding the
-    // step. Linear scans are fine - chart point counts are small.
-    const MAX_LAG_TICKS = 15; // ~15 min of slack at 60 s cadence
-    const out: typeof empty = [];
+    // Build raw events first, then group by the tick they resolve to.
+    type StagedEvent = {
+      kind: 'in' | 'out';
+      t: number;
+      block: OurBlockMarker;
+      afterIdx: number;
+    };
+    const staged: StagedEvent[] = [];
     for (const block of ourBlocks) {
       for (const kind of ['in', 'out'] as const) {
         const t =
           kind === 'in' ? block.timestamp_ms : block.timestamp_ms + windowMs;
         if (t < dataMinX || t > dataMaxX) continue;
-        // Locate the tick at or after the event time - the count-change
-        // we're scanning for is somewhere from here onwards.
-        let eventIdx = -1;
+        let afterIdx = -1;
         for (let i = 0; i < points.length; i++) {
           if (points[i]!.tick_at >= t) {
-            eventIdx = i;
-            break;
-          }
-        }
-        if (eventIdx < 0) continue;
-        // Pre-event count: use the tick just before the event time, or
-        // fall back to the event-time tick when the event is at the
-        // start of the chart range (no earlier tick available).
-        const baseCount =
-          eventIdx > 0
-            ? points[eventIdx - 1]![countKey]
-            : points[eventIdx]![countKey];
-        if (baseCount === null) continue;
-        // Scan forward for the first tick where the count moved in the
-        // expected direction. For 'in', count should go up by one (the
-        // newly-credited block); for 'out', down by one (the block
-        // rotating out of the rolling window).
-        let afterIdx = -1;
-        const scanEnd = Math.min(points.length, eventIdx + MAX_LAG_TICKS);
-        for (let i = eventIdx; i < scanEnd; i++) {
-          const c = points[i]![countKey];
-          if (c === null) continue;
-          if (kind === 'in' ? c > baseCount : c < baseCount) {
             afterIdx = i;
             break;
           }
         }
-        if (afterIdx < 0) continue; // daemon hasn't reflected the step yet
-        const after = points[afterIdx]!;
-        const before = afterIdx > 0 ? points[afterIdx - 1]! : null;
-        const luckAfter = after[luckKey];
-        const luckBefore = before === null ? null : before[luckKey];
-        if (luckAfter === null) continue;
-        out.push({
-          event: { kind, t, block, luckBefore, luckAfter, windowMs },
-          cx: xScale(after.tick_at),
-          cy: shareLogYScale(luckAfter),
-          blockCx: xScale(t),
-        });
+        if (afterIdx < 0) continue;
+        staged.push({ kind, t, block, afterIdx });
       }
+    }
+    // Group by afterIdx so events that landed in the same daemon tick
+    // collapse into a single marker. The luck step the line actually
+    // shows is the combined effect of all events in the group.
+    const byTick = new Map<number, StagedEvent[]>();
+    for (const ev of staged) {
+      const arr = byTick.get(ev.afterIdx) ?? [];
+      arr.push(ev);
+      byTick.set(ev.afterIdx, arr);
+    }
+    const out: typeof empty = [];
+    for (const [afterIdx, events] of byTick) {
+      const after = points[afterIdx]!;
+      const before = afterIdx > 0 ? points[afterIdx - 1]! : null;
+      const luckAfter = after[luckKey];
+      const luckBefore = before === null ? null : before[luckKey];
+      if (luckAfter === null) continue;
+      // Connector anchor: use the earliest contributing event's
+      // timestamp so the dashed line covers the whole group when the
+      // block icons sit before the resolved tick.
+      const earliestT = events.reduce(
+        (m, e) => (e.t < m ? e.t : m),
+        events[0]!.t,
+      );
+      out.push({
+        group: {
+          events: events.map(({ kind, t, block }) => ({ kind, t, block })),
+          luckBefore,
+          luckAfter,
+          windowMs,
+        },
+        cx: xScale(after.tick_at),
+        cy: shareLogYScale(luckAfter),
+        blockCx: xScale(earliestT),
+      });
     }
     return out;
   }, [chartData, ourBlocks, points, rightAxisSeries]);
@@ -1221,7 +1321,7 @@ export const HashrateChart = memo(function HashrateChart({
     );
   }
 
-  const { minX, maxX, dataMinX, dataMaxX, xScale, yScale, deliveredPath, datumPath, hasDatum, oceanPath, hasOcean, targetPath, floorPath, yTicks, xTickInterval, xTicks, hasShareLog, shareLogPath, shareLogYTicks, shareLogYScale, padRight, rightAxis, marketplaceEmptyIntervals, braiinsUnreachableIntervals, daemonOfflineIntervals } = chartData;
+  const { dataMinX, dataMaxX, xScale, yScale, deliveredPath, datumPath, hasDatum, oceanPath, hasOcean, targetPath, floorPath, yTicks, xTickInterval, xTicks, hasShareLog, shareLogPath, shareLogYTicks, shareLogYScale, padRight, rightAxis, marketplaceEmptyIntervals, braiinsUnreachableIntervals, daemonOfflineIntervals } = chartData;
 
   return (
     <div className="bg-slate-900 border rounded-lg p-4 border-slate-800">
@@ -1517,12 +1617,12 @@ export const HashrateChart = memo(function HashrateChart({
             kinds use the same shape per operator preference; the
             tooltip tells direction. */}
         {rightAxis &&
-          visibleLuckStepMarkers.map(({ event, cx, cy, blockCx }) => (
+          visibleLuckStepMarkers.map(({ group, cx, cy, blockCx }) => (
             <g
-              key={`luckstep-${event.kind}-${event.block.height}`}
-              onMouseEnter={onStepEnter(event)}
+              key={`luckstep-${cx}-${group.events.map((e) => `${e.kind}${e.block.height}`).join('|')}`}
+              onMouseEnter={onStepEnter(group)}
               onMouseLeave={onStepLeave}
-              onClick={onStepClick(event)}
+              onClick={onStepClick(group)}
               style={{ cursor: 'pointer' }}
             >
               {Math.abs(cx - blockCx) > 2 && (
@@ -1658,7 +1758,7 @@ export const HashrateChart = memo(function HashrateChart({
                   x2={x}
                   y1={PADDING.top + 8}
                   y2={chartHeight - PADDING.bottom}
-                  stroke="#c084fc"
+                  stroke={COLOR_RETARGET}
                   strokeWidth="1"
                   strokeDasharray="2 3"
                   opacity="0.4"
@@ -1674,7 +1774,7 @@ export const HashrateChart = memo(function HashrateChart({
                 <svg
                   x={x - 7} y={PADDING.top - 11}
                   width="14" height="14" viewBox="0 0 24 24"
-                  fill="none" stroke="#c084fc" strokeWidth="2"
+                  fill="none" stroke={COLOR_RETARGET} strokeWidth="2"
                   strokeLinecap="round" strokeLinejoin="round"
                   opacity="0.85"
                 >
@@ -1686,6 +1786,20 @@ export const HashrateChart = memo(function HashrateChart({
               </g>
             );
           })}
+
+        {/* #250: public-IP change markers (router icon). Always shown. */}
+        <IpChangeMarkers
+          events={ipChangeEvents}
+          xScale={xScale}
+          dataMinX={dataMinX}
+          dataMaxX={dataMaxX}
+          topY={PADDING.top}
+          bottomY={chartHeight - PADDING.bottom}
+          color={COLOR_IP_CHANGE}
+          onMarkerEnter={onIpChangeEnter}
+          onMarkerLeave={onIpChangeLeave}
+          onMarkerClick={onIpChangeClick}
+        />
 
         <defs>
           <linearGradient id="deliveredFill" x1="0" y1="0" x2="0" y2="1">
@@ -1821,6 +1935,13 @@ export const HashrateChart = memo(function HashrateChart({
           explorerTemplate={blockExplorerTemplate ?? ''}
           locale={intlLocale}
           onClose={closeStepTip}
+        />
+      )}
+      {ipChangeTip && (
+        <IpChangeTooltip
+          tip={ipChangeTip}
+          onClose={closeIpChangeTip}
+          pinnedDomId="hashrate-chart-pinned-ipchange-tooltip"
         />
       )}
     </div>
@@ -2229,37 +2350,6 @@ function Legend({ color, label, dashed }: { color: string; label: string; dashed
   );
 }
 
-function RangePicker({
-  current,
-  onChange,
-}: {
-  current: ChartRange;
-  onChange: (r: ChartRange) => void;
-}) {
-  const { i18n } = useLingui();
-  return (
-    <div className="flex gap-0.5 bg-slate-950/70 border border-slate-800 rounded-md p-0.5 pl-2 items-center">
-      <span className="text-[10px] uppercase tracking-wider text-slate-500 pr-1"><Trans>range</Trans></span>
-      {CHART_RANGES.map((r) => {
-        const active = r === current;
-        return (
-          <button
-            key={r}
-            onClick={() => onChange(r)}
-            className={
-              'px-2 py-1 text-[11px] rounded transition font-mono ' +
-              (active
-                ? 'bg-amber-400 text-slate-900 font-medium'
-                : 'text-slate-300 hover:bg-slate-800')
-            }
-          >
-            {localizedRangeLabel(r, i18n.locale)}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 // #128: pool-luck step marker types + tooltip.
 //
@@ -2268,11 +2358,29 @@ function RangePicker({
 //   - 'out': numerator -1 when the block ages out of the rolling
 //            window (line steps down, `windowMs` later)
 
+/**
+ * One block-level event contributing to a pool-luck step:
+ *   - 'in':  numerator +1 the moment the block lands.
+ *   - 'out': numerator -1 when the block ages out (windowMs later).
+ */
 interface PoolLuckStepEvent {
   readonly kind: 'in' | 'out';
-  /** Timestamp of the step. For 'in' = block.timestamp_ms; for 'out' = block.timestamp_ms + windowMs. */
+  /** Timestamp of the step. 'in' = block.timestamp_ms; 'out' = block.timestamp_ms + windowMs. */
   readonly t: number;
   readonly block: OurBlockMarker;
+}
+
+/**
+ * One marker on the pool-luck line. When two or more block events
+ * (e.g. one 'in' and one 'out') land in the same daemon tick, they
+ * collapse into a single group with one dot: the count net-changes
+ * by the sum of their contributions and the luck step the line
+ * actually shows is their combined effect. The tooltip lists each
+ * contributing event so the operator can see what's behind the
+ * step.
+ */
+interface PoolLuckStepGroup {
+  readonly events: ReadonlyArray<PoolLuckStepEvent>;
   /** Pool-luck value at the tick immediately before the step. Null if the chart's tick history starts after the step. */
   readonly luckBefore: number | null;
   /** Pool-luck value at the first tick at-or-after the step. */
@@ -2282,7 +2390,7 @@ interface PoolLuckStepEvent {
 }
 
 interface PoolLuckStepTooltipState {
-  readonly event: PoolLuckStepEvent;
+  readonly group: PoolLuckStepGroup;
   readonly x: number;
   readonly y: number;
   readonly pinned: boolean;
@@ -2302,8 +2410,8 @@ function PoolLuckStepTooltip({
   const { i18n } = useLingui();
   void i18n;
   const fmt = useFormatters();
-  const { event, pinned } = tip;
-  const { kind, block, luckBefore, luckAfter, windowMs } = event;
+  const { group, pinned } = tip;
+  const { events, luckBefore, luckAfter, windowMs } = group;
   const ref = useRef<HTMLDivElement | null>(null);
   const [pos, setPos] = useState<{ left: number; top: number; ready: boolean }>({
     left: tip.x + 12,
@@ -2323,27 +2431,36 @@ function PoolLuckStepTooltip({
     if (left < margin) left = margin;
     if (top < margin) top = margin;
     setPos({ left, top, ready: true });
-  }, [tip.x, tip.y, event.kind, block.height]);
+  }, [tip.x, tip.y, events.length, events[0]?.block.height]);
 
-  const url = applyExplorerTemplate(explorerTemplate, block);
-  const rewardBtc = block.total_reward_sat / 1e8;
   const DAY = 24 * 60 * 60 * 1000;
   const windowLabel = windowMs <= DAY ? '24h' : windowMs <= 7 * DAY ? '7d' : '30d';
+
+  // Combined direction line. When more than one event landed in the
+  // same daemon tick, the line jump on the chart is their net effect;
+  // we describe what happened as a list below this summary instead of
+  // pretending a single 'in' or 'out' explains the step. (#223 origin:
+  // earlier copy talked about the numerator going from X× to Y×; the
+  // luck multiplier is the thing the user sees, not the integer count
+  // - so the summary talks luck.)
+  const luckBeforeText = luckBefore === null ? '-' : `${luckBefore.toFixed(2)}×`;
+  const luckAfterText = `${luckAfter.toFixed(2)}×`;
   const headerLabel =
-    kind === 'in' ? t`POOL LUCK +` : t`POOL LUCK -`;
-  // #223: the previous copy said "numerator went from X× to Y×" which
-  // misframed the value - the numerator of the luck formula is the
-  // block count over the rolling window (an integer, N → N±1), not
-  // the luck multiplier itself. The values shown are the luck before
-  // and after the step. Rewording to talk about pool luck directly.
-  const directionText =
-    kind === 'in'
-      ? t`Block landed - pool luck went from ${
-          luckBefore === null ? '-' : `${luckBefore.toFixed(2)}×`
-        } to ${luckAfter.toFixed(2)}× (rolling-${windowLabel} window).`
-      : t`Block aged out of the rolling-${windowLabel} window - pool luck went from ${
-          luckBefore === null ? '-' : `${luckBefore.toFixed(2)}×`
-        } to ${luckAfter.toFixed(2)}×.`;
+    events.length === 1
+      ? events[0]!.kind === 'in'
+        ? t`POOL LUCK +`
+        : t`POOL LUCK -`
+      : t`POOL LUCK · ${events.length} EVENTS`;
+  const headerSuffix =
+    events.length === 1
+      ? ` #${events[0]!.block.height.toLocaleString(locale)}`
+      : '';
+  const summaryText =
+    events.length === 1
+      ? events[0]!.kind === 'in'
+        ? t`Block landed - pool luck went from ${luckBeforeText} to ${luckAfterText} (rolling-${windowLabel} window).`
+        : t`Block aged out of the rolling-${windowLabel} window - pool luck went from ${luckBeforeText} to ${luckAfterText}.`
+      : t`${events.length} events landed in the same daemon tick - the line shows their combined effect on the rolling-${windowLabel} window. Pool luck went from ${luckBeforeText} to ${luckAfterText}.`;
 
   return (
     <div
@@ -2354,7 +2471,7 @@ function PoolLuckStepTooltip({
     >
       <div className="flex items-start justify-between gap-3">
         <span className="font-semibold uppercase tracking-wider text-violet-300">
-          {headerLabel} #{block.height.toLocaleString(locale)}
+          {headerLabel}{headerSuffix}
         </span>
         {pinned && (
           <button
@@ -2368,48 +2485,91 @@ function PoolLuckStepTooltip({
         )}
       </div>
       <div className="text-slate-300 mt-1 whitespace-normal max-w-xs">
-        {directionText}
+        {summaryText}
       </div>
-      <div className="text-slate-500 mt-2 text-[11px]">
-        <Trans>block found:</Trans> {fmt.timestamp(block.timestamp_ms)}
-      </div>
-      <div className="text-slate-500 text-[10px]">
-        {formatTimestampUtc(block.timestamp_ms)}
-      </div>
-      {kind === 'out' && (
-        <div className="text-slate-500 mt-1 text-[11px]">
-          <Trans>aged out:</Trans>{' '}
-          {fmt.timestamp(block.timestamp_ms + windowMs)}
-        </div>
-      )}
-      <div className="mt-2 space-y-0.5 text-slate-300">
-        <BtcRow label={t`pool reward`} btc={rewardBtc} locale={locale} />
-      </div>
-      {block.signals_bip110 === true && (
-        <div className="mt-2 pt-2 border-t border-slate-800 text-amber-300 text-[11px]">
-          <Trans>Signaling BIP 110</Trans>
-        </div>
-      )}
-      {block.found_by_us && (
-        <div className="mt-2 pt-2 border-t border-slate-800 text-amber-300 text-[11px]">
-          <Trans>Found by us</Trans>
-        </div>
-      )}
+      {/* Per-event detail blocks. Single-event groups render the
+          familiar "block found / aged out / reward" stack the operator
+          has seen since #128. Multi-event groups list each event with
+          a small kind badge so it's clear which block contributed
+          what to the combined step. */}
+      {events.map((ev, i) => {
+        const { kind, block } = ev;
+        const url = applyExplorerTemplate(explorerTemplate, block);
+        const rewardBtc = block.total_reward_sat / 1e8;
+        return (
+          <div
+            key={`${kind}-${block.height}`}
+            className={
+              i === 0
+                ? 'mt-3 pt-2 border-t border-slate-800'
+                : 'mt-2 pt-2 border-t border-slate-800'
+            }
+          >
+            <div className="flex items-baseline gap-2">
+              {/* Green FOUND / red AGED OUT badge on every event panel,
+                  not only multi-event groups. The traffic-light cue
+                  is a fast visual read of what kind of step the dot
+                  represents. Fixed-width centered slot so 'FOUND' and
+                  'AGED OUT' occupy the same horizontal space and the
+                  block heights line up across rows. */}
+              <span
+                className={`text-[10px] uppercase tracking-wider px-1 py-0.5 rounded inline-block w-20 text-center ${
+                  kind === 'in'
+                    ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-800'
+                    : 'bg-red-900/40 text-red-300 border border-red-800'
+                }`}
+              >
+                {kind === 'in' ? <Trans>found</Trans> : <Trans>aged out</Trans>}
+              </span>
+              <span className="font-mono text-slate-300">
+                #{block.height.toLocaleString(locale)}
+              </span>
+              {block.found_by_us && (
+                <span className="text-amber-300 text-[10px] uppercase tracking-wider">
+                  <Trans>found by us</Trans>
+                </span>
+              )}
+              {block.signals_bip110 === true && (
+                <span className="text-amber-300 text-[10px] uppercase tracking-wider">
+                  BIP 110
+                </span>
+              )}
+            </div>
+            <div className="text-slate-500 mt-1 text-[11px]">
+              <Trans>block found:</Trans> {fmt.timestamp(block.timestamp_ms)}
+            </div>
+            <div className="text-slate-500 text-[10px]">
+              {formatTimestampUtc(block.timestamp_ms)}
+            </div>
+            {kind === 'out' && (
+              <div className="text-slate-500 mt-1 text-[11px]">
+                <Trans>aged out:</Trans>{' '}
+                {fmt.timestamp(block.timestamp_ms + windowMs)}
+              </div>
+            )}
+            <div className="mt-1 space-y-0.5 text-slate-300">
+              <BtcRow label={t`pool reward`} btc={rewardBtc} locale={locale} />
+            </div>
+            {pinned && url && (
+              <div className="mt-2 flex items-center justify-end gap-3">
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-amber-400 hover:underline text-[11px]"
+                >
+                  <Trans>open in explorer</Trans>
+                </a>
+              </div>
+            )}
+          </div>
+        );
+      })}
       {pinned && (
-        <div className="mt-3 pt-2 border-t border-slate-800 flex items-center justify-between gap-3">
+        <div className="mt-2 pt-2 border-t border-slate-800">
           <span className="text-[10px] text-slate-500">
             <Trans>click outside to close</Trans>
           </span>
-          {url && (
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-amber-400 hover:underline text-[11px]"
-            >
-              <Trans>open in explorer</Trans>
-            </a>
-          )}
         </div>
       )}
     </div>

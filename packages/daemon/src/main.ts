@@ -40,6 +40,7 @@ import { DdnsUpdaterService } from './services/ddns-updater.js';
 import { closeDatabase, openDatabase, type DatabaseHandle } from './state/db.js';
 import { AlertsRepo } from './state/repos/alerts.js';
 import { BidEventsRepo } from './state/repos/bid_events.js';
+import { IpChangeEventsRepo } from './state/repos/ip_change_events.js';
 import { BraiinsDepositsRepo } from './state/repos/braiins_deposits.js';
 import { SoloMinersRepo } from './state/repos/solo_miners.js';
 import { AxeOSPoller } from './services/axeos-poller.js';
@@ -89,6 +90,7 @@ interface BootDeps {
   readonly decisionsRepo: DecisionsRepo;
   readonly tickMetricsRepo: TickMetricsRepo;
   readonly bidEventsRepo: BidEventsRepo;
+  readonly ipChangeEventsRepo: IpChangeEventsRepo;
   readonly alertsRepo: AlertsRepo;
   readonly poolBlocksRepo: PoolBlocksRepo;
   readonly rewardEventsRepo: RewardEventsRepo;
@@ -98,7 +100,54 @@ interface BootDeps {
   readonly ageKeyPath: string;
 }
 
+// Global crash safety net. The daemon previously had NO
+// uncaughtException / unhandledRejection handler, so a single stray
+// rejection anywhere (a fire-and-forget promise in any service) would
+// terminate the whole process with no log line and no alert - it just
+// vanished, and on a systemd box looked like a mysterious "daemon
+// died" (the operator could only see the deposit alert that happened
+// to fire just before). These handlers log the stack, fire a
+// best-effort Telegram alert, and exit(1) so systemd restarts cleanly.
+//
+// `emergencyNotify` is wired to the live Telegram sink once it exists
+// in bootOperational; before that (early startup) we still log + exit.
+let emergencyNotify: ((msg: string) => Promise<unknown>) | null = null;
+let daemonExiting = false;
+let crashing = false;
+
+function installCrashHandlers(): void {
+  const onFatal = (kind: string, err: unknown): void => {
+    // A late rejection during a clean shutdown is not a crash.
+    if (daemonExiting || crashing) return;
+    crashing = true;
+    const detail = err instanceof Error ? (err.stack ?? err.message) : String(err);
+    console.error(`FATAL ${kind} - daemon will exit for restart:`);
+    console.error(detail);
+    void (async () => {
+      try {
+        if (emergencyNotify) {
+          const short = detail.length > 300 ? `${detail.slice(0, 300)}…` : detail;
+          await Promise.race([
+            emergencyNotify(
+              `🛑 Hashrate Autopilot crashed (${kind}): ${short} — systemd will restart it.`,
+            ),
+            new Promise((r) => setTimeout(r, 4_000)),
+          ]);
+        }
+      } catch {
+        // Best-effort: never let the alert path block the exit.
+      } finally {
+        // exit(1) so a systemd Restart=on-failure/always brings it back.
+        process.exit(1);
+      }
+    })();
+  };
+  process.on('uncaughtException', (err) => onFatal('uncaughtException', err));
+  process.on('unhandledRejection', (reason) => onFatal('unhandledRejection', reason));
+}
+
 async function main(): Promise<void> {
+  installCrashHandlers();
   const projectRoot = process.cwd();
   const secretsPath = process.env['SECRETS_PATH'] ?? resolve(projectRoot, '.env.sops.yaml');
   const dbPath = process.env['DB_PATH'] ?? resolve(projectRoot, 'data/state.db');
@@ -114,6 +163,15 @@ async function main(): Promise<void> {
   // boot paths (the wizard writes config + secrets through repos
   // backed by the same handle).
   const handle = await openDatabase({ path: dbPath });
+  if (handle.migrations.reconciled.length > 0) {
+    // Migrations whose schema effect was already present on the DB
+    // (e.g., a half-applied state from a crashed prior run) but
+    // whose tracking row was missing in `_migrations`. The runner
+    // stamped them retroactively. Log loudly so the operator knows
+    // self-heal kicked in - this is the kind of thing you want
+    // visible in the journal, not silent.
+    log(`db: reconciled ${handle.migrations.reconciled.length} already-applied migration(s): ${handle.migrations.reconciled.join(', ')}`);
+  }
   const deps: BootDeps = {
     handle,
     configRepo: new ConfigRepo(handle.db),
@@ -122,6 +180,7 @@ async function main(): Promise<void> {
     decisionsRepo: new DecisionsRepo(handle.db),
     tickMetricsRepo: new TickMetricsRepo(handle.db),
     bidEventsRepo: new BidEventsRepo(handle.db),
+    ipChangeEventsRepo: new IpChangeEventsRepo(handle.db),
     alertsRepo: new AlertsRepo(handle.db),
     poolBlocksRepo: new PoolBlocksRepo(handle.db),
     rewardEventsRepo: new RewardEventsRepo(handle.db),
@@ -250,6 +309,7 @@ async function bootOperational(
     decisionsRepo,
     tickMetricsRepo,
     bidEventsRepo,
+    ipChangeEventsRepo,
     alertsRepo,
     poolBlocksRepo,
     rewardEventsRepo,
@@ -701,7 +761,6 @@ async function bootOperational(
   // token / chat id take effect on the next tick without a restart.
   // Resolution: prefer config when non-empty, fall back to secrets.
   const buildSink = () => {
-    const latestCfg = configRepo;
     return new TelegramSink({
       bot_token:
         cfgRefHolder.value.telegram_bot_token ||
@@ -710,7 +769,6 @@ async function bootOperational(
       chat_id: cfgRefHolder.value.telegram_chat_id || '',
       instance_label: cfgRefHolder.value.telegram_instance_label || '',
     });
-    void latestCfg;
   };
   // Forward `opts` through to the freshly-built sink so the
   // alert-manager's alert_id + action_buttons (Mark as seen / Snooze)
@@ -721,6 +779,9 @@ async function bootOperational(
     send: (body: string, opts?: SendOptions) => buildSink().send(body, opts),
     verify: () => buildSink().verify(),
   };
+  // Now that a Telegram sink exists, let the global crash handler send
+  // a last-gasp alert before the process exits for restart.
+  emergencyNotify = (msg: string) => dynamicSink.send(msg);
   const alertManager = new AlertManager({
     alertsRepo,
     sink: dynamicSink,
@@ -896,7 +957,16 @@ async function bootOperational(
   const ddnsUpdaterRef: { value: DdnsUpdaterService | null } = { value: null };
   const publicIpService = new PublicIpService({
     log: (m) => log(m),
-    onIpChange: () => {
+    onIpChange: (newIp, oldIp) => {
+      // #250: persist the rotation as a first-class event so the
+      // dashboard can show "IP last changed" and mark it on the charts
+      // (to correlate with rejection-rate spikes). Fire-and-forget; a
+      // DB hiccup must not break the IP-poll loop.
+      void ipChangeEventsRepo
+        .insert({ occurred_at: Date.now(), old_ip: oldIp, new_ip: newIp })
+        .catch((err) =>
+          log(`[ip-change] failed to record ${oldIp} -> ${newIp}: ${String(err)}`),
+        );
       // Force an immediate DDNS push as soon as we observe an IP
       // rotation - addresses #114 where a real ISP rotation left the
       // old IP live in DNS for ~27 min while two 5-min pollers waited
@@ -941,6 +1011,7 @@ async function bootOperational(
     decisionsRepo,
     tickMetricsRepo,
     bidEventsRepo,
+    ipChangeEventsRepo,
     alertsRepo,
     poolBlocksRepo,
     rewardEventsRepo,
@@ -1067,6 +1138,9 @@ async function bootOperational(
   const shutdown = async (signal: string): Promise<void> => {
     if (shuttingDown) return;
     shuttingDown = true;
+    // Tell the global crash handler this is an intentional exit, so a
+    // late rejection during drain isn't misreported as a crash.
+    daemonExiting = true;
     log(`received ${signal}; draining loop`);
     // Hard force-exit fence: Docker's default stop grace is 10 s, so
     // if anything (a stuck Braiins API call inside the in-flight

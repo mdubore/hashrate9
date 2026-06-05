@@ -163,7 +163,6 @@ export class TelegramReceiver {
     }
 
     const now = (this.opts.now ?? (() => Date.now()))();
-    let confirmation = '';
     try {
       // ack is the only supported callback now - snooze was removed
       // 2026-05-09 per operator request. parseCallbackData rejects
@@ -177,13 +176,13 @@ export class TelegramReceiver {
       // Diagnostic: operator wanted a trace they could grep when
       // verifying that a Telegram-side ack made it to the DB.
       this.log(`ack from Telegram: alert_id=${action.alert_id} acknowledged_at=${now}`);
-      confirmation = '✓ acknowledged';
     } catch (err) {
       this.log(`action ack failed: ${(err as Error).message}`);
       await this.answerCallback(creds.bot_token, cb.id, 'failed');
       return;
     }
 
+    const confirmation = '✓ acknowledged';
     await this.answerCallback(creds.bot_token, cb.id, confirmation);
     if (cb.message) {
       await this.editMessageText(creds.bot_token, {

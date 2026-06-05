@@ -65,6 +65,8 @@ export interface ConfigTable {
   display_date_layout: string;
   /** #238: per-series chart color overrides as a JSON string. Empty `{}` means defaults. */
   chart_color_overrides: string;
+  /** #244: dashboard block order as a JSON string array of block IDs. Empty `[]` means default order. */
+  dashboard_card_order: string;
   /** @deprecated Legacy column - kept for NOT NULL; ignored by the app. */
   hibernate_on_expensive_market: 0 | 1;
   electrs_host: string | null;
@@ -263,6 +265,16 @@ export interface RewardEventsTable {
   reorged: Generated<0 | 1>;
 }
 
+// #250: append-only log of public-IP rotations (old -> new). old_ip is
+// nullable for defensiveness, though the detection hook only fires on a
+// non-null -> different-non-null change so it is populated in practice.
+export interface IpChangeEventsTable {
+  id: Generated<number>;
+  occurred_at: number;
+  old_ip: string | null;
+  new_ip: string;
+}
+
 // ---------------------------------------------------------------------------
 // alerts
 // ---------------------------------------------------------------------------
@@ -456,6 +468,18 @@ export interface TickMetricsTable {
   /** #173: 1 = Braiins API was reachable this tick, 0 = unreachable.
    * NULL for rows predating migration 0091. */
   braiins_reachable: number | null;
+  /**
+   * #243: per-tick cumulative-since-bid-creation share counters
+   * snapshotted from the primary owned bid's
+   * `counters_committed.shares_*_m` (Braiins `/spot/bid/detail`).
+   * Stored cumulative; the chart + Braiins card derive the
+   * instantaneous rejection rate from per-tick deltas (rejected_m
+   * delta / purchased_m delta * 100). NULL on a tick where
+   * `getBidDetail` failed or there was no primary owned bid.
+   */
+  primary_bid_shares_purchased_m: number | null;
+  primary_bid_shares_accepted_m: number | null;
+  primary_bid_shares_rejected_m: number | null;
   run_mode: RunMode;
   action_mode: ActionMode;
   /**
@@ -636,6 +660,7 @@ export interface Database {
   solo_miners: SoloMinersTable;
   solo_miner_samples: SoloMinerSamplesTable;
   solo_best_difficulty_events: SoloBestDifficultyEventsTable;
+  ip_change_events: IpChangeEventsTable;
   _migrations: MigrationsTable;
 }
 

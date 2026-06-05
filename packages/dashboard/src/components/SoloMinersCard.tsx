@@ -21,7 +21,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { api, type SoloMinerSnapshotEntry } from '../lib/api';
 import { formatAge, formatTemperature } from '../lib/format';
-import { useFormatters, useTemperatureUnit } from '../lib/locale';
+import { useTemperatureUnit } from '../lib/locale';
 
 const REFRESH_INTERVAL_MS = 5_000;
 
@@ -50,7 +50,6 @@ function AsicChipBadge({ model }: { model: string | null }) {
 export function SoloMinersCard() {
   const { i18n } = useLingui();
   void i18n;
-  const fmt = useFormatters();
   const tempUnit = useTemperatureUnit();
 
   const query = useQuery({
@@ -80,12 +79,12 @@ export function SoloMinersCard() {
     return (
       <section>
         <h3 className="text-xs uppercase tracking-wider text-slate-100 mb-2">
-          <Trans>Solo miners</Trans>
+          <Trans>Bitaxe miners</Trans>
         </h3>
         <div className="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-500 italic">
           <Trans>
-            Solo-mining monitoring is enabled but no devices have been added yet. Add a Bitaxe IP
-            on Config → Display &amp; Logging → Solo miners.
+            Bitaxe miner monitoring is enabled but no devices have been added yet. Add a Bitaxe IP
+            on Config → Display &amp; Logging → Bitaxe miners.
           </Trans>
         </div>
       </section>
@@ -97,7 +96,7 @@ export function SoloMinersCard() {
   return (
     <section>
       <h3 className="text-xs uppercase tracking-wider text-slate-100 mb-2">
-        <Trans>Solo miners</Trans>
+        <Trans>Bitaxe miners</Trans>
       </h3>
 
       {/* Mobile-only stacked card layout: one card per device with
@@ -107,7 +106,7 @@ export function SoloMinersCard() {
           widths. */}
       <div className="sm:hidden space-y-2">
         {entries.map((e) => (
-          <DeviceMobileCard key={e.device.id} entry={e} fmt={fmt} tempUnit={tempUnit} />
+          <DeviceMobileCard key={e.device.id} entry={e} tempUnit={tempUnit} />
         ))}
         <FleetMobileSummary fleet={fleet} entries={entries} />
       </div>
@@ -129,7 +128,7 @@ export function SoloMinersCard() {
           </thead>
           <tbody className="text-slate-200">
             {entries.map((e) => (
-              <DeviceRow key={e.device.id} entry={e} fmt={fmt} tempUnit={tempUnit} />
+              <DeviceRow key={e.device.id} entry={e} tempUnit={tempUnit} />
             ))}
             <tr className="border-t border-slate-700 bg-slate-950/40 font-semibold">
               <td className="py-1.5 px-3 text-slate-300">
@@ -259,11 +258,9 @@ function parseMagnitudeSuffixed(s: string): number | null {
 
 function DeviceRow({
   entry,
-  fmt,
   tempUnit,
 }: {
   entry: SoloMinerSnapshotEntry;
-  fmt: ReturnType<typeof useFormatters>;
   tempUnit: 'C' | 'F';
 }) {
   if (!entry.reachable) {
@@ -447,11 +444,9 @@ function computeRejectionPct(
 
 function DeviceMobileCard({
   entry,
-  fmt,
   tempUnit,
 }: {
   entry: SoloMinerSnapshotEntry;
-  fmt: ReturnType<typeof useFormatters>;
   tempUnit: 'C' | 'F';
 }) {
   const rejectionPct = computeRejectionPct(entry.shares_accepted, entry.shares_rejected);
