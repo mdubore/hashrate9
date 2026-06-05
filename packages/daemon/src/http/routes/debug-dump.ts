@@ -12,13 +12,19 @@
 import type { FastifyInstance } from 'fastify';
 
 import type { AppConfig } from '../../config/schema.js';
-import type { ConfigRepo } from '../../state/repos/config.js';
-import type { TickMetricsRepo } from '../../state/repos/tick_metrics.js';
-import type { PoolBlocksRepo } from '../../state/repos/pool_blocks.js';
+import type { AxeOSPoller } from '../../services/axeos-poller.js';
 import type { AlertsRepo } from '../../state/repos/alerts.js';
 import type { BidEventsRepo } from '../../state/repos/bid_events.js';
+import type { BraiinsDepositsRepo } from '../../state/repos/braiins_deposits.js';
+import type { ConfigRepo } from '../../state/repos/config.js';
+import type { DecisionsRepo } from '../../state/repos/decisions.js';
+import type { IpChangeEventsRepo } from '../../state/repos/ip_change_events.js';
+import type { OwnedBidsRepo } from '../../state/repos/owned_bids.js';
+import type { PoolBlocksRepo } from '../../state/repos/pool_blocks.js';
 import type { RewardEventsRepo } from '../../state/repos/reward_events.js';
 import type { RuntimeStateRepo } from '../../state/repos/runtime_state.js';
+import type { SoloMinersRepo } from '../../state/repos/solo_miners.js';
+import type { TickMetricsRepo } from '../../state/repos/tick_metrics.js';
 import { BUILD } from './build.js';
 
 // ---------------------------------------------------------------------------
@@ -33,6 +39,12 @@ export interface DebugDumpDeps {
   readonly bidEventsRepo: BidEventsRepo;
   readonly rewardEventsRepo: RewardEventsRepo;
   readonly runtimeRepo: RuntimeStateRepo;
+  readonly soloMinersRepo: SoloMinersRepo;
+  readonly axeOSPoller: AxeOSPoller;
+  readonly ownedBidsRepo: OwnedBidsRepo;
+  readonly decisionsRepo: DecisionsRepo;
+  readonly ipChangeEventsRepo: IpChangeEventsRepo;
+  readonly braiinsDepositsRepo: BraiinsDepositsRepo;
 }
 
 // ---------------------------------------------------------------------------
@@ -106,13 +118,24 @@ const SAFE_CONFIG_FIELDS: ReadonlySet<keyof AppConfig> = new Set([
 ]);
 
 const ALL_TABLES = [
+  // Time-series (windowed by `hours`)
   'tick_metrics',
   'pool_blocks',
   'alert_events',
   'bid_events',
   'reward_events',
+  'decisions',
+  'ip_change_events',
+  'solo_miner_samples',
+  'solo_best_diff_events',
+  // Lookup / state (always full snapshot)
   'app_config',
   'daemon_info',
+  'solo_miners',
+  'solo_miner_snapshot',
+  'owned_bids',
+  'braiins_deposits',
+  'runtime_state',
 ] as const;
 
 type TableName = (typeof ALL_TABLES)[number];
@@ -206,6 +229,69 @@ export async function registerDebugDumpRoute(
           action_mode: runtime?.action_mode ?? null,
           last_tick_at: runtime?.last_tick_at ?? null,
         };
+      }
+
+      // Static state - always returns the full current snapshot, no
+      // hours window. Each table here is small enough that paying the
+      // full transfer is fine even at the longest `hours=168` range.
+
+      if (tables.has('solo_miners')) {
+        response.solo_miners = await deps.soloMinersRepo.list();
+      }
+
+      if (tables.has('solo_miner_snapshot')) {
+        // Latest in-memory poller readings (what the Status page
+        // renders). Includes `reachable`, `error`, per-device hashrate
+        // / temp / stratum config - everything we'd otherwise have to
+        // ask the operator to fetch via `/api/solo-miners` for a
+        // solo-mining bug.
+        response.solo_miner_snapshot = deps.axeOSPoller.getSnapshot();
+      }
+
+      if (tables.has('owned_bids')) {
+        // Every Braiins bid the daemon currently considers ours (live
+        // + cancelled + still-cached). The `chart_color_overrides`
+        // blob doesn't live here so this is operationally safe to
+        // dump verbatim.
+        response.owned_bids = await deps.ownedBidsRepo.list();
+      }
+
+      if (tables.has('runtime_state')) {
+        response.runtime_state = await deps.runtimeRepo.get();
+      }
+
+      if (tables.has('braiins_deposits')) {
+        // Settle ~weekly, so the full list stays bounded even for
+        // long-running installs.
+        response.braiins_deposits = await deps.braiinsDepositsRepo.listAll();
+      }
+
+      // Time-series tables (windowed by `hours`).
+
+      if (tables.has('decisions')) {
+        // Controller decisions are dense (~1/min × `hours`). At
+        // `hours=24` the upper bound is 1,440 rows; at the operator-
+        // facing `hours=168` ceiling it's 10,080. The repo only
+        // exposes `listRecent(limit)` so cap at 60×hours to stay
+        // close to one-row-per-tick.
+        response.decisions = await deps.decisionsRepo.listRecent(60 * hours);
+      }
+
+      if (tables.has('ip_change_events')) {
+        response.ip_change_events = await deps.ipChangeEventsRepo.listSince(sinceMs);
+      }
+
+      if (tables.has('solo_miner_samples')) {
+        // Per-device per-tick samples. High volume on a multi-Bitaxe
+        // fleet (3 devices × 1/min × `hours` = 4,320 rows at 24h).
+        // Operator opts in via the `tables=` filter when they
+        // actually need the time-series, otherwise this is the most
+        // expensive payload in the bundle.
+        response.solo_miner_samples = await deps.soloMinersRepo.samplesSince(sinceMs);
+      }
+
+      if (tables.has('solo_best_diff_events')) {
+        response.solo_best_diff_events = await deps.soloMinersRepo.bestDiffEventsSince(sinceMs);
       }
 
       return response;

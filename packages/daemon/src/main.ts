@@ -1028,6 +1028,7 @@ async function bootOperational(
     ddnsUpdater,
     soloMinersRepo,
     axeOSPoller,
+    braiinsDepositsRepo,
     braiinsClient,
     secrets: {
       bitcoind_rpc_url: secrets.bitcoind_rpc_url ?? '',

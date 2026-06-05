@@ -2,6 +2,10 @@
 
 ## 2026-06-05
 
+### `[Infra]` Debug-dump endpoint now covers every diagnosable subsystem
+
+`/api/debug/dump` previously bundled tick_metrics, pool_blocks, alert_events, bid_events, reward_events, app_config, and daemon_info. Added every other table that's actually load-bearing when triaging a bug report: `solo_miners` + the live `solo_miner_snapshot` (what the Status page actually renders), `solo_miner_samples`, `solo_best_diff_events`, `owned_bids` (current Braiins-side bid roster), `braiins_deposits` (settle history), `decisions` (controller per-tick proposals), `ip_change_events`, and `runtime_state`. Time-series tables (samples, decisions, events) honour the existing `hours` window; lookup state (solo_miners, owned_bids, snapshot, runtime_state, deposits) always returns the full current snapshot. Same `debug_api_enabled` gate, same `tables=` filter behaviour. The motivation: solo-mining bug reports (e.g. #260) previously needed an extra round-trip to `/api/solo-miners` because the dump didn't include the device list or snapshot.
+
 ### `[UI]` Rare bid-event markers move to the top of the price chart (#265 follow-up)
 
 Build 607's "thin dashed guide line from chart top" wasn't bold enough — operator still had to zoom to 400 % to spot the green +. Redesigned the rare markers to match the pool-block idiom that already works on this chart: the CREATE / EDIT_SPEED / CANCEL glyph sits at the chart's top edge (next to where the pool-block cubes live), a dashed vertical connector runs down through the chart, and a small filled bubble lands on the our_bid line at the event's price level. The top glyph gives you something to scan along the top of the chart for; the bubble gives you the price coordinate; the connector ties them together. EDIT_PRICE still sits as a plain yellow circle on the line — individual edits are read as a band, and a top glyph per edit would clutter the chart beyond use.
