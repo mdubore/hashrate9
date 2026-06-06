@@ -855,6 +855,8 @@ export const api = {
     }),
   soloMinersScanStatus: () =>
     request<SoloScanStatus>('/api/solo-miners/scan/status'),
+  cancelSoloMinersScan: () =>
+    request<SoloScanStatus>('/api/solo-miners/scan/cancel', { method: 'POST' }),
   soloFleetSeries: (sinceMs?: number) => {
     const q = sinceMs !== undefined ? `?since=${sinceMs}` : '';
     return request<SoloFleetSeriesResponse>(`/api/solo-miners/series${q}`);

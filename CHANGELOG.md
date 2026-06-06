@@ -2,6 +2,14 @@
 
 ## 2026-06-05
 
+### `[Fix]` Crosshair tooltip clamps to its own chart (#257 follow-up)
+
+The crosshair tooltip's flip / shift logic used `window.innerWidth` / `window.innerHeight` as the fence. On the Hashrate chart that meant a bottom-anchored tooltip could overflow into the Price chart's area below, and vice versa. Now clamps to the SVG's own bounding rect so each chart's tooltip stays within its own chart's box. Last-resort clamp pushes the tooltip up against the chart edge if it's taller than the chart so spill never reaches the neighbouring chart.
+
+### `[Fix]` Bitaxe scan dialog X actually cancels the scan (#259 follow-up)
+
+Build 612's fix made the button clickable again but the server-side sweep kept running. Now closing the dialog with the X calls a new `POST /api/solo-miners/scan/cancel` endpoint; the scanner's worker loop checks a `cancelRequested` flag at every iteration and bails within one probe-timeout (~1.5 s). The status transitions to a new `cancelled` state so the dashboard can distinguish "operator dismissed" from "finished naturally". A subsequent click on "Scan local network" resets the flag and starts a fresh sweep, as expected.
+
 ### `[Feature]` History page rewritten as a flat filterable table (#256 v2)
 
 Operator feedback on build 617: "when did the last edit_speed happen?" is a flat-table-with-filters question, not a per-bid grouping question. Retired the collapsible-by-bid view from build 615 entirely.

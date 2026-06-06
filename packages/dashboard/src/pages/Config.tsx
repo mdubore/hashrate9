@@ -2717,6 +2717,18 @@ function ScanLocalNetworkButton() {
 
   const onClose = (): void => {
     setOpen(false);
+    // #259 follow-up: closing the dialog while a scan is running
+    // should ACTUALLY stop the scan, not just hide the progress
+    // dialog. Tell the daemon to abort; the worker loop bails at
+    // its next iteration and the button reverts to "Scan local
+    // network" within ~1 probe-timeout. Fire-and-forget; failure
+    // is harmless (e.g. scan already finished naturally between
+    // dialog close and the request landing).
+    if (isRunning) {
+      void api.cancelSoloMinersScan().catch(() => {
+        // Quiet failure; nothing the operator can do about it.
+      });
+    }
     // Keep the last scan's edits cached for the session - if the
     // operator reopens before refreshing, they see the most recent
     // results without re-triggering a sweep.

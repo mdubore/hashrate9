@@ -56,7 +56,7 @@ export interface ScanCandidate {
   readonly already_added: boolean;
 }
 
-export type ScanState = 'idle' | 'running' | 'done' | 'error';
+export type ScanState = 'idle' | 'running' | 'done' | 'error' | 'cancelled';
 
 export interface ScanStatus {
   readonly state: ScanState;
@@ -102,6 +102,15 @@ export class AxeOSScanner {
   private readonly client: AxeOSClient;
   private readonly interfaces: typeof networkInterfaces;
   private readonly concurrency: number;
+
+  /**
+   * #259 follow-up: cancellation flag for the in-flight worker loop.
+   * Operator closing the scan dialog with X calls `cancel()`, which
+   * flips this to true; the workers check it at every iteration and
+   * exit early, the run() finaliser marks the status `cancelled`. A
+   * subsequent `start()` resets the flag and kicks off a fresh sweep.
+   */
+  private cancelRequested = false;
 
   private status: ScanStatus = {
     state: 'idle',
@@ -176,6 +185,7 @@ export class AxeOSScanner {
     }
 
     const ips = expandSlash24(cidr);
+    this.cancelRequested = false;
     this.status = {
       state: 'running',
       cidr,
@@ -250,6 +260,12 @@ export class AxeOSScanner {
       workers.push(
         (async () => {
           while (cursor < ips.length) {
+            // #259 follow-up: bail out at the top of every iteration
+            // when the operator has hit the dialog's X. The probe
+            // itself runs to completion (1.5s timeout) but we don't
+            // start any new ones, so the run finalises within one
+            // probe's worth of latency.
+            if (this.cancelRequested) break;
             const i = cursor++;
             const ip = ips[i];
             if (ip === undefined) break;
@@ -260,15 +276,39 @@ export class AxeOSScanner {
     }
     await Promise.all(workers);
 
-    this.status = {
-      ...this.status,
-      state: 'done',
-      done: ips.length,
-      candidates: [...found],
-      finished_at: Date.now(),
-    };
+    // Distinguish "operator cancelled" from a normal completion so
+    // the dashboard can render the right state hint instead of
+    // pretending the sweep finished naturally.
+    if (this.cancelRequested) {
+      this.status = {
+        ...this.status,
+        state: 'cancelled',
+        candidates: [...found],
+        finished_at: Date.now(),
+      };
+    } else {
+      this.status = {
+        ...this.status,
+        state: 'done',
+        done: ips.length,
+        candidates: [...found],
+        finished_at: Date.now(),
+      };
+    }
     // Silence unused-variable lint in callers that destructured cidr.
     void cidr;
+  }
+
+  /**
+   * #259 follow-up: ask the in-flight worker loop to stop. Idempotent;
+   * harmless when no scan is running. Returns the status snapshot so
+   * the caller can echo it back to the client.
+   */
+  cancel(): ScanStatus {
+    if (this.status.state === 'running') {
+      this.cancelRequested = true;
+    }
+    return this.status;
   }
 }
 

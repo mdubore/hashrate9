@@ -339,12 +339,32 @@ export function CrosshairReadout({
       anchorX = state.clientX;
       anchorY = state.clientY;
     }
+    // #257 follow-up: clamp the tooltip to the chart's own bounding
+    // rect, not the whole window. Without this an upper-chart tooltip
+    // could overflow into the lower chart's space (and vice versa)
+    // because window.innerHeight is the only fence. Each tooltip now
+    // belongs to its own chart's SVG and can only flip / shift inside
+    // that chart's box.
+    const chartRect = svgEl?.getBoundingClientRect() ?? null;
+    const minTop = chartRect ? Math.max(margin, chartRect.top + margin) : margin;
+    const maxBottom = chartRect
+      ? Math.min(window.innerHeight - margin, chartRect.bottom - margin)
+      : window.innerHeight - margin;
+    const minLeft = chartRect ? Math.max(margin, chartRect.left + margin) : margin;
+    const maxRight = chartRect
+      ? Math.min(window.innerWidth - margin, chartRect.right - margin)
+      : window.innerWidth - margin;
     let left = anchorX + 12;
     let top = anchorY + 12;
-    if (left + rect.width > window.innerWidth - margin) left = anchorX - rect.width - 12;
-    if (top + rect.height > window.innerHeight - margin) top = anchorY - rect.height - 12;
-    if (left < margin) left = margin;
-    if (top < margin) top = margin;
+    if (left + rect.width > maxRight) left = anchorX - rect.width - 12;
+    if (top + rect.height > maxBottom) top = anchorY - rect.height - 12;
+    if (left < minLeft) left = minLeft;
+    if (top < minTop) top = minTop;
+    // Last-resort: if the tooltip is still taller / wider than the
+    // chart it'll spill. Clamp the right/bottom edge so spill is at
+    // most into the chart's own padding area, never the next chart's.
+    if (top + rect.height > maxBottom) top = Math.max(minTop, maxBottom - rect.height);
+    if (left + rect.width > maxRight) left = Math.max(minLeft, maxRight - rect.width);
     setPos({ left, top, ready: true });
   }, [state.clientX, state.clientY, state.tickAt, isSource, svgEl, lineXFrac, rows.length]);
 
