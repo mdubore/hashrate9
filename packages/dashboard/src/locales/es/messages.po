@@ -46,6 +46,10 @@ msgstr "\"Solo autopilot\" suma lo consumido en las ofertas que el daemon ha "
 "antes de activar el autopilot). Puede retrasarse respecto a la última "
 "hora de consumo de ofertas activas."
 
+#: src/components/TilesBar.tsx
+msgid "(already in use)"
+msgstr "(ya en uso)"
+
 #: src/pages/Status.tsx
 msgid "(avg cost delivered) minus the delta-weighted average hashprice during "
 "periods we were actually billed, computed over the selected chart range. "
@@ -88,8 +92,8 @@ msgid "(current)"
 msgstr "(actual)"
 
 #: src/components/TilesBar.tsx
-msgid "(in another tile)"
-msgstr "(en otro mosaico)"
+#~ msgid "(in another tile)"
+#~ msgstr "(en otro mosaico)"
 
 #: src/pages/Config.tsx
 msgid "(no push attempted yet)"
@@ -444,6 +448,10 @@ msgstr "Añadir un mosaico"
 #: src/pages/Config.tsx
 msgid "Add device"
 msgstr "Anadir dispositivo"
+
+#: src/components/TilesBar.tsx
+msgid "add tile"
+msgstr "añadir mosaico"
 
 #: src/pages/Config.tsx
 msgid "adding…"
@@ -1733,6 +1741,7 @@ msgstr "Estadísticas de Datum no configuradas - ajusta <0>datum_api_url</0> en 
 msgid "Datum stratum unreachable for"
 msgstr "Stratum de Datum no accesible durante"
 
+#: src/components/TilesBar.tsx
 #: src/pages/Config.tsx
 msgid "days"
 msgstr "días"

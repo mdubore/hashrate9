@@ -205,7 +205,9 @@ const TILE_RENDERERS: Record<DashboardTileId, (ctx: TileCtx) => TileResult> = {
         ? formatNumber(Math.round(days), {}, intlLocale)
         : formatNumber(days, { minimumFractionDigits: 1, maximumFractionDigits: 1 }, intlLocale);
     return {
-      value: `${text} d`,
+      // #266 follow-up: prefer the full word over a single-letter "d"
+      // suffix. There's room for it and "17d" reads as a typo.
+      value: `${text} ${t`days`}`,
       tooltip: t`Days of Braiins wallet runway at the current 3 h average spend rate. = total balance ÷ daily spend. Doesn't account for upcoming deposits.`,
       color:
         days >= 14 ? 'text-emerald-300' : days >= 7 ? 'text-amber-300' : 'text-red-300',
@@ -268,8 +270,12 @@ function splitUnit(v: string): { num: string; unit: string } | null {
   if (usdRate?.[1] && usdRate[2]) return { num: usdRate[1], unit: usdRate[2] };
   const pct = v.match(/^(.+?)(%)$/);
   if (pct?.[1] && pct[2]) return { num: pct[1], unit: pct[2] };
-  const dSuffix = v.match(/^(.+?)\s+(d)$/);
-  if (dSuffix?.[1] && dSuffix[2]) return { num: dSuffix[1], unit: dSuffix[2] };
+  // "17 days" / "1.5 days" - localised words emitted by the wallet
+  // runway renderer.
+  const wordSuffix = v.match(/^(.+?)\s+([\p{L}]+)$/u);
+  if (wordSuffix?.[1] && wordSuffix[2] && /[\p{L}]/u.test(wordSuffix[2])) {
+    return { num: wordSuffix[1], unit: wordSuffix[2] };
+  }
   return null;
 }
 
@@ -343,46 +349,41 @@ export function TilesBar({
   };
 
   return (
-    // Auto-fitting grid: each tile gets `minmax(160px, 1fr)` so the
-    // row reflows naturally as the viewport widens. Above ~7 columns
-    // (≈1200px content area) tiles stop stretching and start adding
-    // new columns; on a wide 4K screen the bar happily reaches 10+
-    // columns instead of being capped at the legacy 6-up layout.
-    // `pointer-events-auto` re-enables clicks inside the section even
-    // when the parent SortableDashboard is in rearrange-inert mode.
-    <section className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(160px,1fr))] pointer-events-auto">
-      {effective.map((id, idx) => (
-        <TileSlot
-          key={`${id}-${idx}`}
-          id={id}
-          inUse={effective}
-          result={(TILE_RENDERERS[id] ?? (() => DASH))(ctx)}
-          onReplace={(next) => replaceAt(idx, next)}
-          onRemove={effective.length > 1 ? () => removeAt(idx) : undefined}
-        />
-      ))}
+    // Wrapper holds both the bar and the floating "+ add" affordance
+    // anchored to the section corner. `pointer-events-auto` re-enables
+    // clicks when SortableDashboard wraps the indicators block in
+    // its rearrange-inert layer.
+    <div className="relative pointer-events-auto">
+      {/* #266 follow-up: `auto-rows-fr` forces every tile to match
+          the tallest in the row so pool-luck (no unit caption) and
+          uptime (with caption) share a baseline. `auto-fit` keeps
+          the row reflowing past 6 columns on wide screens. */}
+      <section className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(160px,1fr))] auto-rows-fr">
+        {effective.map((id, idx) => (
+          <TileSlot
+            key={`${id}-${idx}`}
+            id={id}
+            inUse={effective}
+            result={(TILE_RENDERERS[id] ?? (() => DASH))(ctx)}
+            onReplace={(next) => replaceAt(idx, next)}
+            onRemove={effective.length > 1 ? () => removeAt(idx) : undefined}
+          />
+        ))}
+      </section>
       {/*
-        #266 follow-up: the always-visible "+ add" tile ate a whole
-        row's worth of vertical space whenever the operator was on a
-        non-multiple-of-6 count. Replaced by a small `+` icon button
-        anchored to the SECTION (top-right), only visible on hover or
-        focus of the section. Discoverable but not occupying a slot.
+        Small `+` button anchored to the section's top-right
+        corner, OUTSIDE the grid. Always visible (no hover gate
+        because touch screens never fire hover). Click opens the
+        catalogue picker. No more dashed ghost-tile in the row.
       */}
       {effective.length < MAX_DASHBOARD_TILES && (
-        <InlineAddButton excluded={effective} onAdd={addTile} />
+        <FloatingAddButton excluded={effective} onAdd={addTile} />
       )}
-    </section>
+    </div>
   );
 }
 
-/**
- * #266 follow-up: replaces the dashed "+ add" tile from build 614.
- * Renders as an absolutely-positioned `+` button at the section's
- * top-right corner so it doesn't consume a tile slot. Visible only
- * on hover / focus to avoid permanent chrome; on touch screens
- * stays visible because hover doesn't fire.
- */
-function InlineAddButton({
+function FloatingAddButton({
   excluded,
   onAdd,
 }: {
@@ -402,26 +403,22 @@ function InlineAddButton({
   }, [open]);
 
   return (
-    <div
-      ref={ref}
-      // Tiny "ghost tile" at the end of the row that the auto-fit
-      // grid sees as one more column, but renders as a 1-rem-wide
-      // strip with just the + button. When the picker opens it
-      // expands to fit the dropdown. Border-dashed kept for a
-      // subtle "you can add more" hint without dominating the row.
-      className="relative pointer-events-auto flex items-center justify-center min-h-[6rem] rounded-lg border border-dashed border-slate-800/50 hover:border-amber-500/30 transition"
-    >
+    <div ref={ref} className="absolute -top-7 right-0 pointer-events-auto">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="text-slate-600 hover:text-amber-300 text-base leading-none px-2 py-1 rounded"
+        className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-slate-500 hover:text-amber-300"
         title={t`Add a tile`}
         aria-label={t`Add a tile`}
       >
-        +
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M5 12h14" />
+          <path d="M12 5v14" />
+        </svg>
+        <Trans>add tile</Trans>
       </button>
       {open && (
-        <div className="absolute z-30 left-0 top-full mt-1">
+        <div className="absolute z-30 right-0 top-full mt-1">
           <TilePickerDropdown
             inUse={excluded}
             onPick={(id) => {
@@ -460,34 +457,50 @@ function TileSlot({ id, inUse, result, onReplace, onRemove }: TileSlotProps) {
   return (
     <div
       ref={ref}
-      // `pointer-events-auto` override: when the parent SortableDashboard
-      // wraps the indicators block in pointer-events-none (rearrange
-      // mode, #244), we still want tile clicks to register because
-      // those clicks ARE the customisation flow.
+      // `pointer-events-auto` override for SortableDashboard's
+      // rearrange-inert layer (#244, #266 follow-up).
       className="relative pointer-events-auto"
     >
       <button
         type="button"
         title={result.tooltip}
         onClick={() => setOpen((v) => !v)}
-        className="block w-full text-left bg-slate-900 border border-slate-800 rounded-lg p-4 cursor-pointer hover:border-slate-700"
+        // `h-full` so the auto-rows-fr grid stretches every tile to
+        // the row's tallest. `flex-col` + `justify-center` keeps the
+        // big number visually centered within the available height
+        // regardless of whether the label wraps onto two lines.
+        className="group flex flex-col w-full h-full text-left bg-slate-900 border border-slate-800 rounded-lg p-4 cursor-pointer hover:border-slate-700"
       >
-        {/* Two-line label header for cross-card baseline alignment. */}
-        <div className="text-xs uppercase tracking-wider text-slate-100 mb-2 min-h-8 leading-4 flex items-start justify-center gap-1">
-          <span className="truncate">{labelFor(id)}</span>
-          <span className="text-slate-500 text-[10px] leading-none mt-0.5">▾</span>
+        {/* Label header. Allowed to wrap to 2 lines (no truncate), so
+            "AVG COST VS HASHPRICE" doesn't get clipped to
+            "AVG COST VS HA…". Chevron is now a proper Lucide
+            chevron-down at 14px in the corner, no longer wedged into
+            the label row. */}
+        <div className="text-xs uppercase tracking-wider text-slate-100 mb-2 min-h-8 leading-4 text-center break-words pr-4">
+          {labelFor(id)}
         </div>
         <div
           className={`text-2xl font-mono tabular-nums text-center ${result.color ?? 'text-slate-100'}`}
         >
           {split ? split.num : result.value}
         </div>
-        {split && (
-          <div className="text-xs text-slate-500 mt-0.5 text-center">
-            <UnitCaption unit={split.unit} />
-          </div>
-        )}
+        {/* Caption slot always reserved with a non-breaking space so
+            tiles WITHOUT a unit ("1.06×") line up with tiles that DO
+            have one ("17 days", "46,363 sat/PH/day"). */}
+        <div className="text-xs text-slate-500 mt-0.5 text-center min-h-[1.25rem]">
+          {split ? <UnitCaption unit={split.unit} /> : ' '}
+        </div>
       </button>
+      {/* Chevron in the corner. Bigger, in a fixed top-right slot,
+          not competing with the label for space. */}
+      <span
+        className="pointer-events-none absolute top-2.5 right-2.5 text-slate-500 group-hover:text-slate-300"
+        aria-hidden="true"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </span>
       {open && (
         <TilePickerDropdown
           currentId={id}
@@ -541,13 +554,27 @@ function TilePickerDropdown({ currentId, inUse, onPick, onRemove }: PickerProps)
             {items.map((meta) => {
               const isCurrent = meta.id === currentId;
               const isElsewhere = !isCurrent && inUseSet.has(meta.id);
+              // #266 follow-up: picking a tile that's already in
+              // another slot used to silently duplicate it, which
+              // made the operator's current slot look like it had
+              // "disappeared". Disabled now - operator removes the
+              // other slot first if they want to move it.
+              const disabled = isElsewhere;
               return (
                 <li key={meta.id}>
                   <button
                     type="button"
-                    onClick={() => onPick(meta.id)}
-                    className={`w-full text-left px-2 py-0.5 rounded hover:bg-slate-800 ${
-                      isCurrent ? 'text-amber-300 font-medium' : 'text-slate-300'
+                    disabled={disabled}
+                    onClick={() => {
+                      if (disabled) return;
+                      onPick(meta.id);
+                    }}
+                    className={`w-full text-left px-2 py-0.5 rounded ${
+                      disabled
+                        ? 'text-slate-600 cursor-not-allowed'
+                        : isCurrent
+                          ? 'text-amber-300 font-medium hover:bg-slate-800'
+                          : 'text-slate-300 hover:bg-slate-800'
                     }`}
                   >
                     {labelFor(meta.id)}
@@ -558,7 +585,7 @@ function TilePickerDropdown({ currentId, inUse, onPick, onRemove }: PickerProps)
                     )}
                     {isElsewhere && (
                       <span className="ml-1 text-[9px] text-slate-600">
-                        <Trans>(in another tile)</Trans>
+                        <Trans>(already in use)</Trans>
                       </span>
                     )}
                   </button>

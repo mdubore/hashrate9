@@ -411,8 +411,10 @@ function EventCard({
         onClick={onToggle}
         className="w-full flex items-start gap-3 px-3 py-2 text-left hover:bg-slate-800/40"
       >
-        <span className="text-slate-500 text-xs mt-0.5 select-none w-3 shrink-0">
-          {expanded ? '▾' : '▸'}
+        <span className="text-slate-400 mt-0.5 shrink-0" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+            {expanded ? <path d="m6 9 6 6 6-6" /> : <path d="m9 18 6-6-6-6" />}
+          </svg>
         </span>
         <SeverityBadge severity={firing.severity} isRecovery={false} />
         <div className="flex-1 min-w-0">

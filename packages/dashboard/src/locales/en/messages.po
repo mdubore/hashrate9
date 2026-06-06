@@ -45,6 +45,10 @@ msgstr "\"Autopilot only\" sums consumed across bids the daemon has tagged in "
 "before the autopilot was switched on). May lag the latest hour of "
 "active-bid consumption."
 
+#: src/components/TilesBar.tsx
+msgid "(already in use)"
+msgstr "(already in use)"
+
 #: src/pages/Status.tsx
 msgid "(avg cost delivered) minus the delta-weighted average hashprice during "
 "periods we were actually billed, computed over the selected chart range. "
@@ -85,8 +89,8 @@ msgid "(current)"
 msgstr "(current)"
 
 #: src/components/TilesBar.tsx
-msgid "(in another tile)"
-msgstr "(in another tile)"
+#~ msgid "(in another tile)"
+#~ msgstr "(in another tile)"
 
 #: src/pages/Config.tsx
 msgid "(no push attempted yet)"
@@ -438,6 +442,10 @@ msgstr "Add a tile"
 #: src/pages/Config.tsx
 msgid "Add device"
 msgstr "Add device"
+
+#: src/components/TilesBar.tsx
+msgid "add tile"
+msgstr "add tile"
 
 #: src/pages/Config.tsx
 msgid "adding…"
@@ -1703,6 +1711,7 @@ msgstr "Datum stats not configured - set <0>datum_api_url</0> in Config to "
 msgid "Datum stratum unreachable for"
 msgstr "Datum stratum unreachable for"
 
+#: src/components/TilesBar.tsx
 #: src/pages/Config.tsx
 msgid "days"
 msgstr "days"

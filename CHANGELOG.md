@@ -2,6 +2,12 @@
 
 ## 2026-06-05
 
+### `[UI]` Tiles + history disclosure: a sweep of small fixes (#266 follow-up x3, #256 polish)
+
+Tiles bar (#266 follow-up x3): (1) `auto-rows-fr` so every tile matches the row's tallest — pool-luck (no unit caption) and uptime (with caption) line up at the same baseline. Caption slot is always reserved (non-breaking space when no unit) so two tiles next to each other don't end up at different heights. (2) Chevron moved out of the label row into a proper 14×14 Lucide `chevron-down` glyph in the top-right corner of each tile. The label now allowed to wrap to two lines instead of being clipped (so "AVG COST VS HASHPRICE" doesn't become "AVG COST VS HA…"). (3) The "+ add" tile no longer sits in the grid eating a panel width — moved to a small icon button anchored above the section's top-right corner. (4) Picking a tile that's already in another slot used to silently duplicate it, making the source slot look like it had disappeared. Now disabled in the picker with "(already in use)" hint — operator removes the other slot first if they want to move it. (5) Wallet runway reads "17 days" instead of "17 d".
+
+History page (#256 polish): the disclosure triangle (`▸` / `▾`) on each bid header was rendering as a tiny dot at the page's text size; replaced with a 16×16 Lucide chevron glyph. Same treatment applied to the Alerts page disclosure triangle (operator caught both at once).
+
 ### `[Feature]` Chart crosshair: hover or place a marker to read every series at a point (#257)
 
 NerdAxe-style crosshair on the Status charts. Hovering either chart draws a vertical marker line through both (they share a time axis) and shows a per-chart floating readout of every visible series at the snapped tick — delivered/Datum/Ocean/target/floor on the Hashrate chart, bid/fillable/hashprice/max-bid on the Price chart, plus whichever right-axis series is selected, all in the global sats/BTC/USD and TH/PH/EH units. Click pins the marker so it survives moving away (Esc or a click outside dismisses); on touch, press-and-hold ~300 ms then scrub to move the marker, lift to pin — a quick drag still pans as before. Hovering a block/retarget/IP marker icon shows its rich tooltip instead, as today.

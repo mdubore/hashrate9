@@ -46,6 +46,10 @@ msgstr "\"Alleen autopilot\" telt het verbruik op van biedingen die de daemon "
 "aangezet). Kan achterlopen op het laatste uur van het actieve-bod "
 "verbruik."
 
+#: src/components/TilesBar.tsx
+msgid "(already in use)"
+msgstr "(al in gebruik)"
+
 #: src/pages/Status.tsx
 msgid "(avg cost delivered) minus the delta-weighted average hashprice during "
 "periods we were actually billed, computed over the selected chart range. "
@@ -87,8 +91,8 @@ msgid "(current)"
 msgstr "(huidig)"
 
 #: src/components/TilesBar.tsx
-msgid "(in another tile)"
-msgstr "(in een andere tegel)"
+#~ msgid "(in another tile)"
+#~ msgstr "(in een andere tegel)"
 
 #: src/pages/Config.tsx
 msgid "(no push attempted yet)"
@@ -442,6 +446,10 @@ msgstr "Tegel toevoegen"
 #: src/pages/Config.tsx
 msgid "Add device"
 msgstr "Apparaat toevoegen"
+
+#: src/components/TilesBar.tsx
+msgid "add tile"
+msgstr "tegel toevoegen"
 
 #: src/pages/Config.tsx
 msgid "adding…"
@@ -1723,6 +1731,7 @@ msgstr "Datum stats niet geconfigureerd - stel <0>datum_api_url</0> in via "
 msgid "Datum stratum unreachable for"
 msgstr "Datum stratum onbereikbaar gedurende"
 
+#: src/components/TilesBar.tsx
 #: src/pages/Config.tsx
 msgid "days"
 msgstr "dagen"
