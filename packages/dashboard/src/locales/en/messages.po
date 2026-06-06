@@ -1861,8 +1861,12 @@ msgstr "Delivered hashrate has been under your floor for at least this many "
 "minutes."
 
 #: src/components/TilesBar.tsx
-msgid "delivery rate (while bidding)"
-msgstr "delivery rate (while bidding)"
+#~ msgid "delivery rate (while bidding)"
+#~ msgstr "delivery rate (while bidding)"
+
+#: src/components/TilesBar.tsx
+msgid "delivery while bidding"
+msgstr "delivery while bidding"
 
 #: src/components/PriceChart.tsx
 msgid "delta"
@@ -2015,14 +2019,14 @@ msgstr "Duration-weighted % of time with delivered hashrate > 0, computed over "
 "Updates with the range selector above."
 
 #: src/components/TilesBar.tsx
-msgid "Duration-weighted % of time with delivered hashrate > 0, computed over "
-"the selected chart range. Each tick is weighted by its actual duration "
-"so gaps after restarts count proportionally. Updates with the range "
-"selector."
-msgstr "Duration-weighted % of time with delivered hashrate > 0, computed over "
-"the selected chart range. Each tick is weighted by its actual duration "
-"so gaps after restarts count proportionally. Updates with the range "
-"selector."
+#~ msgid "Duration-weighted % of time with delivered hashrate > 0, computed over "
+#~ "the selected chart range. Each tick is weighted by its actual duration "
+#~ "so gaps after restarts count proportionally. Updates with the range "
+#~ "selector."
+#~ msgstr "Duration-weighted % of time with delivered hashrate > 0, computed over "
+#~ "the selected chart range. Each tick is weighted by its actual duration "
+#~ "so gaps after restarts count proportionally. Updates with the range "
+#~ "selector."
 
 #: src/components/TilesBar.tsx
 msgid "Duration-weighted average of the hashrate Braiins reports delivering "
@@ -2275,6 +2279,10 @@ msgid "Every restart resets to DRY_RUN. You explicitly flip to LIVE from the "
 msgstr "Every restart resets to DRY_RUN. You explicitly flip to LIVE from the "
 "dashboard."
 
+#: src/components/TilesBar.tsx
+msgid "exa"
+msgstr "exa"
+
 #: src/pages/Config.tsx
 msgid "Example: 95 = activate cheap mode when our bid (fillable ask + overpay - "
 "the price we actually post under pay-your-bid) is below 95% of the "
@@ -2510,6 +2518,10 @@ msgstr "Full wallet balance per bid. Currently ≈ {resolvedSatStr} <0/>."
 #: src/pages/Config.tsx
 msgid "genesis version"
 msgstr "genesis version"
+
+#: src/components/TilesBar.tsx
+msgid "giga"
+msgstr "giga"
 
 #: src/pages/Config.tsx
 msgid "Glass drop & roll"
@@ -2819,6 +2831,10 @@ msgid "Keep whatever run mode was active before the restart. PAUSED is demoted "
 msgstr "Keep whatever run mode was active before the restart. PAUSED is demoted "
 "to DRY_RUN."
 
+#: src/components/TilesBar.tsx
+msgid "kilo"
+msgstr "kilo"
+
 #: src/components/Bip110ScanCard.tsx
 msgid "known softforks"
 msgstr "known softforks"
@@ -3054,6 +3070,10 @@ msgstr "Max premium over hashprice"
 #: src/pages/Config.tsx
 msgid "Maximum"
 msgstr "Maximum"
+
+#: src/components/TilesBar.tsx
+msgid "mega"
+msgstr "mega"
 
 #: src/components/Layout.tsx
 msgid "menu"
@@ -3725,6 +3745,21 @@ msgstr "Our unpaid balance ({0}) has already crossed the payout threshold ({1} "
 "typical share), NOT the next Bitcoin block in general. The blue cubes "
 "on the hashrate chart above mark each pool block as it lands."
 
+#: src/components/TilesBar.tsx
+msgid "Overall % of the selected chart range that hashrate was being delivered. "
+"Mathematically: bid coverage × delivery while bidding. When uptime is "
+"below 100 %, the other two tiles tell you why — bid coverage is the "
+"\"did we have an order up?\" share (orderbook availability); delivery "
+"while bidding is the \"when we did, was it delivering?\" share (hardware "
+"/ pool quality). Duration-weighted so a long gap counts proportionally."
+msgstr "Overall % of the selected chart range that hashrate was being "
+"delivered. Mathematically: bid coverage × delivery while bidding. When "
+"uptime is below 100 %, the other two tiles tell you why — bid coverage "
+"is the \"did we have an order up?\" share (orderbook availability); "
+"delivery while bidding is the \"when we did, was it delivering?\" share "
+"(hardware / pool quality). Duration-weighted so a long gap counts "
+"proportionally."
+
 #: src/pages/Status.tsx
 msgid "overdue {overdueFormatted}"
 msgstr "overdue {overdueFormatted}"
@@ -3888,6 +3923,10 @@ msgstr "Percentage of overpay below which the autopilot does NOT issue an "
 #: src/pages/Status.tsx
 msgid "Period selector"
 msgstr "Period selector"
+
+#: src/components/TilesBar.tsx
+msgid "peta"
+msgstr "peta"
 
 #: src/components/DatePicker.tsx
 msgid "Pick a date"
@@ -4854,6 +4893,10 @@ msgstr "Temp"
 #: src/pages/Config.tsx
 msgid "Temperature unit"
 msgstr "Temperature unit"
+
+#: src/components/TilesBar.tsx
+msgid "tera"
+msgstr "tera"
 
 #: src/pages/Config.tsx
 msgid "Test"

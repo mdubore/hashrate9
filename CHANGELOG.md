@@ -2,6 +2,10 @@
 
 ## 2026-06-06
 
+### `[UI]` Uptime tooltip relates to its siblings, shorter delivery label, locale-aware best-diff (#266 follow-up x3)
+
+(1) **Uptime tile tooltip** now spells out the relationship to its two sibling tiles instead of describing uptime in isolation: `uptime = bid coverage × delivery while bidding`, and which one explains low uptime when it happens. The operator was reading uptime ≈ delivery rate and not seeing the difference; the difference is the denominator, and the tooltip now says so. (2) **"delivery rate (while bidding)" → "delivery while bidding"** — the longer label was wrapping to three lines on a narrow tile. The word "rate" was carrying no information; the `%` unit on the caption line already makes that clear. (3) **Bitaxe best-diff value is locale-formatted** ("149,53" in `nl-NL`, not `149.53`) and the magnitude prefix moves to the grey unit-caption line as its full SI name (`giga`, `tera`, `peta`, etc.) instead of the squashed single-letter form jammed into the number. Same idiom as every other tile.
+
 ### `[UI]` Rearrange button is back; handles only show in edit mode (#244 v3)
 
 The always-on gutter from build 631 ate ~26 px off every card's width — fine on desktop, cramped on mobile, paid for a feature the operator uses three times in a dashboard's lifetime. v3 reverts to a gated approach: the **Rearrange** button is back in the header (and the hamburger), cards render plain by default, and only when the operator clicks Rearrange does the gutter + grip handles appear. The grips themselves are now amber with a subtle glow so they read as a clear handle while editing, not dust in the corner. Drag listeners stay bound to the grip button only, so chart pan/zoom and panel buttons keep working even mid-edit — that part stays better than v1's pointer-events-none.

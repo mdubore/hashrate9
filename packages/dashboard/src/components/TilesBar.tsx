@@ -130,7 +130,7 @@ function fmtX(v: number | null | undefined, intlLocale = 'en-US'): string {
 const TILE_RENDERERS: Record<DashboardTileId, (ctx: TileCtx) => TileResult> = {
   uptime: ({ stats, intlLocale }) => ({
     value: fmtPct(stats?.uptime_pct ?? null, 1, intlLocale),
-    tooltip: t`Duration-weighted % of time with delivered hashrate > 0, computed over the selected chart range. Each tick is weighted by its actual duration so gaps after restarts count proportionally. Updates with the range selector.`,
+    tooltip: t`Overall % of the selected chart range that hashrate was being delivered. Mathematically: bid coverage × delivery while bidding. When uptime is below 100 %, the other two tiles tell you why — bid coverage is the "did we have an order up?" share (orderbook availability); delivery while bidding is the "when we did, was it delivering?" share (hardware / pool quality). Duration-weighted so a long gap counts proportionally.`,
     color:
       stats?.uptime_pct == null
         ? 'text-slate-400'
@@ -304,27 +304,47 @@ const TILE_RENDERERS: Record<DashboardTileId, (ctx: TileCtx) => TileResult> = {
       tooltip: t`Sum of live AxeOS-reported power draw across reachable Bitaxe miners.`,
     };
   },
-  bitaxe_fleet_best_diff: ({ soloMiners }) => {
+  bitaxe_fleet_best_diff: ({ soloMiners, intlLocale }) => {
     // #266 follow-up: max best_diff across reachable Bitaxe miners.
-    // Uses the AxeOS-reported display text from the entry that holds
-    // the max numeric value; matches the "best diff" line in the
-    // Bitaxe miners card below so the operator sees the same number
-    // in both places. Skips entries without best_diff_numeric (the
-    // exact form added in #260) since older snapshots only had
-    // magnitude-suffixed text that's awkward to compare across.
+    // Computes the SI suffix locally rather than using AxeOS's display
+    // string, so (a) the decimal separator matches the operator's
+    // locale (e.g. "149,53" in nl-NL not "149.53") and (b) the suffix
+    // can be lifted onto the grey unit-caption line as the SI prefix's
+    // full name ("giga") instead of jammed in with the number ("G").
     const entries = soloMiners?.snapshot?.entries ?? [];
     let bestNum = -1;
-    let bestText: string | null = null;
     for (const e of entries) {
       if (!e.reachable) continue;
       if (e.best_diff_numeric !== null && e.best_diff_numeric > bestNum) {
         bestNum = e.best_diff_numeric;
-        bestText = e.best_diff_text;
       }
     }
-    if (bestText === null) return DASH;
+    if (bestNum < 0) return DASH;
+    const PREFIXES: Array<[number, string]> = [
+      [1e18, t`exa`],
+      [1e15, t`peta`],
+      [1e12, t`tera`],
+      [1e9, t`giga`],
+      [1e6, t`mega`],
+      [1e3, t`kilo`],
+    ];
+    let scale = 1;
+    let prefixName = '';
+    for (const [n, name] of PREFIXES) {
+      if (bestNum >= n) {
+        scale = n;
+        prefixName = name;
+        break;
+      }
+    }
+    const scaled = bestNum / scale;
+    const numText = formatNumber(
+      scaled,
+      { minimumFractionDigits: 2, maximumFractionDigits: 2 },
+      intlLocale,
+    );
     return {
-      value: bestText,
+      value: prefixName ? `${numText} ${prefixName}` : numText,
       tooltip: t`Highest best-difficulty seen on any reachable Bitaxe in the fleet. AxeOS reports this per device; the tile shows the leader. Best-difficulty grows over time as miners hit progressively rarer shares; resets when a worker restarts.`,
     };
   },
@@ -359,7 +379,7 @@ function labelFor(id: DashboardTileId): string {
     case 'avg_cost_delivered': return t`avg cost delivered`;
     case 'avg_cost_vs_hashprice': return t`avg cost vs hashprice`;
     case 'uptime_bid_coverage': return t`bid coverage`;
-    case 'uptime_delivery_when_bid_active': return t`delivery rate (while bidding)`;
+    case 'uptime_delivery_when_bid_active': return t`delivery while bidding`;
     case 'hashrate_target': return t`hashrate target`;
     case 'avg_overpay_intent': return t`avg overpay (intent)`;
     case 'avg_overpay_settled': return t`avg overpay (settled)`;

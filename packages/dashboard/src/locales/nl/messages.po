@@ -1884,8 +1884,12 @@ msgstr "Geleverde hashrate ligt al ten minste dit aantal minuten onder je "
 "vloer."
 
 #: src/components/TilesBar.tsx
-msgid "delivery rate (while bidding)"
-msgstr "leveringspercentage (tijdens bieden)"
+#~ msgid "delivery rate (while bidding)"
+#~ msgstr "leveringspercentage (tijdens bieden)"
+
+#: src/components/TilesBar.tsx
+msgid "delivery while bidding"
+msgstr "levering tijdens bod"
 
 #: src/components/PriceChart.tsx
 msgid "delta"
@@ -1982,7 +1986,8 @@ msgstr "Klaar met herschikken"
 
 #: src/pages/Status.tsx
 msgid "Drag from the amber grip handle on the left of each card to reorder."
-msgstr "Sleep met de oranje handgreep links van elke kaart om de volgorde te wijzigen."
+msgstr "Sleep met de oranje handgreep links van elke kaart om de volgorde te "
+"wijzigen."
 
 #: src/pages/Status.tsx
 #~ msgid "Drag the cards by their title bar to reorder."
@@ -2039,14 +2044,14 @@ msgstr "Duur-gewogen % van de tijd waarbij geleverde hashrate > 0, berekend "
 "proportioneel meetellen. Wijzigt mee met de bereikselector hierboven."
 
 #: src/components/TilesBar.tsx
-msgid "Duration-weighted % of time with delivered hashrate > 0, computed over "
-"the selected chart range. Each tick is weighted by its actual duration "
-"so gaps after restarts count proportionally. Updates with the range "
-"selector."
-msgstr "Tijdgewogen % van de tijd met geleverde hashrate > 0 over het "
-"geselecteerde bereik. Elke tick wordt gewogen op werkelijke duur zodat "
-"gaten na een herstart evenredig meetellen. Wijzigt met de "
-"bereikselector."
+#~ msgid "Duration-weighted % of time with delivered hashrate > 0, computed over "
+#~ "the selected chart range. Each tick is weighted by its actual duration "
+#~ "so gaps after restarts count proportionally. Updates with the range "
+#~ "selector."
+#~ msgstr "Tijdgewogen % van de tijd met geleverde hashrate > 0 over het "
+#~ "geselecteerde bereik. Elke tick wordt gewogen op werkelijke duur zodat "
+#~ "gaten na een herstart evenredig meetellen. Wijzigt met de "
+#~ "bereikselector."
 
 #: src/components/TilesBar.tsx
 msgid "Duration-weighted average of the hashrate Braiins reports delivering "
@@ -2303,6 +2308,10 @@ msgid "Every restart resets to DRY_RUN. You explicitly flip to LIVE from the "
 msgstr "Elke herstart reset naar DRY_RUN. Je schakelt expliciet over naar LIVE "
 "vanuit het dashboard."
 
+#: src/components/TilesBar.tsx
+msgid "exa"
+msgstr "exa"
+
 #: src/pages/Config.tsx
 msgid "Example: 95 = activate cheap mode when our bid (fillable ask + overpay - "
 "the price we actually post under pay-your-bid) is below 95% of the "
@@ -2540,6 +2549,10 @@ msgstr "Volledig wallet-saldo per bod. Momenteel ≈ {resolvedSatStr} <0/>."
 #: src/pages/Config.tsx
 msgid "genesis version"
 msgstr "genesis-versie"
+
+#: src/components/TilesBar.tsx
+msgid "giga"
+msgstr "giga"
 
 #: src/pages/Config.tsx
 msgid "Glass drop & roll"
@@ -2855,6 +2868,10 @@ msgid "Keep whatever run mode was active before the restart. PAUSED is demoted "
 msgstr "Behoud de run-modus die actief was vóór de herstart. PAUSED wordt "
 "teruggezet naar DRY_RUN."
 
+#: src/components/TilesBar.tsx
+msgid "kilo"
+msgstr "kilo"
+
 #: src/components/Bip110ScanCard.tsx
 msgid "known softforks"
 msgstr "bekende softforks"
@@ -3095,6 +3112,10 @@ msgstr "Max toeslag boven hashprice"
 #: src/pages/Config.tsx
 msgid "Maximum"
 msgstr "Maximum"
+
+#: src/components/TilesBar.tsx
+msgid "mega"
+msgstr "mega"
 
 #: src/components/Layout.tsx
 msgid "menu"
@@ -3780,6 +3801,15 @@ msgstr "Ons niet-uitbetaalde saldo ({0}) heeft de uitbetaaldrempel ({1} ≈ 0,01
 "blokjes op de hashrate-grafiek hierboven markeren elk pool-blok zodra "
 "het binnenkomt."
 
+#: src/components/TilesBar.tsx
+msgid "Overall % of the selected chart range that hashrate was being delivered. "
+"Mathematically: bid coverage × delivery while bidding. When uptime is "
+"below 100 %, the other two tiles tell you why — bid coverage is the "
+"\"did we have an order up?\" share (orderbook availability); delivery "
+"while bidding is the \"when we did, was it delivering?\" share (hardware "
+"/ pool quality). Duration-weighted so a long gap counts proportionally."
+msgstr "Totaal-% van het geselecteerde bereik waarin hashrate werd geleverd. Wiskundig: bod-dekking × levering tijdens bod. Als uptime onder 100 % zit, vertellen de andere twee tegels waarom — bod-dekking is het \"stond er een order?\" deel (orderbook-beschikbaarheid); levering tijdens bod is het \"leverde die dan ook?\" deel (hardware / pool-kwaliteit). Duurgewogen, dus een lange dip telt evenredig mee."
+
 #: src/pages/Status.tsx
 msgid "overdue {overdueFormatted}"
 msgstr "{overdueFormatted} te laat"
@@ -3945,6 +3975,10 @@ msgstr "Percentage van overpay waaronder de autopilot GEEN EDIT_PRICE uitvoert. 
 #: src/pages/Status.tsx
 msgid "Period selector"
 msgstr "Periodekiezer"
+
+#: src/components/TilesBar.tsx
+msgid "peta"
+msgstr "peta"
 
 #: src/components/DatePicker.tsx
 msgid "Pick a date"
@@ -4922,6 +4956,10 @@ msgstr "Temp"
 #: src/pages/Config.tsx
 msgid "Temperature unit"
 msgstr "Temperatuureenheid"
+
+#: src/components/TilesBar.tsx
+msgid "tera"
+msgstr "tera"
 
 #: src/pages/Config.tsx
 msgid "Test"
