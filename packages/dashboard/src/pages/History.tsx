@@ -35,7 +35,6 @@ import {
 import { useDenomination } from '../lib/denomination';
 import { useFormatters } from '../lib/locale';
 import { formatNumber } from '../lib/format';
-import { Tooltip } from '../components/Tooltip';
 
 const PAGE_SIZE = 100;
 type Kind = NonNullable<BidHistoryFilters['kinds']>[number];
@@ -82,17 +81,16 @@ export function History() {
       <Toolbar filters={filters} onChange={setFilters} />
       <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-x-auto">
         <table className="w-full text-xs">
-          <thead className="text-slate-500 uppercase tracking-wider bg-slate-950/40">
+          <thead className="text-slate-500 tracking-wider bg-slate-950/40">
             <tr>
-              <th className="text-left font-normal py-1.5 px-3 whitespace-nowrap"><Trans>When</Trans></th>
-              <th className="text-left font-normal py-1.5 px-3"><Trans>Bid</Trans></th>
-              <th className="text-left font-normal py-1.5 px-3"><Trans>Action</Trans></th>
-              <th className="text-right font-normal py-1.5 px-3"><Trans>Fillable</Trans></th>
-              <th className="text-right font-normal py-1.5 px-3"><Trans>Price before</Trans></th>
-              <th className="text-right font-normal py-1.5 px-3"><Trans>Price after</Trans></th>
-              <th className="text-right font-normal py-1.5 px-3"><Trans>Δ price</Trans></th>
-              <th className="text-right font-normal py-1.5 px-3"><Trans>Speed</Trans></th>
-              <th className="text-left font-normal py-1.5 px-3"><Trans>Source</Trans></th>
+              <th className="text-left font-normal py-1.5 px-3 whitespace-nowrap normal-case"><Trans>When</Trans></th>
+              <th className="text-left font-normal py-1.5 px-3 normal-case"><Trans>Bid</Trans></th>
+              <th className="text-left font-normal py-1.5 px-3 normal-case"><Trans>Action</Trans></th>
+              <th className="text-right font-normal py-1.5 px-3 normal-case"><Trans>Fillable</Trans></th>
+              <th className="text-right font-normal py-1.5 px-3 normal-case"><Trans>Price before</Trans></th>
+              <th className="text-right font-normal py-1.5 px-3 normal-case"><Trans>Price after</Trans></th>
+              <th className="text-right font-normal py-1.5 px-3 normal-case"><Trans>Δ price</Trans></th>
+              <th className="text-right font-normal py-1.5 px-3 normal-case"><Trans>Speed</Trans></th>
             </tr>
           </thead>
           <tbody className="text-slate-200">
@@ -101,7 +99,7 @@ export function History() {
             ))}
             {events.length === 0 && !query.isPending && (
               <tr>
-                <td colSpan={9} className="px-3 py-4 text-center text-xs text-slate-500 italic">
+                <td colSpan={8} className="px-3 py-4 text-center text-xs text-slate-500 italic">
                   <Trans>No events match the current filters.</Trans>
                 </td>
               </tr>
@@ -214,7 +212,7 @@ function Toolbar({
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-lg p-3 flex flex-wrap items-end gap-x-4 gap-y-2 text-xs">
       <div className="flex flex-col gap-0.5">
-        <label className="text-[10px] uppercase tracking-wider text-slate-500"><Trans>Action</Trans></label>
+        <label className="text-[10px] tracking-wider text-slate-500"><Trans>Action</Trans></label>
         <div className="flex gap-1">
           {(['CREATE_BID', 'EDIT_PRICE', 'EDIT_SPEED', 'CANCEL_BID'] as Kind[]).map((k) => (
             <ActionChip
@@ -227,7 +225,7 @@ function Toolbar({
         </div>
       </div>
       <div className="flex flex-col gap-0.5">
-        <label className="text-[10px] uppercase tracking-wider text-slate-500"><Trans>Bid id contains</Trans></label>
+        <label className="text-[10px] tracking-wider text-slate-500"><Trans>Bid id contains</Trans></label>
         <input
           type="text"
           value={filters.orderIdContains ?? ''}
@@ -240,7 +238,7 @@ function Toolbar({
         />
       </div>
       <div className="flex flex-col gap-0.5">
-        <label className="text-[10px] uppercase tracking-wider text-slate-500"><Trans>From</Trans></label>
+        <label className="text-[10px] tracking-wider text-slate-500"><Trans>From</Trans></label>
         <input
           type="date"
           value={isoDateValue(filters.sinceMs)}
@@ -249,7 +247,7 @@ function Toolbar({
         />
       </div>
       <div className="flex flex-col gap-0.5">
-        <label className="text-[10px] uppercase tracking-wider text-slate-500"><Trans>To</Trans></label>
+        <label className="text-[10px] tracking-wider text-slate-500"><Trans>To</Trans></label>
         <input
           type="date"
           value={isoDateValue(filters.untilMs)}
@@ -258,34 +256,8 @@ function Toolbar({
         />
       </div>
       <div className="flex flex-col gap-0.5">
-        <label className="text-[10px] uppercase tracking-wider text-slate-500 flex items-center gap-1">
-          <Trans>Source</Trans>
-          <Tooltip text={t`AUTOPILOT = the controller emitted the event on its own; MANUAL = an operator action via the API or UI overrode the controller.`}>
-            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="text-slate-600 hover:text-slate-400 cursor-help">
-              <circle cx="12" cy="12" r="10" />
-              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-              <path d="M12 17h.01" />
-            </svg>
-          </Tooltip>
-        </label>
-        <select
-          value={filters.source ?? ''}
-          onChange={(e) =>
-            onChange({
-              ...filters,
-              source: e.target.value === '' ? undefined : (e.target.value as 'AUTOPILOT' | 'OPERATOR'),
-            })
-          }
-          className="text-[11px] bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-slate-200 focus:outline-none focus:border-amber-700"
-        >
-          <option value="">{t`all`}</option>
-          <option value="AUTOPILOT">{t`autopilot`}</option>
-          <option value="OPERATOR">{t`manual`}</option>
-        </select>
-      </div>
-      <div className="flex flex-col gap-0.5">
-        <label className="text-[10px] uppercase tracking-wider text-slate-500">
-          {t`|Δ price| ≥ (sat/${unitLabel}/day)`}
+        <label className="text-[10px] tracking-wider text-slate-500">
+          {t`Δ price ≥ (sat/${unitLabel}/day)`}
         </label>
         <input
           type="number"
@@ -407,15 +379,6 @@ function EventRow({
       </td>
       <td className="py-1 px-3 text-right font-mono text-slate-300 whitespace-nowrap">
         {speedText}
-      </td>
-      <td className="py-1 px-3 whitespace-nowrap">
-        <span className={
-          event.source === 'OPERATOR'
-            ? 'text-amber-300 text-[10px] uppercase tracking-wider'
-            : 'text-slate-500 text-[10px] uppercase tracking-wider'
-        }>
-          {event.source === 'OPERATOR' ? <Trans>manual</Trans> : <Trans>auto</Trans>}
-        </span>
       </td>
     </tr>
   );

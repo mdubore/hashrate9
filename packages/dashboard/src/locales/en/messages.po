@@ -280,8 +280,8 @@ msgstr "<0>Mismatch:</0> the worker identity must start with <1>{addr}.</1> - "
 "the BTC payout address above; this field follows it automatically."
 
 #: src/pages/History.tsx
-msgid "|Δ price| ≥ (sat/{unitLabel}/day)"
-msgstr "|Δ price| ≥ (sat/{unitLabel}/day)"
+#~ msgid "|Δ price| ≥ (sat/{unitLabel}/day)"
+#~ msgstr "|Δ price| ≥ (sat/{unitLabel}/day)"
 
 #: src/pages/History.tsx
 #~ msgid "|Δ price| ≥ (sat/PH/day)"
@@ -492,8 +492,8 @@ msgid "Alerts"
 msgstr "Alerts"
 
 #: src/pages/History.tsx
-msgid "all"
-msgstr "all"
+#~ msgid "all"
+#~ msgstr "all"
 
 #: src/components/Bip110ScanCard.tsx
 msgid "All"
@@ -643,8 +643,8 @@ msgstr "Audit trail for every notification the daemon recorded - sent, failed, "
 "Notifications."
 
 #: src/pages/History.tsx
-msgid "auto"
-msgstr "auto"
+#~ msgid "auto"
+#~ msgstr "auto"
 
 #: src/pages/Config.tsx
 msgid "auto-save"
@@ -662,16 +662,15 @@ msgstr "Auto-save on. Edits persist about a second after you stop typing."
 msgid "automatic"
 msgstr "automatic"
 
-#: src/pages/History.tsx
 #: src/pages/Status.tsx
 msgid "autopilot"
 msgstr "autopilot"
 
 #: src/pages/History.tsx
-msgid "AUTOPILOT = the controller emitted the event on its own; MANUAL = an "
-"operator action via the API or UI overrode the controller."
-msgstr "AUTOPILOT = the controller emitted the event on its own; MANUAL = an "
-"operator action via the API or UI overrode the controller."
+#~ msgid "AUTOPILOT = the controller emitted the event on its own; MANUAL = an "
+#~ "operator action via the API or UI overrode the controller."
+#~ msgstr "AUTOPILOT = the controller emitted the event on its own; MANUAL = an "
+#~ "operator action via the API or UI overrode the controller."
 
 #: src/pages/Config.tsx
 msgid "Autopilot only (autopilot-tagged bids)"
@@ -944,22 +943,22 @@ msgid "Bitaxe efficiency"
 msgstr "Bitaxe efficiency"
 
 #: src/components/TilesBar.tsx
-msgid "Bitaxe fleet efficiency in J/TH. Tile data source pending - currently in "
-"the Bitaxe miners section. Will populate in a follow-up."
-msgstr "Bitaxe fleet efficiency in J/TH. Tile data source pending - currently "
-"in the Bitaxe miners section. Will populate in a follow-up."
+#~ msgid "Bitaxe fleet efficiency in J/TH. Tile data source pending - currently in "
+#~ "the Bitaxe miners section. Will populate in a follow-up."
+#~ msgstr "Bitaxe fleet efficiency in J/TH. Tile data source pending - currently "
+#~ "in the Bitaxe miners section. Will populate in a follow-up."
 
 #: src/components/TilesBar.tsx
-msgid "Bitaxe fleet hashrate. Tile data source pending - currently in the "
-"Bitaxe miners section. Will populate in a follow-up."
-msgstr "Bitaxe fleet hashrate. Tile data source pending - currently in the "
-"Bitaxe miners section. Will populate in a follow-up."
+#~ msgid "Bitaxe fleet hashrate. Tile data source pending - currently in the "
+#~ "Bitaxe miners section. Will populate in a follow-up."
+#~ msgstr "Bitaxe fleet hashrate. Tile data source pending - currently in the "
+#~ "Bitaxe miners section. Will populate in a follow-up."
 
 #: src/components/TilesBar.tsx
-msgid "Bitaxe fleet power draw. Tile data source pending - currently in the "
-"Bitaxe miners section. Will populate in a follow-up."
-msgstr "Bitaxe fleet power draw. Tile data source pending - currently in the "
-"Bitaxe miners section. Will populate in a follow-up."
+#~ msgid "Bitaxe fleet power draw. Tile data source pending - currently in the "
+#~ "Bitaxe miners section. Will populate in a follow-up."
+#~ msgstr "Bitaxe fleet power draw. Tile data source pending - currently in the "
+#~ "Bitaxe miners section. Will populate in a follow-up."
 
 #: src/components/TilesBar.tsx
 #: src/pages/Status.tsx
@@ -1243,6 +1242,14 @@ msgstr "Braiins marketplace API - reachable when the last observe() read "
 #: src/pages/Config.tsx
 msgid "Braiins marketplace empty for"
 msgstr "Braiins marketplace empty for"
+
+#: src/components/TilesBar.tsx
+msgid "Braiins share-rejection rate over the selected chart range: sum of "
+"per-tick Δrejected over sum of per-tick Δpurchased. Same data source as "
+"the chart's right-axis rejection series."
+msgstr "Braiins share-rejection rate over the selected chart range: sum of "
+"per-tick Δrejected over sum of per-tick Δpurchased. Same data source as "
+"the chart's right-axis rejection series."
 
 #: src/pages/Config.tsx
 msgid "Braiins's marketplace fees are currently zero (beta). These two knobs "
@@ -2390,6 +2397,14 @@ msgstr "First-run setup"
 msgid "Fleet"
 msgstr "Fleet"
 
+#: src/components/TilesBar.tsx
+msgid "Fleet-level energy efficiency. Sum of reachable Bitaxe power draw "
+"divided by sum of reachable Bitaxe hashrate, converted to joules per "
+"TH/s."
+msgstr "Fleet-level energy efficiency. Sum of reachable Bitaxe power draw "
+"divided by sum of reachable Bitaxe hashrate, converted to joules per "
+"TH/s."
+
 #: src/pages/Config.tsx
 msgid "Flip this on, curl the endpoint, flip it back. Supports ?hours=N "
 "(default 24, max 168) and ?tables=tick_metrics, pool_blocks, "
@@ -2916,7 +2931,6 @@ msgid "luck before"
 msgstr "luck before"
 
 #: src/components/PriceChart.tsx
-#: src/pages/History.tsx
 msgid "manual"
 msgstr "manual"
 
@@ -4525,10 +4539,10 @@ msgid "share_log %"
 msgstr "share_log %"
 
 #: src/components/TilesBar.tsx
-msgid "Share-rejection rate. Tile data source pending - currently shown only on "
-"the chart's right axis. Will populate in a follow-up."
-msgstr "Share-rejection rate. Tile data source pending - currently shown only "
-"on the chart's right axis. Will populate in a follow-up."
+#~ msgid "Share-rejection rate. Tile data source pending - currently shown only on "
+#~ "the chart's right axis. Will populate in a follow-up."
+#~ msgstr "Share-rejection rate. Tile data source pending - currently shown only "
+#~ "on the chart's right axis. Will populate in a follow-up."
 
 #: src/pages/Config.tsx
 msgid "Share-rejection threshold (%)"
@@ -4584,8 +4598,8 @@ msgid "Sound"
 msgstr "Sound"
 
 #: src/pages/History.tsx
-msgid "Source"
-msgstr "Source"
+#~ msgid "Source"
+#~ msgstr "Source"
 
 #: src/components/PriceChart.tsx
 #: src/pages/History.tsx
@@ -4686,6 +4700,18 @@ msgstr "Sum of counters_committed.amount_consumed_sat across every bid on "
 "existed before the autopilot was switched on. May lag the latest hour "
 "of active-bid consumption (Braiins only updates committed counters on "
 "each hourly settlement tick). Switch via Config → P&L panel."
+
+#: src/components/TilesBar.tsx
+msgid "Sum of live AxeOS-reported power draw across reachable Bitaxe miners."
+msgstr "Sum of live AxeOS-reported power draw across reachable Bitaxe miners."
+
+#: src/components/TilesBar.tsx
+msgid "Sum of the 1-minute hashrate Bitaxe miners are reporting (reachable "
+"devices only). Lines up with the Fleet total in the Bitaxe miners "
+"section."
+msgstr "Sum of the 1-minute hashrate Bitaxe miners are reporting (reachable "
+"devices only). Lines up with the Fleet total in the Bitaxe miners "
+"section."
 
 #: src/components/TilesBar.tsx
 msgid "Swap tile"
@@ -5308,3 +5334,7 @@ msgstr "Zero-hashrate alert after (minutes)"
 #: src/pages/History.tsx
 msgid "Δ price"
 msgstr "Δ price"
+
+#: src/pages/History.tsx
+msgid "Δ price ≥ (sat/{unitLabel}/day)"
+msgstr "Δ price ≥ (sat/{unitLabel}/day)"

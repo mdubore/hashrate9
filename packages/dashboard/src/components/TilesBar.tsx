@@ -34,7 +34,9 @@ import { Trans } from '@lingui/react/macro';
 import { t } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { useMemo, useRef, useState, useEffect, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Tooltip } from './Tooltip';
+import type { SoloMinersResponse, StatusResponse as StatusResp } from '../lib/api';
 
 import {
   DEFAULT_DASHBOARD_TILES,
@@ -54,6 +56,8 @@ export interface TilesBarProps {
   readonly statsData: StatsResponse | undefined;
   readonly statusData: StatusResponse | undefined;
   readonly oceanData: OceanResponse | undefined;
+  /** #266 follow-up: solo miners snapshot for the Bitaxe fleet tiles. */
+  readonly soloMinersData: SoloMinersResponse | undefined;
   /**
    * Called when the operator adds, removes, or swaps a tile. The new
    * full list (in render order) is passed; caller persists to
@@ -72,6 +76,7 @@ interface TileCtx {
   readonly stats: StatsResponse | undefined;
   readonly status: StatusResponse | undefined;
   readonly ocean: OceanResponse | undefined;
+  readonly soloMiners: SoloMinersResponse | undefined;
   readonly intlLocale: string;
   readonly denomination: ReturnType<typeof useDenomination>;
 }
@@ -192,10 +197,16 @@ const TILE_RENDERERS: Record<DashboardTileId, (ctx: TileCtx) => TileResult> = {
     value: fmtPct(ocean?.user?.share_log_pct ?? null, 4, intlLocale),
     tooltip: t`Your share of Ocean's reward window. Approximately your hashrate ÷ pool hashrate; drives the unpaid-earnings line on the price chart.`,
   }),
-  share_rejection_pct: () => ({
-    value: EM_DASH,
-    tooltip: t`Share-rejection rate. Tile data source pending - currently shown only on the chart's right axis. Will populate in a follow-up.`,
-  }),
+  share_rejection_pct: ({ stats, intlLocale }) => {
+    const pct = stats?.avg_share_rejection_pct ?? null;
+    if (pct === null) return DASH;
+    return {
+      value: fmtPct(pct, 2, intlLocale),
+      tooltip: t`Braiins share-rejection rate over the selected chart range: sum of per-tick Δrejected over sum of per-tick Δpurchased. Same data source as the chart's right-axis rejection series.`,
+      color:
+        pct < 0.5 ? 'text-emerald-300' : pct < 1.0 ? 'text-amber-300' : 'text-red-300',
+    };
+  },
   wallet_runway_days: ({ status, intlLocale }) => {
     const balance = status?.balances?.[0]?.total_balance_sat ?? null;
     const dailySpend = status?.actual_spend_per_day_sat_3h ?? null;
@@ -214,18 +225,59 @@ const TILE_RENDERERS: Record<DashboardTileId, (ctx: TileCtx) => TileResult> = {
         days >= 14 ? 'text-emerald-300' : days >= 7 ? 'text-amber-300' : 'text-red-300',
     };
   },
-  bitaxe_fleet_hashrate: () => ({
-    value: EM_DASH,
-    tooltip: t`Bitaxe fleet hashrate. Tile data source pending - currently in the Bitaxe miners section. Will populate in a follow-up.`,
-  }),
-  bitaxe_fleet_power: () => ({
-    value: EM_DASH,
-    tooltip: t`Bitaxe fleet power draw. Tile data source pending - currently in the Bitaxe miners section. Will populate in a follow-up.`,
-  }),
-  bitaxe_fleet_efficiency_j_per_th: () => ({
-    value: EM_DASH,
-    tooltip: t`Bitaxe fleet efficiency in J/TH. Tile data source pending - currently in the Bitaxe miners section. Will populate in a follow-up.`,
-  }),
+  bitaxe_fleet_hashrate: ({ soloMiners, intlLocale, denomination }) => {
+    const entries = soloMiners?.snapshot?.entries ?? [];
+    let totalGhs = 0;
+    let any = false;
+    for (const e of entries) {
+      if (!e.reachable) continue;
+      const v = e.hashrate_1m_ghs ?? e.hashrate_10m_ghs ?? e.hashrate_instant_ghs;
+      if (v !== null && Number.isFinite(v)) {
+        totalGhs += v;
+        any = true;
+      }
+    }
+    if (!any) return DASH;
+    return {
+      value: denomination.formatHashrate(totalGhs / 1_000_000, intlLocale),
+      tooltip: t`Sum of the 1-minute hashrate Bitaxe miners are reporting (reachable devices only). Lines up with the Fleet total in the Bitaxe miners section.`,
+    };
+  },
+  bitaxe_fleet_power: ({ soloMiners, intlLocale }) => {
+    const entries = soloMiners?.snapshot?.entries ?? [];
+    let totalW = 0;
+    let any = false;
+    for (const e of entries) {
+      if (!e.reachable || e.power_w === null) continue;
+      totalW += e.power_w;
+      any = true;
+    }
+    if (!any) return DASH;
+    return {
+      value: `${formatNumber(totalW, { minimumFractionDigits: 1, maximumFractionDigits: 1 }, intlLocale)} W`,
+      tooltip: t`Sum of live AxeOS-reported power draw across reachable Bitaxe miners.`,
+    };
+  },
+  bitaxe_fleet_efficiency_j_per_th: ({ soloMiners, intlLocale }) => {
+    const entries = soloMiners?.snapshot?.entries ?? [];
+    let totalW = 0;
+    let totalGhs = 0;
+    for (const e of entries) {
+      if (!e.reachable) continue;
+      const hr = e.hashrate_1m_ghs ?? e.hashrate_10m_ghs ?? e.hashrate_instant_ghs;
+      if (e.power_w !== null && hr !== null && hr > 0) {
+        totalW += e.power_w;
+        totalGhs += hr;
+      }
+    }
+    if (totalGhs <= 0) return DASH;
+    // efficiency = power / hashrate_TH = W / (GH/s / 1000) = W * 1000 / GH/s
+    const jPerTh = (totalW * 1000) / totalGhs;
+    return {
+      value: `${formatNumber(jPerTh, { minimumFractionDigits: 1, maximumFractionDigits: 1 }, intlLocale)} J/TH`,
+      tooltip: t`Fleet-level energy efficiency. Sum of reachable Bitaxe power draw divided by sum of reachable Bitaxe hashrate, converted to joules per TH/s.`,
+    };
+  },
 };
 
 function labelFor(id: DashboardTileId): string {
@@ -312,6 +364,7 @@ export function TilesBar({
   statsData,
   statusData,
   oceanData,
+  soloMinersData,
   onTilesChange,
 }: TilesBarProps) {
   const { i18n } = useLingui();
@@ -331,6 +384,7 @@ export function TilesBar({
     stats: statsData,
     status: statusData,
     ocean: oceanData,
+    soloMiners: soloMinersData,
     intlLocale: intlLocale ?? 'en-US',
     denomination,
   };
@@ -403,18 +457,20 @@ function FloatingAddButton({
     return () => window.removeEventListener('mousedown', onClickOutside);
   }, [open]);
 
-  // #266 follow-up: restyled to mirror the "right axis [select]"
-  // affordance used elsewhere on the page - inline label + chevron
-  // sitting on the same row as a select-style trigger. Anchored
-  // below the period-selector row (which moved left to clear this
-  // space) at the top-right of the indicators block.
+  // #266 follow-up: label lowercase to match the "right axis"
+  // affordance elsewhere on the page. Trigger button itself is the
+  // dropdown anchor (anchorRef path), so the picker is portal-
+  // rendered and viewport-clamped same as the per-tile picker - no
+  // more right-of-trigger overflow.
+  const buttonRef = useRef<HTMLButtonElement>(null);
   return (
     <div ref={ref} className="absolute -top-7 right-0 flex items-center gap-2 pointer-events-auto">
-      <span className="text-xs text-slate-400 uppercase tracking-wider">
+      <span className="text-xs text-slate-400 lowercase">
         <Trans>add tile</Trans>
       </span>
       <button
         type="button"
+        ref={buttonRef}
         onClick={() => setOpen((v) => !v)}
         aria-label={t`Add a tile`}
         className="bg-slate-800 border border-slate-700 rounded px-2 py-0.5 text-xs text-slate-200 hover:bg-slate-700 flex items-center gap-1 min-w-[5rem]"
@@ -431,18 +487,14 @@ function FloatingAddButton({
         </svg>
       </button>
       {open && (
-        // Picker dropdown opens BELOW the button and anchored to the
-        // RIGHT edge (right-0) so it grows leftward into the page
-        // rather than rightward off the screen.
-        <div className="absolute z-30 right-0 top-full mt-1 pointer-events-auto">
-          <TilePickerDropdown
-            inUse={excluded}
-            onPick={(id) => {
-              onAdd(id);
-              setOpen(false);
-            }}
-          />
-        </div>
+        <TilePickerDropdown
+          inUse={excluded}
+          anchorRef={buttonRef}
+          onPick={(id) => {
+            onAdd(id);
+            setOpen(false);
+          }}
+        />
       )}
     </div>
   );
@@ -472,24 +524,24 @@ function TileSlot({ id, inUse, result, onReplace, onRemove }: TileSlotProps) {
 
   const chevronRef = useRef<HTMLButtonElement>(null);
 
-  // #266 follow-up: styled <Tooltip> for the label hover instead of
-  // the browser's default `title=` chrome. Question-mark icon next
-  // to the label signals hoverable detail without taking width.
-  const titleContent = result.tooltip ? (
-    <Tooltip text={result.tooltip}>
-      <span className="text-xs uppercase tracking-wider text-slate-100 break-words cursor-help inline-flex items-baseline gap-1">
-        <span>{labelFor(id)}</span>
-        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="text-slate-500 shrink-0 self-center" aria-hidden="true">
-          <circle cx="12" cy="12" r="10" />
-          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-          <path d="M12 17h.01" />
-        </svg>
-      </span>
-    </Tooltip>
-  ) : (
-    <span className="text-xs uppercase tracking-wider text-slate-100 break-words">
-      {labelFor(id)}
-    </span>
+  // #266 follow-up: styled <Tooltip> wraps the entire tile body so
+  // hovering ANYWHERE on the tile surfaces the tooltip. The question-
+  // mark icon next to the label is gone - operator caught it as
+  // visual noise. The chevron stays its own click target above the
+  // tooltip so swap-tile clicks aren't accidentally treated as tile
+  // hovers.
+  const tileBody = (
+    <div className="flex flex-col h-full">
+      <div className="mb-2 min-h-8 leading-4 text-center pr-5 text-xs uppercase tracking-wider text-slate-100 break-words">
+        {labelFor(id)}
+      </div>
+      <div className={`text-2xl font-mono tabular-nums text-center ${result.color ?? 'text-slate-100'}`}>
+        {split ? split.num : result.value}
+      </div>
+      <div className="text-xs text-slate-500 mt-0.5 text-center min-h-[1.25rem]">
+        {split ? <UnitCaption unit={split.unit} /> : ' '}
+      </div>
+    </div>
   );
 
   return (
@@ -497,15 +549,13 @@ function TileSlot({ id, inUse, result, onReplace, onRemove }: TileSlotProps) {
       ref={ref}
       className="relative pointer-events-auto group bg-slate-900 border border-slate-800 rounded-lg p-4 hover:border-slate-700"
     >
-      <div className="flex flex-col h-full">
-        <div className="mb-2 min-h-8 leading-4 text-center pr-5">{titleContent}</div>
-        <div className={`text-2xl font-mono tabular-nums text-center ${result.color ?? 'text-slate-100'}`}>
-          {split ? split.num : result.value}
-        </div>
-        <div className="text-xs text-slate-500 mt-0.5 text-center min-h-[1.25rem]">
-          {split ? <UnitCaption unit={split.unit} /> : ' '}
-        </div>
-      </div>
+      {result.tooltip ? (
+        <Tooltip text={result.tooltip}>
+          <div className="cursor-help">{tileBody}</div>
+        </Tooltip>
+      ) : (
+        tileBody
+      )}
       <button
         type="button"
         ref={chevronRef}
@@ -561,30 +611,45 @@ function TilePickerDropdown({ currentId, inUse, onPick, onRemove, anchorRef }: P
   const [pos, setPos] = useState<{ left: number; top: number; ready: boolean }>({
     left: 0,
     top: 0,
-    ready: anchorRef === undefined,
+    ready: false,
   });
 
+  // #266 follow-up: dropdown rendered into a portal at document.body
+  // so it's never clipped by an ancestor's `overflow:hidden` and its
+  // positioning is in raw viewport coordinates. Width is intrinsic
+  // (content-fit, capped at 22rem) instead of a fixed w-72, so the
+  // dropdown sizes itself to the actual labels.
   useLayoutEffect(() => {
     if (!anchorRef?.current || !ref.current) return;
-    const anchorRect = anchorRef.current.getBoundingClientRect();
-    const tipRect = ref.current.getBoundingClientRect();
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const margin = 8;
-    // Default placement: below the anchor, right-aligned so the
-    // dropdown grows leftward into the page rather than rightward off
-    // the screen.
-    let left = anchorRect.right - tipRect.width;
-    let top = anchorRect.bottom + 4;
-    if (left < margin) left = margin;
-    if (left + tipRect.width > vw - margin) left = vw - tipRect.width - margin;
-    if (top + tipRect.height > vh - margin) {
-      // Not enough room below; flip above the anchor.
-      const above = anchorRect.top - tipRect.height - 4;
-      if (above >= margin) top = above;
-    }
-    if (top < margin) top = margin;
-    setPos({ left, top, ready: true });
+    const measure = () => {
+      const anchor = anchorRef.current;
+      const tip = ref.current;
+      if (!anchor || !tip) return;
+      const anchorRect = anchor.getBoundingClientRect();
+      const tipRect = tip.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const margin = 8;
+      // Anchor right-aligned with the trigger (dropdown grows left
+      // into the page from the chevron, not right off-screen).
+      let left = anchorRect.right - tipRect.width;
+      let top = anchorRect.bottom + 4;
+      if (left + tipRect.width > vw - margin) left = vw - tipRect.width - margin;
+      if (left < margin) left = margin;
+      if (top + tipRect.height > vh - margin) {
+        const above = anchorRect.top - tipRect.height - 4;
+        if (above >= margin) top = above;
+      }
+      if (top < margin) top = margin;
+      setPos({ left, top, ready: true });
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    window.addEventListener('scroll', measure, true);
+    return () => {
+      window.removeEventListener('resize', measure);
+      window.removeEventListener('scroll', measure, true);
+    };
   }, [anchorRef]);
 
   const grouped = useMemo(() => {
@@ -597,19 +662,11 @@ function TilePickerDropdown({ currentId, inUse, onPick, onRemove, anchorRef }: P
     return [...m.entries()];
   }, []);
 
-  // When `anchorRef` is supplied the dropdown is fixed-positioned and
-  // viewport-clamped; otherwise (legacy FloatingAddButton path) it
-  // falls back to `absolute left-0 top-full mt-1` relative to its
-  // parent.
-  const positioned = anchorRef !== undefined;
-
-  return (
+  const dropdown = (
     <div
       ref={ref}
-      className={`${
-        positioned ? 'fixed' : 'absolute left-0 top-full mt-1'
-      } z-30 w-72 max-h-80 overflow-y-auto rounded-lg border border-slate-700 bg-slate-900 shadow-xl p-2 text-xs pointer-events-auto tile-picker-scroll ${pos.ready ? '' : 'invisible'}`}
-      style={positioned ? { left: pos.left, top: pos.top } : undefined}
+      className={`fixed z-[60] min-w-[14rem] max-w-[22rem] max-h-80 overflow-y-auto rounded-lg border border-slate-700 bg-slate-900 shadow-xl p-2 text-xs pointer-events-auto tile-picker-scroll ${pos.ready ? '' : 'invisible'}`}
+      style={{ left: pos.left, top: pos.top }}
     >
       {grouped.map(([group, items]) => (
         <div key={group} className="mb-2 last:mb-0">
@@ -674,5 +731,6 @@ function TilePickerDropdown({ currentId, inUse, onPick, onRemove, anchorRef }: P
       )}
     </div>
   );
+  return createPortal(dropdown, document.body);
 }
 

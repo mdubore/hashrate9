@@ -279,6 +279,15 @@ export function Status() {
     refetchInterval: 60_000,
   });
 
+  // #266 follow-up: solo-miners snapshot powers the Bitaxe fleet
+  // tiles (hashrate, power, J/TH) in TilesBar. Shared query key with
+  // SoloMinersCard so React Query dedupes.
+  const soloMinersQuery = useQuery({
+    queryKey: ['solo-miners'],
+    queryFn: api.soloMiners,
+    refetchInterval: 30_000,
+  });
+
   // Reward events drive the per-payout dot markers on the Price
   // chart's "paid earnings (lifetime)" + "lifetime earnings" lines.
   // Cap at the API's 500-row max so deeply-paid wallets don't lose
@@ -544,6 +553,7 @@ export function Status() {
         statsData={statsQuery.data}
         statusData={query.data}
         oceanData={oceanQuery.data}
+        soloMinersData={soloMinersQuery.data}
         onTilesChange={(next) => {
           // PATCH /api/config with the new tile list. Optimistic
           // - we don't bounce the cache; React Query will refetch

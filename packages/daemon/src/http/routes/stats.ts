@@ -48,6 +48,12 @@ export interface StatsResponse {
    * ticks in the window.
    */
   readonly uptime_delivery_when_bid_active_pct: number | null;
+  /**
+   * #266 follow-up: window-averaged Braiins share-rejection rate
+   * (rejected ÷ purchased × 100, summed over per-tick deltas).
+   * Powers the share_rejection_pct tile.
+   */
+  readonly avg_share_rejection_pct: number | null;
   readonly avg_hashrate_ph: number | null;
   /**
    * Duration-weighted average of `datum_hashrate_ph` over ticks that
@@ -185,6 +191,7 @@ export async function registerStatsRoute(
         uptime_pct: metrics.uptime_pct,
         uptime_bid_coverage_pct: metrics.uptime_bid_coverage_pct,
         uptime_delivery_when_bid_active_pct: metrics.uptime_delivery_when_bid_active_pct,
+        avg_share_rejection_pct: metrics.avg_share_rejection_pct,
         avg_hashrate_ph: metrics.avg_hashrate_ph,
         avg_datum_hashrate_ph: metrics.avg_datum_hashrate_ph,
         avg_ocean_hashrate_ph: metrics.avg_ocean_hashrate_ph,
@@ -212,6 +219,7 @@ async function computeMetrics(
   uptime_pct: number | null;
   uptime_bid_coverage_pct: number | null;
   uptime_delivery_when_bid_active_pct: number | null;
+  avg_share_rejection_pct: number | null;
   avg_hashrate_ph: number | null;
   avg_datum_hashrate_ph: number | null;
   avg_ocean_hashrate_ph: number | null;
@@ -300,6 +308,15 @@ async function computeMetrics(
              THEN dur ELSE 0 END) * 100.0
           / SUM(CASE WHEN dur BETWEEN 1 AND 300000 AND our_bid > 0 THEN dur ELSE 0 END)
       ELSE NULL END AS uptime_delivery_when_bid_active_pct,
+
+      -- #266 follow-up: window-averaged share-rejection rate as
+      -- (sum of per-tick rejected_m) ÷ (sum of per-tick purchased_m).
+      -- Skips ticks where purchased_m IS NULL or <= 0 so a fresh-bid
+      -- counter reset doesn't poison the ratio.
+      CASE WHEN SUM(CASE WHEN primary_bid_shares_purchased_m > 0 THEN primary_bid_shares_purchased_m ELSE 0 END) > 0 THEN
+        100.0 * SUM(CASE WHEN primary_bid_shares_purchased_m > 0 AND primary_bid_shares_rejected_m IS NOT NULL THEN primary_bid_shares_rejected_m ELSE 0 END)
+              / SUM(CASE WHEN primary_bid_shares_purchased_m > 0 THEN primary_bid_shares_purchased_m ELSE 0 END)
+      ELSE NULL END AS avg_share_rejection_pct,
 
       -- Avg Braiins delivered: computed from counter deltas, not the
       -- lagged avg_speed_ph field. Per-tick delivered_PH =
@@ -462,6 +479,7 @@ async function computeMetrics(
       uptime_pct: null,
       uptime_bid_coverage_pct: null,
       uptime_delivery_when_bid_active_pct: null,
+      avg_share_rejection_pct: null,
       avg_hashrate_ph: null,
       avg_datum_hashrate_ph: null,
       avg_ocean_hashrate_ph: null,
@@ -481,6 +499,10 @@ async function computeMetrics(
     uptime_delivery_when_bid_active_pct:
       r['uptime_delivery_when_bid_active_pct'] !== null
         ? Number(r['uptime_delivery_when_bid_active_pct'])
+        : null,
+    avg_share_rejection_pct:
+      r['avg_share_rejection_pct'] !== null
+        ? Number(r['avg_share_rejection_pct'])
         : null,
     avg_hashrate_ph: r['avg_hashrate'] !== null ? Number(r['avg_hashrate']) : null,
     avg_datum_hashrate_ph:

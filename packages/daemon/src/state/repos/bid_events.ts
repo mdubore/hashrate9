@@ -228,32 +228,37 @@ export class BidEventsRepo {
     }
     const whereClause = where.length > 0 ? `WHERE ${where.join(' AND ')}` : '';
 
-    // - fillable_at_event: nearest tick at-or-before the event with
-    //   a non-null fillable reading.
-    // - effective_braiins_order_id: CREATE_BID events sometimes
-    //   land with order_id=NULL because the daemon emits them before
-    //   Braiins echoes back the assigned ID. The next event on the
-    //   same logical bid (within ~5 min) has the ID. Coalesce so the
-    //   table never shows an em-dash bid column for a row that's
-    //   provably the create of an identifiable bid.
-    // - effective_speed_limit_ph: most events don't carry the bid's
-    //   speed in their row (only CREATE_BID + EDIT_SPEED do). For
-    //   every other event, surface the most recent CREATE_BID or
-    //   EDIT_SPEED's speed_limit_ph for the SAME bid, so the column
-    //   is never empty as long as the bid is identifiable.
+    // #266 follow-up: CTE so the speed coalesce can reference the
+    // EFFECTIVE order id (not just the direct e.braiins_order_id).
+    // Build 621 used the direct id which still pointed at NULL for
+    // CREATE rows that landed before Braiins echoed back - those
+    // CREATEs carry the bid's speed but couldn't be joined. With a
+    // unified effective_order_id, speed cascades properly even
+    // through orphan-CREATE rows.
+    //
+    // Coalesce window widened from 5 min to 1 hour so older orphan
+    // CREATEs whose next event sits further in the future still
+    // surface their order id.
+    const whereClauseRebased = whereClause.replace(/\be\./g, 'e.');
     const sqlText = `
+      WITH events_with_effective_id AS (
+        SELECT
+          e.*,
+          COALESCE(
+            e.braiins_order_id,
+            (SELECT e2.braiins_order_id
+               FROM bid_events e2
+              WHERE e2.occurred_at >= e.occurred_at
+                AND e2.occurred_at <= e.occurred_at + 3600000
+                AND e2.braiins_order_id IS NOT NULL
+              ORDER BY e2.occurred_at ASC
+              LIMIT 1)
+          ) AS effective_order_id
+          FROM bid_events e
+      )
       SELECT
         e.*,
-        COALESCE(
-          e.braiins_order_id,
-          (SELECT e2.braiins_order_id
-             FROM bid_events e2
-            WHERE e2.occurred_at >= e.occurred_at
-              AND e2.occurred_at <= e.occurred_at + 300000
-              AND e2.braiins_order_id IS NOT NULL
-            ORDER BY e2.occurred_at ASC
-            LIMIT 1)
-        ) AS effective_braiins_order_id,
+        e.effective_order_id AS effective_braiins_order_id,
         (SELECT t.fillable_ask_sat_per_eh_day
            FROM tick_metrics t
           WHERE t.tick_at <= e.occurred_at
@@ -263,27 +268,17 @@ export class BidEventsRepo {
         COALESCE(
           e.speed_limit_ph,
           (SELECT e3.speed_limit_ph
-             FROM bid_events e3
-            WHERE e3.braiins_order_id = (
-                    COALESCE(
-                      e.braiins_order_id,
-                      (SELECT e2.braiins_order_id
-                         FROM bid_events e2
-                        WHERE e2.occurred_at >= e.occurred_at
-                          AND e2.occurred_at <= e.occurred_at + 300000
-                          AND e2.braiins_order_id IS NOT NULL
-                        ORDER BY e2.occurred_at ASC
-                        LIMIT 1)
-                    )
-                  )
+             FROM events_with_effective_id e3
+            WHERE e3.effective_order_id = e.effective_order_id
+              AND e3.effective_order_id IS NOT NULL
               AND e3.speed_limit_ph IS NOT NULL
               AND e3.occurred_at <= e.occurred_at
               AND e3.kind IN ('CREATE_BID', 'EDIT_SPEED')
             ORDER BY e3.occurred_at DESC
             LIMIT 1)
         ) AS effective_speed_limit_ph
-        FROM bid_events e
-        ${whereClause}
+        FROM events_with_effective_id e
+        ${whereClauseRebased}
         ORDER BY e.id DESC
         LIMIT ${Math.floor(args.limit)}
     `;
