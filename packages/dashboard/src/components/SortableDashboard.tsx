@@ -1,20 +1,24 @@
-// #244 v2: always-on drag-to-reorder for the top-level dashboard blocks.
+// #244 v3: drag-to-reorder for the top-level dashboard blocks, gated
+// behind a Rearrange toggle in the header.
 //
-// Earlier version (build 581ish) gated reordering behind an explicit
-// "Rearrange" mode, partly because chart cards have their own
-// drag-to-pan that would fight a card-level drag handler, partly
-// because the v1 design used the whole card-title row as the drag
-// affordance.
+// v1 used a whole-card title-bar as the drag affordance and rendered
+// the card content as pointer-events:none while editing - charts and
+// buttons inside the card couldn't be interacted with mid-edit, and
+// the title-bar chrome was bulky.
 //
-// v2 borrows the TilesBar pattern: each card gets a small grip handle
-// in the top-left corner that fades in on hover. Drag listeners are
-// bound to the grip button only, so pointer events on the chart body
-// still route to the chart's own pan/zoom handlers - the conflict
-// disappears positionally. A 6 px PointerSensor distance gate stops a
-// click in the grip's vicinity from being treated as a drag. Touch
-// users get a 180 ms press-and-hold via the TouchSensor; mobile shows
-// the grip permanently (no hover state on touch). The "Rearrange"
-// header toggle and the rearranging-mode flag in the context are gone.
+// v2 went always-on: a slim 20 px gutter to the LEFT of every card,
+// holding a grip handle. The handles were discoverable but the
+// permanent gutter ate too much horizontal space (especially on
+// mobile) for an affordance the operator uses three times in a
+// dashboard's life.
+//
+// v3 reverts to the gated approach but with the v2 grip-only idiom:
+//   - Outside rearrange mode: cards render plain. Zero overhead, no
+//     gutter, no handles, no DnD listeners mounted.
+//   - Inside rearrange mode: each card grows a temporary left gutter
+//     with a prominent amber grip. Drag listeners are bound to the
+//     grip button only, so the card body stays interactive (you can
+//     still hover charts and read tooltips while reordering).
 //
 // Persistence + reconciliation against the live block set lives in
 // lib/cardOrder.ts; this component is purely the drag surface.
@@ -50,11 +54,12 @@ export interface DashboardBlock {
 }
 
 function GripIcon() {
-  // Lucide grip-vertical - the universal drag-handle affordance.
+  // Lucide grip-vertical, slightly larger than v2 so it reads as a
+  // clear handle in rearrange mode rather than dust in the corner.
   return (
     <svg
-      width="14"
-      height="14"
+      width="16"
+      height="16"
       viewBox="0 0 24 24"
       fill="currentColor"
       aria-hidden="true"
@@ -85,29 +90,23 @@ function SortableItem({ block }: { block: DashboardBlock }) {
     <div
       ref={setNodeRef}
       style={style}
-      className={`group flex items-stretch gap-1.5 rounded-lg ${
+      className={`flex items-stretch gap-2 rounded-lg ${
         isDragging ? 'ring-2 ring-amber-500 shadow-lg shadow-black/40' : ''
       }`}
     >
-      {/* Grip handle gutter: a slim fixed-width column to the LEFT of
-          each card holds the grip, aligned with the card's title row
-          (pt-4 ≈ the cards' standard p-4 padding). Always visible at
-          a faint colour so it's discoverable without hovering; on
-          hover it lights up amber with a subtle glow. Listeners are
-          bound to the button only so pointer events on the card
-          content still route to chart pan/zoom and panel buttons.
-          touch-none keeps a touch-drag from scrolling the page. */}
-      <div className="flex-none w-5 flex justify-center pt-4">
+      {/* Visible-while-editing grip. Amber + subtle glow so the
+          affordance is unmistakable. Drag listeners are bound here
+          only, so chart pan/zoom and panel buttons stay interactive
+          inside the card body while the operator is reordering. */}
+      <div className="flex-none w-6 flex justify-center pt-4">
         <button
           type="button"
           {...attributes}
           {...listeners}
           aria-label={`${t`Drag to reorder`}: ${block.label}`}
           title={`${t`Drag to reorder`}: ${block.label}`}
-          className={`p-0.5 rounded cursor-grab active:cursor-grabbing touch-none transition ${
-            isDragging
-              ? 'text-amber-300 drop-shadow-[0_0_6px_rgba(252,211,77,0.5)]'
-              : 'text-slate-700 hover:text-amber-300 hover:drop-shadow-[0_0_5px_rgba(252,211,77,0.45)]'
+          className={`p-1 rounded text-amber-300 cursor-grab active:cursor-grabbing touch-none transition drop-shadow-[0_0_4px_rgba(252,211,77,0.35)] hover:bg-slate-800/60 hover:drop-shadow-[0_0_6px_rgba(252,211,77,0.6)] ${
+            isDragging ? 'drop-shadow-[0_0_6px_rgba(252,211,77,0.6)]' : ''
           }`}
         >
           <GripIcon />
@@ -120,9 +119,11 @@ function SortableItem({ block }: { block: DashboardBlock }) {
 
 export function SortableDashboard({
   blocks,
+  editing,
   onReorder,
 }: {
   blocks: DashboardBlock[];
+  editing: boolean;
   onReorder: (ids: string[]) => void;
 }) {
   const sensors = useSensors(
@@ -137,6 +138,18 @@ export function SortableDashboard({
     }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
+
+  if (!editing) {
+    // Zero-overhead path: render plain divs, no DnD context, no
+    // gutter, no grips. Mirrors v1's idle path.
+    return (
+      <>
+        {blocks.map((b) => (
+          <div key={b.id}>{b.node}</div>
+        ))}
+      </>
+    );
+  }
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;

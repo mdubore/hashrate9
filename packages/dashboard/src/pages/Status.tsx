@@ -184,10 +184,11 @@ export function Status() {
     window.localStorage.setItem(PRICE_RIGHT_AXIS_KEY, priceRightAxis);
   }, [priceRightAxis]);
 
-  // #244 v2: operator-defined dashboard block order (drag to reorder),
-  // stored per-device in localStorage. Always-on drag via per-card
-  // grip handles; the explicit Rearrange mode is gone.
+  // #244 v3: operator-defined dashboard block order. Rearrange mode
+  // toggles via a header button (always-on gutter was too costly,
+  // especially on mobile). The grip handles only show in edit mode.
   const cardOrder = useCardOrderContext();
+  const rearranging = cardOrder.rearranging;
 
   const query = useQuery({
     queryKey: ['status'],
@@ -1013,8 +1014,38 @@ export function Status() {
       {/* #113: stale-URL banner. Renders only when there's a real
           mismatch between config and an active bid - silent otherwise. */}
       <StaleUrlBanner />
+      {/* #244 v3: edit-mode hint + redundant Done button. The header
+          toggle and this banner's Done are deliberately redundant -
+          on mobile the operator shouldn't have to re-open the
+          hamburger to confirm. Order is saved on every drag, so Done
+          just exits edit mode. */}
+      {rearranging && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[11px] text-slate-500">
+          <span>
+            <Trans>Drag from the amber grip handle on the left of each card to reorder.</Trans>{' '}
+            <Trans>Your layout is saved on this device.</Trans>
+          </span>
+          {cardOrder.isCustomized && (
+            <button
+              type="button"
+              onClick={cardOrder.reset}
+              className="text-slate-400 underline underline-offset-2 hover:text-slate-200"
+            >
+              <Trans>Reset to default order</Trans>
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => cardOrder.setRearranging(false)}
+            className="ml-auto inline-flex items-center gap-1.5 rounded border border-emerald-600 bg-emerald-600/20 px-2.5 py-1 font-medium text-emerald-300 hover:bg-emerald-600/30"
+          >
+            <Trans>Done rearranging</Trans>
+          </button>
+        </div>
+      )}
       <SortableDashboard
         blocks={orderedBlocks}
+        editing={rearranging}
         onReorder={cardOrder.setOrder}
       />
     </div>

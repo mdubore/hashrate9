@@ -2,6 +2,10 @@
 
 ## 2026-06-06
 
+### `[UI]` Rearrange button is back; handles only show in edit mode (#244 v3)
+
+The always-on gutter from build 631 ate ~26 px off every card's width — fine on desktop, cramped on mobile, paid for a feature the operator uses three times in a dashboard's lifetime. v3 reverts to a gated approach: the **Rearrange** button is back in the header (and the hamburger), cards render plain by default, and only when the operator clicks Rearrange does the gutter + grip handles appear. The grips themselves are now amber with a subtle glow so they read as a clear handle while editing, not dust in the corner. Drag listeners stay bound to the grip button only, so chart pan/zoom and panel buttons keep working even mid-edit — that part stays better than v1's pointer-events-none.
+
 ### `[UI]` Drag-handle gutter for dashboard cards (#244 v2 follow-up)
 
 The hover-to-reveal handle from the previous commit floated awkwardly above each card's title row. Build 631 moves it into a slim 20 px left gutter next to every card so the handle sits *beside* the title rather than on top of it. Always faintly visible (slate-700), brightens to amber with a subtle glow on hover, full opacity during a drag — the discoverability the operator asked for. The title text inside each card flows normally; no per-card markup changes needed.

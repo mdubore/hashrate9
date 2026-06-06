@@ -207,12 +207,12 @@ export function Layout() {
               from a dropdown so the top bar stays single-row on
               mobile with only Status/Alerts/Config visible. */}
           <div className="hidden sm:flex items-center gap-3 ml-auto text-xs">
-            {/* #244 v2: the Rearrange toggle is gone - cards are
-                drag-to-reorder via per-card grip handles that fade in
-                on hover. Only the Reset-layout escape hatch is left
-                here, and only when the operator's actually customised
-                something to revert. */}
-            {location.pathname === '/' && <ResetLayoutControl />}
+            {/* #244 v3: Rearrange toggle returns to the header. v2's
+                always-on grip handles needed a permanent left gutter
+                that ate too much horizontal space (especially on
+                mobile) for an affordance used three times in a
+                dashboard's life. */}
+            {location.pathname === '/' && <RearrangeControl />}
             <HashrateUnitToggle />
             <DenominationToggle />
             <LanguagePicker />
@@ -227,7 +227,7 @@ export function Layout() {
           <div className="sm:hidden ml-auto">
             <MobileMenu
               onSignOut={logout}
-              showResetLayout={location.pathname === '/'}
+              showRearrange={location.pathname === '/'}
               navItems={navItems}
               unreadCount={unreadCount}
             />
@@ -277,19 +277,19 @@ export function Layout() {
  */
 function MobileMenu({
   onSignOut,
-  showResetLayout,
+  showRearrange,
   navItems,
   unreadCount,
 }: {
   onSignOut: () => void;
-  showResetLayout: boolean;
+  showRearrange: boolean;
   navItems: Array<{ label: string; to: string }>;
   unreadCount: number;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const location = useLocation();
-  const { isCustomized, reset } = useCardOrderContext();
+  const { rearranging, setRearranging, isCustomized, reset } = useCardOrderContext();
 
   useEffect(() => {
     if (!open) return;
@@ -357,24 +357,39 @@ function MobileMenu({
               );
             })}
           </div>
-          {/* #244 v2: cards are always-on drag-to-reorder via per-card
-              grip handles. The only thing the menu needs is the
-              "reset to default" escape hatch, and only when there's
-              actually something to reset. */}
-          {showResetLayout && isCustomized && (
+          {/* #244 v3: Rearrange toggle returns. Toggling closes the
+              menu so the operator can immediately drag cards. Reset
+              only appears once the order has been customised. */}
+          {showRearrange && (
             <div>
               <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
                 <Trans>dashboard layout</Trans>
               </div>
               <button
                 onClick={() => {
-                  reset();
+                  setRearranging(!rearranging);
                   setOpen(false);
                 }}
-                className="w-full px-2 py-1.5 text-xs text-slate-400 border border-slate-700 rounded hover:bg-slate-800"
+                className={
+                  'w-full px-2 py-1.5 text-xs rounded border ' +
+                  (rearranging
+                    ? 'border-emerald-600 bg-emerald-600/20 text-emerald-300'
+                    : 'border-slate-700 text-slate-300 hover:bg-slate-800')
+                }
               >
-                <Trans>Reset to default order</Trans>
+                {rearranging ? <Trans>Done rearranging</Trans> : <Trans>Rearrange cards</Trans>}
               </button>
+              {isCustomized && (
+                <button
+                  onClick={() => {
+                    reset();
+                    setOpen(false);
+                  }}
+                  className="w-full mt-2 px-2 py-1.5 text-xs text-slate-400 border border-slate-700 rounded hover:bg-slate-800"
+                >
+                  <Trans>Reset to default order</Trans>
+                </button>
+              )}
             </div>
           )}
           <div>
@@ -411,23 +426,46 @@ function MobileMenu({
 }
 
 /**
- * #244 v2: tiny "Reset layout" link in the header, only visible when
- * the operator has actually dragged cards around. Replaces the
- * dedicated Rearrange toggle, which is gone now that cards are
- * drag-to-reorder by hovering them.
+ * #244 v3: header Rearrange toggle for the Status dashboard. Lives
+ * in the top bar (desktop) so it costs no page height; toggling flips
+ * the shared edit-mode flag the Status page reads to enable drag-to-
+ * reorder. "Reset" only appears once the order has been customised.
  */
-function ResetLayoutControl() {
-  const { isCustomized, reset } = useCardOrderContext();
-  if (!isCustomized) return null;
+function RearrangeControl() {
+  const { rearranging, setRearranging, isCustomized, reset } = useCardOrderContext();
   return (
-    <button
-      type="button"
-      onClick={reset}
-      title={t`Restore the default order of dashboard cards`}
-      className="text-[11px] text-slate-400 underline underline-offset-2 hover:text-slate-200"
-    >
-      <Trans>reset layout</Trans>
-    </button>
+    <div className="flex items-center gap-2">
+      {rearranging && isCustomized && (
+        <button
+          type="button"
+          onClick={reset}
+          className="text-[11px] text-slate-400 underline underline-offset-2 hover:text-slate-200"
+        >
+          <Trans>Reset</Trans>
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={() => setRearranging(!rearranging)}
+        title={t`Drag the dashboard cards into the order you want`}
+        className={
+          'inline-flex items-center gap-1.5 px-2 py-1 text-[11px] rounded border ' +
+          (rearranging
+            ? 'border-emerald-600 bg-emerald-600/20 text-emerald-300'
+            : 'border-slate-700 text-slate-300 hover:bg-slate-800')
+        }
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <circle cx="9" cy="5" r="1" />
+          <circle cx="9" cy="12" r="1" />
+          <circle cx="9" cy="19" r="1" />
+          <circle cx="15" cy="5" r="1" />
+          <circle cx="15" cy="12" r="1" />
+          <circle cx="15" cy="19" r="1" />
+        </svg>
+        {rearranging ? <Trans>Done</Trans> : <Trans>Rearrange</Trans>}
+      </button>
+    </div>
   );
 }
 

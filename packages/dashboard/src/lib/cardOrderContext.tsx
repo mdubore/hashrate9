@@ -1,12 +1,13 @@
-// #244 v2: shared dashboard card-order state.
+// #244 v3: shared dashboard card-order state + rearrange-mode flag.
 //
-// v1 also tracked a "rearranging" toggle - the dashboard had a
-// separate edit mode. v2's drag-to-reorder is always on (small grip
-// handles on each card fade in on hover), so the mode flag is gone.
-// `isCustomized` + `reset()` are kept so the operator can revert to
-// the default order; the affordance lives in the header / hamburger.
+// v1 had a Rearrange toggle; v2 went always-on with a left gutter; v3
+// brings the toggle back because the always-on gutter cost was too
+// high (especially on mobile, where 20 px off every card hurt). The
+// grip handles are kept (small icons, easier to find than v1's full
+// title-bar) but only shown in rearrange mode, alongside a small
+// visual lift on each draggable card.
 
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useContext, useState, type ReactNode } from 'react';
 import { useCardOrder, type CardOrderControls } from './cardOrder';
 
 // Built-in top-level dashboard block order. Each ID is a draggable
@@ -28,14 +29,20 @@ export const DEFAULT_BLOCK_ORDER = [
   'solo',
 ] as const;
 
-type CardOrderContextValue = CardOrderControls;
+interface CardOrderContextValue extends CardOrderControls {
+  /** Whether the dashboard is in drag-to-reorder mode. */
+  rearranging: boolean;
+  setRearranging: (v: boolean) => void;
+}
 
 const CardOrderContext = createContext<CardOrderContextValue | null>(null);
 
 export function CardOrderProvider({ children }: { children: ReactNode }) {
   const controls = useCardOrder(DEFAULT_BLOCK_ORDER);
+  const [rearranging, setRearranging] = useState(false);
+  const value: CardOrderContextValue = { ...controls, rearranging, setRearranging };
   return (
-    <CardOrderContext.Provider value={controls}>{children}</CardOrderContext.Provider>
+    <CardOrderContext.Provider value={value}>{children}</CardOrderContext.Provider>
   );
 }
 
