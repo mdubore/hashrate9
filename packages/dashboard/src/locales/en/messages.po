@@ -930,6 +930,10 @@ msgstr "BIP 110-signalling block"
 msgid "BIP-110 scan"
 msgstr "BIP-110 scan"
 
+#: src/components/TilesBar.tsx
+msgid "Bitaxe best diff"
+msgstr "Bitaxe best diff"
+
 #: src/pages/Status.tsx
 msgid "Bitaxe best difficulty"
 msgstr "Bitaxe best difficulty"
@@ -1244,12 +1248,22 @@ msgid "Braiins marketplace empty for"
 msgstr "Braiins marketplace empty for"
 
 #: src/components/TilesBar.tsx
-msgid "Braiins share-rejection rate over the selected chart range: sum of "
-"per-tick Δrejected over sum of per-tick Δpurchased. Same data source as "
-"the chart's right-axis rejection series."
-msgstr "Braiins share-rejection rate over the selected chart range: sum of "
-"per-tick Δrejected over sum of per-tick Δpurchased. Same data source as "
-"the chart's right-axis rejection series."
+#~ msgid "Braiins share-rejection rate over the selected chart range: sum of "
+#~ "per-tick Δrejected over sum of per-tick Δpurchased. Same data source as "
+#~ "the chart's right-axis rejection series."
+#~ msgstr "Braiins share-rejection rate over the selected chart range: sum of "
+#~ "per-tick Δrejected over sum of per-tick Δpurchased. Same data source as "
+#~ "the chart's right-axis rejection series."
+
+#: src/components/TilesBar.tsx
+msgid "Braiins share-rejection rate over the selected chart range. Same figure "
+"as the \"rejection rate\" row in the Braiins panel below. Computed "
+"server-side from the first and last cumulative counter samples in the "
+"range."
+msgstr "Braiins share-rejection rate over the selected chart range. Same figure "
+"as the \"rejection rate\" row in the Braiins panel below. Computed "
+"server-side from the first and last cumulative counter samples in the "
+"range."
 
 #: src/pages/Config.tsx
 msgid "Braiins's marketplace fees are currently zero (beta). These two knobs "
@@ -2586,6 +2600,16 @@ msgstr "Hide"
 #: src/pages/Setup.tsx
 msgid "Hide value"
 msgstr "Hide value"
+
+#: src/components/TilesBar.tsx
+msgid "Highest best-difficulty seen on any reachable Bitaxe in the fleet. AxeOS "
+"reports this per device; the tile shows the leader. Best-difficulty "
+"grows over time as miners hit progressively rarer shares; resets when a "
+"worker restarts."
+msgstr "Highest best-difficulty seen on any reachable Bitaxe in the fleet. "
+"AxeOS reports this per device; the tile shows the leader. "
+"Best-difficulty grows over time as miners hit progressively rarer "
+"shares; resets when a worker restarts."
 
 #: src/components/Layout.tsx
 msgid "History"

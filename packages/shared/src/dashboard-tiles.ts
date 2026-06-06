@@ -46,7 +46,8 @@ export type DashboardTileId =
   | 'avg_overpay_settled'
   | 'bitaxe_fleet_hashrate'
   | 'bitaxe_fleet_power'
-  | 'bitaxe_fleet_efficiency_j_per_th';
+  | 'bitaxe_fleet_efficiency_j_per_th'
+  | 'bitaxe_fleet_best_diff';
 
 export interface DashboardTileMeta {
   readonly id: DashboardTileId;
@@ -108,6 +109,11 @@ export const TILE_CATALOGUE: ReadonlyArray<DashboardTileMeta> = [
     id: 'bitaxe_fleet_efficiency_j_per_th',
     group: 'Bitaxe',
     labelKey: 'Bitaxe efficiency',
+  },
+  {
+    id: 'bitaxe_fleet_best_diff',
+    group: 'Bitaxe',
+    labelKey: 'Bitaxe best diff',
   },
 ];
 

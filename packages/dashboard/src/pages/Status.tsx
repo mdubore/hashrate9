@@ -554,6 +554,7 @@ export function Status() {
         statusData={query.data}
         oceanData={oceanQuery.data}
         soloMinersData={soloMinersQuery.data}
+        financeRangeData={financeRangeQuery.data}
         onTilesChange={(next) => {
           // PATCH /api/config with the new tile list. Optimistic
           // - we don't bounce the cache; React Query will refetch

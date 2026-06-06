@@ -948,6 +948,10 @@ msgstr "Bloque que señaliza BIP 110"
 msgid "BIP-110 scan"
 msgstr "Escaneo BIP-110"
 
+#: src/components/TilesBar.tsx
+msgid "Bitaxe best diff"
+msgstr "Mejor diff Bitaxe"
+
 #: src/pages/Status.tsx
 msgid "Bitaxe best difficulty"
 msgstr "mejor dificultad Bitaxe"
@@ -1269,12 +1273,19 @@ msgid "Braiins marketplace empty for"
 msgstr "Mercado Braiins vacío durante"
 
 #: src/components/TilesBar.tsx
-msgid "Braiins share-rejection rate over the selected chart range: sum of "
-"per-tick Δrejected over sum of per-tick Δpurchased. Same data source as "
-"the chart's right-axis rejection series."
-msgstr "Tasa de rechazo de shares de Braiins en el rango seleccionado: suma de "
-"Δrechazadas por tick dividida entre la suma de Δcompradas por tick. "
-"Misma fuente que la serie del eje derecho del gráfico."
+#~ msgid "Braiins share-rejection rate over the selected chart range: sum of "
+#~ "per-tick Δrejected over sum of per-tick Δpurchased. Same data source as "
+#~ "the chart's right-axis rejection series."
+#~ msgstr "Tasa de rechazo de shares de Braiins en el rango seleccionado: suma de "
+#~ "Δrechazadas por tick dividida entre la suma de Δcompradas por tick. "
+#~ "Misma fuente que la serie del eje derecho del gráfico."
+
+#: src/components/TilesBar.tsx
+msgid "Braiins share-rejection rate over the selected chart range. Same figure "
+"as the \"rejection rate\" row in the Braiins panel below. Computed "
+"server-side from the first and last cumulative counter samples in the "
+"range."
+msgstr "Tasa de rechazo de shares de Braiins en el rango seleccionado. Mismo valor que la fila \"rejection rate\" en el panel Braiins. Calculado en el servidor con la primera y la última muestra acumulada del contador."
 
 #: src/pages/Config.tsx
 msgid "Braiins's marketplace fees are currently zero (beta). These two knobs "
@@ -2637,6 +2648,13 @@ msgstr "Ocultar"
 #: src/pages/Setup.tsx
 msgid "Hide value"
 msgstr "Ocultar valor"
+
+#: src/components/TilesBar.tsx
+msgid "Highest best-difficulty seen on any reachable Bitaxe in the fleet. AxeOS "
+"reports this per device; the tile shows the leader. Best-difficulty "
+"grows over time as miners hit progressively rarer shares; resets when a "
+"worker restarts."
+msgstr "Best-difficulty máxima entre los Bitaxe alcanzables de la flota. AxeOS lo reporta por dispositivo; la tarjeta muestra el líder. La best-difficulty crece cuando los miners encuentran shares más raras; se reinicia al reiniciar un worker."
 
 #: src/components/Layout.tsx
 msgid "History"
@@ -4822,7 +4840,10 @@ msgid "Sum of the 1-minute hashrate Bitaxe miners are reporting (reachable "
 "devices only). Always shown in TH/s - a typical Bitaxe is ~1 TH/s, so "
 "PH/EH would read as zero. Lines up with the Fleet total in the Bitaxe "
 "miners section."
-msgstr "Suma del hashrate a 1 minuto que reportan los Bitaxe (solo dispositivos alcanzables). Siempre en TH/s - un Bitaxe típico es ~1 TH/s, así que PH/EH sería cero. Coincide con el total de la flota en la sección Bitaxe miners."
+msgstr "Suma del hashrate a 1 minuto que reportan los Bitaxe (solo dispositivos "
+"alcanzables). Siempre en TH/s - un Bitaxe típico es ~1 TH/s, así que "
+"PH/EH sería cero. Coincide con el total de la flota en la sección "
+"Bitaxe miners."
 
 #: src/components/TilesBar.tsx
 #~ msgid "Sum of the 1-minute hashrate Bitaxe miners are reporting (reachable "

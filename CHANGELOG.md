@@ -2,6 +2,10 @@
 
 ## 2026-06-05
 
+### `[Feature]` Bitaxe best-diff tile + share-rejection consistency + pool-luck caption (#266 follow-up x3)
+
+(1) **New `Bitaxe best diff` tile.** Highest `best_diff` across reachable Bitaxe miners; matches the "best diff" row in the Bitaxe miners card below. (2) **Share-rejection tile now reads from the same source as the Braiins panel's "rejection rate" row** (`finance.braiins_rejection_pct`, first-last cumulative counter diff over the chart range). The old tile path computed a per-tick-delta SUM in `/api/stats` which diverged across bid rotations — the cumulative-diff method skips the reset point cleanly. The unused `/api/stats` field is gone. (3) **Pool-luck multiplier moved to the caption line.** Renders as `0,54` big with `× expected` small/grey below, matching the rest of the tile catalogue's "big number + grey unit" idiom.
+
 ### `[UI]` Bitaxe tiles always in TH (#266 follow-up x2)
 
 (1) **Bitaxe hashrate tile always renders in TH/s**, ignoring the page-wide TH/PH/EH toggle. The toggle is right for big-network-scale figures (marketplace bid, Braiins delivered) but a typical Bitaxe is ~1 TH/s, so the global PH default rounded the fleet total to `0,00`. The tooltip now explains the deliberate unit choice. (2) **Bitaxe efficiency `J/TH` moved to the unit-caption line** (small grey below the number) to match the rest of the tile catalogue's "big number + grey unit" idiom — was previously rendering as `17,3 J/TH` all in the big-number style, breaking onto two lines.

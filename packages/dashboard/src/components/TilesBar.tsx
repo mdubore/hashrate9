@@ -36,7 +36,7 @@ import { useLingui } from '@lingui/react';
 import { useMemo, useRef, useState, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Tooltip } from './Tooltip';
-import type { SoloMinersResponse, StatusResponse as StatusResp } from '../lib/api';
+import type { FinanceRangeResponse, SoloMinersResponse, StatusResponse as StatusResp } from '../lib/api';
 
 import {
   DEFAULT_DASHBOARD_TILES,
@@ -59,6 +59,16 @@ export interface TilesBarProps {
   /** #266 follow-up: solo miners snapshot for the Bitaxe fleet tiles. */
   readonly soloMinersData: SoloMinersResponse | undefined;
   /**
+   * #266 follow-up: finance-range snapshot, shared with the Braiins
+   * panel below the charts. The `braiins_rejection_pct` here is the
+   * source of truth for the share-rejection tile - we deliberately
+   * read from the same query as the panel rather than computing a
+   * second window-aggregate in /api/stats; otherwise the two read
+   * differently across bid rotations (counter resets confuse the
+   * per-tick-delta SUM but not the first-/last-cumulative diff).
+   */
+  readonly financeRangeData: FinanceRangeResponse | undefined;
+  /**
    * Called when the operator adds, removes, or swaps a tile. The new
    * full list (in render order) is passed; caller persists to
    * `config.dashboard_tiles`.
@@ -77,6 +87,7 @@ interface TileCtx {
   readonly status: StatusResponse | undefined;
   readonly ocean: OceanResponse | undefined;
   readonly soloMiners: SoloMinersResponse | undefined;
+  readonly finance: FinanceRangeResponse | undefined;
   readonly intlLocale: string;
   readonly denomination: ReturnType<typeof useDenomination>;
 }
@@ -91,7 +102,10 @@ function fmtPct(v: number | null | undefined, digits = 1, intlLocale = 'en-US'):
 
 function fmtX(v: number | null | undefined, intlLocale = 'en-US'): string {
   if (v === null || v === undefined) return EM_DASH;
-  return `${formatNumber(v, { minimumFractionDigits: 2, maximumFractionDigits: 2 }, intlLocale)}×`;
+  // #266 follow-up: emit a space before × so splitUnit lifts the
+  // multiplier suffix onto the grey unit-caption line, matching the
+  // "% / W / sat/PH/day" idiom of every other tile.
+  return `${formatNumber(v, { minimumFractionDigits: 2, maximumFractionDigits: 2 }, intlLocale)} × expected`;
 }
 
 const TILE_RENDERERS: Record<DashboardTileId, (ctx: TileCtx) => TileResult> = {
@@ -197,12 +211,19 @@ const TILE_RENDERERS: Record<DashboardTileId, (ctx: TileCtx) => TileResult> = {
     value: fmtPct(ocean?.user?.share_log_pct ?? null, 4, intlLocale),
     tooltip: t`Your share of Ocean's reward window. Approximately your hashrate ÷ pool hashrate; drives the unpaid-earnings line on the price chart.`,
   }),
-  share_rejection_pct: ({ stats, intlLocale }) => {
-    const pct = stats?.avg_share_rejection_pct ?? null;
+  share_rejection_pct: ({ finance, intlLocale }) => {
+    // #266 follow-up: same source as the Braiins panel's "rejection
+    // rate" row - first/last cumulative counter diff over the chart
+    // range. The earlier per-tick-delta SUM in /api/stats could
+    // diverge after a bid rotation (the counter resets to 0 on a
+    // fresh CREATE_BID, which the per-tick path saw as a giant
+    // negative delta and skipped; the cumulative path saw it as a
+    // hard reset and handles it).
+    const pct = finance?.braiins_rejection_pct ?? null;
     if (pct === null) return DASH;
     return {
       value: fmtPct(pct, 2, intlLocale),
-      tooltip: t`Braiins share-rejection rate over the selected chart range: sum of per-tick Δrejected over sum of per-tick Δpurchased. Same data source as the chart's right-axis rejection series.`,
+      tooltip: t`Braiins share-rejection rate over the selected chart range. Same figure as the "rejection rate" row in the Braiins panel below. Computed server-side from the first and last cumulative counter samples in the range.`,
       color:
         pct < 0.5 ? 'text-emerald-300' : pct < 1.0 ? 'text-amber-300' : 'text-red-300',
     };
@@ -264,6 +285,30 @@ const TILE_RENDERERS: Record<DashboardTileId, (ctx: TileCtx) => TileResult> = {
       tooltip: t`Sum of live AxeOS-reported power draw across reachable Bitaxe miners.`,
     };
   },
+  bitaxe_fleet_best_diff: ({ soloMiners }) => {
+    // #266 follow-up: max best_diff across reachable Bitaxe miners.
+    // Uses the AxeOS-reported display text from the entry that holds
+    // the max numeric value; matches the "best diff" line in the
+    // Bitaxe miners card below so the operator sees the same number
+    // in both places. Skips entries without best_diff_numeric (the
+    // exact form added in #260) since older snapshots only had
+    // magnitude-suffixed text that's awkward to compare across.
+    const entries = soloMiners?.snapshot?.entries ?? [];
+    let bestNum = -1;
+    let bestText: string | null = null;
+    for (const e of entries) {
+      if (!e.reachable) continue;
+      if (e.best_diff_numeric !== null && e.best_diff_numeric > bestNum) {
+        bestNum = e.best_diff_numeric;
+        bestText = e.best_diff_text;
+      }
+    }
+    if (bestText === null) return DASH;
+    return {
+      value: bestText,
+      tooltip: t`Highest best-difficulty seen on any reachable Bitaxe in the fleet. AxeOS reports this per device; the tile shows the leader. Best-difficulty grows over time as miners hit progressively rarer shares; resets when a worker restarts.`,
+    };
+  },
   bitaxe_fleet_efficiency_j_per_th: ({ soloMiners, intlLocale }) => {
     const entries = soloMiners?.snapshot?.entries ?? [];
     let totalW = 0;
@@ -310,6 +355,7 @@ function labelFor(id: DashboardTileId): string {
     case 'bitaxe_fleet_hashrate': return t`Bitaxe hashrate`;
     case 'bitaxe_fleet_power': return t`Bitaxe power`;
     case 'bitaxe_fleet_efficiency_j_per_th': return t`Bitaxe efficiency`;
+    case 'bitaxe_fleet_best_diff': return t`Bitaxe best diff`;
   }
 }
 
@@ -336,6 +382,10 @@ function splitUnit(v: string): { num: string; unit: string } | null {
   // Single-letter unit suffix (e.g. "52,9 W").
   const singleUnit = v.match(/^(.+?)\s+(W|V|A)$/);
   if (singleUnit?.[1] && singleUnit[2]) return { num: singleUnit[1], unit: singleUnit[2] };
+  // #266 follow-up: pool-luck multiplier ("0,54 × expected").
+  // Leave "× expected" intact as the caption.
+  const multX = v.match(/^(.+?)\s+(×.*)$/);
+  if (multX?.[1] && multX[2]) return { num: multX[1], unit: multX[2] };
   // "17 days" / "1.5 days" - localised words emitted by the wallet
   // runway renderer.
   const wordSuffix = v.match(/^(.+?)\s+([\p{L}]+)$/u);
@@ -378,6 +428,7 @@ export function TilesBar({
   statusData,
   oceanData,
   soloMinersData,
+  financeRangeData,
   onTilesChange,
 }: TilesBarProps) {
   const { i18n } = useLingui();
@@ -398,6 +449,7 @@ export function TilesBar({
     status: statusData,
     ocean: oceanData,
     soloMiners: soloMinersData,
+    finance: financeRangeData,
     intlLocale: intlLocale ?? 'en-US',
     denomination,
   };
