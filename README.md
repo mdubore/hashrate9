@@ -175,9 +175,9 @@ Full design: [`docs/spec.md`](docs/spec.md) · [`docs/architecture.md`](docs/arc
   5 min plus one at each detected difficulty retarget so the pool-luck line step-changes through the gap
   and retarget markers land at (close to) canonical time even after long outages, stats bar (uptime, three
   side-by-side avg-hashrate cards for Braiins / Datum / Ocean, cost metrics), service panels that include
-  a runway forecast AND a Braiins share-rejection rate on the Braiins card (computed server-side from
+  a runway forecast AND a Braiins share-rejection ratio on the Braiins card (computed server-side from
   raw `tick_metrics` rows over the selected chart range; also available as a chart right-axis series so
-  the operator can see when the rate spiked - #243), split P&L panels (period and lifetime - "collected
+  the operator can see when the ratio spiked - #243), split P&L panels (period and lifetime - "collected
   (on-chain)" reads lifetime received from `reward_events`, not current UTXO balance, so a payout that's
   been spent still counts; the lifetime panel also carries a dedicated **return on spend** row showing
   `net / spent` as a percentage so the operator can read the rate of return alongside the absolute net
@@ -219,7 +219,7 @@ Full design: [`docs/spec.md`](docs/spec.md) · [`docs/architecture.md`](docs/arc
   AxeOS-specific, not solo-mining-in-general; a Bitaxe can mine to a pool just as easily as solo. When
   enabled, the daemon polls each registered device's `/api/system/info` every tick (2 s per-device
   timeout, parallel poll so one unreachable unit doesn't block the rest). Per-device readings on the
-  Status page: hashrate, ASIC + VR temperature, power draw, share-rejection rate, best-ever-difficulty,
+  Status page: hashrate, ASIC + VR temperature, power draw, share-rejection ratio, best-ever-difficulty,
   uptime. Fleet footer aggregates total hashrate, total watts, J/TH efficiency, and active-device count.
   Five Telegram event classes (independently opt-out-able): four IMPORTANT - **overheating** (75 °C ASIC
   ceiling matching AxeOS firmware's THROTTLE_TEMP, with a global override; VR has a separate 100 °C

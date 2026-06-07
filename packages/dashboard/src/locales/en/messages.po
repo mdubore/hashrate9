@@ -1200,14 +1200,14 @@ msgid "Braiins marketplace empty for"
 msgstr "Braiins marketplace empty for"
 
 #: src/components/TilesBar.tsx
-msgid "Braiins share-rejection rate over the selected chart range. Same figure "
-"as the \"rejection rate\" row in the Braiins panel below. Computed "
+msgid "Braiins share-rejection ratio over the selected chart range. Same figure "
+"as the \"rejection ratio\" row in the Braiins panel below. Computed "
 "server-side from the first and last cumulative counter samples in the "
 "range."
-msgstr "Braiins share-rejection rate over the selected chart range. Same figure "
-"as the \"rejection rate\" row in the Braiins panel below. Computed "
-"server-side from the first and last cumulative counter samples in the "
-"range."
+msgstr "Braiins share-rejection ratio over the selected chart range. Same "
+"figure as the \"rejection ratio\" row in the Braiins panel below. "
+"Computed server-side from the first and last cumulative counter samples "
+"in the range."
 
 #: src/pages/Config.tsx
 msgid "Braiins's marketplace fees are currently zero (beta). These two knobs "
@@ -2313,10 +2313,10 @@ msgstr "Fires when a device is unreachable OR reports 0 H/s for the configured "
 "number of consecutive minutes. Recovery paired."
 
 #: src/pages/Config.tsx
-msgid "Fires when share rejection rate over the rolling window exceeds the "
+msgid "Fires when share rejection ratio over the rolling window exceeds the "
 "configured threshold. Re-armed once per window so a sustained bad period "
 "only fires periodically."
-msgstr "Fires when share rejection rate over the rolling window exceeds the "
+msgstr "Fires when share rejection ratio over the rolling window exceeds the "
 "configured threshold. Re-armed once per window so a sustained bad "
 "period only fires periodically."
 
@@ -4220,12 +4220,12 @@ msgid "Rejected"
 msgstr "Rejected"
 
 #: src/pages/Status.tsx
-msgid "rejection rate"
-msgstr "rejection rate"
+msgid "rejection ratio"
+msgstr "rejection ratio"
 
 #: src/pages/Status.tsx
-msgid "rejection rate (Braiins)"
-msgstr "rejection rate (Braiins)"
+msgid "rejection ratio (Braiins)"
+msgstr "rejection ratio (Braiins)"
 
 #: src/pages/Login.tsx
 msgid "Remember me on this device"
@@ -4357,8 +4357,9 @@ msgstr "Rolling-mean window for the Price chart's `our bid` and `effective` "
 "Hashprice / max bid are not smoothed - they're market-wide signals."
 
 #: src/pages/Config.tsx
-msgid "Rolling-window rejection rate above which the alert fires. Default 10 %."
-msgstr "Rolling-window rejection rate above which the alert fires. Default 10 "
+msgid "Rolling-window rejection ratio above which the alert fires. Default 10 "
+"%."
+msgstr "Rolling-window rejection ratio above which the alert fires. Default 10 "
 "%."
 
 #: src/pages/Config.tsx
@@ -5316,8 +5317,8 @@ msgid "Will raise to {target} in ~{0} min (current {current})."
 msgstr "Will raise to {target} in ~{0} min (current {current})."
 
 #: src/pages/Config.tsx
-msgid "Window over which the rejection rate is computed."
-msgstr "Window over which the rejection rate is computed."
+msgid "Window over which the rejection ratio is computed."
+msgstr "Window over which the rejection ratio is computed."
 
 #: src/pages/Status.tsx
 msgid "Wipe the local terminal-bid cache and re-paginate every bid from Braiins "

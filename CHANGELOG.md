@@ -2,6 +2,10 @@
 
 ## 2026-06-06
 
+### `[UI]` "rejection rate" renamed to "rejection ratio" everywhere
+
+Braiins's own UI and docs call this metric the rejection ratio; the dashboard said "rejection rate". Renamed across the Braiins panel row, the share-rejection tile tooltip, the chart right-axis option and axis label, and the Bitaxe alert-threshold help texts, in all three languages (en / nl / es).
+
 ### `[Fix]` Price chart Y-axis scales to visible data only (#275 follow-up)
 
 Audit follow-up to the stat-tile fix: the Price chart's left Y-axis auto-range sampled every fetched point - including the off-screen prefetch buffer extending one window-width past each viewport edge - plus the prices on off-screen bid-event markers. An off-screen price spike could stretch the visible axis with nothing on the chart explaining it. The axis now samples only points inside the visible window (the Hashrate chart and both right axes already did this). Line paths still cover the full buffer, clipped at the plot edge, so panning stays seamless.

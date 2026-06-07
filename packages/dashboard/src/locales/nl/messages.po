@@ -1213,13 +1213,13 @@ msgid "Braiins marketplace empty for"
 msgstr "Braiins-marktplaats leeg gedurende"
 
 #: src/components/TilesBar.tsx
-msgid "Braiins share-rejection rate over the selected chart range. Same figure "
-"as the \"rejection rate\" row in the Braiins panel below. Computed "
+msgid "Braiins share-rejection ratio over the selected chart range. Same figure "
+"as the \"rejection ratio\" row in the Braiins panel below. Computed "
 "server-side from the first and last cumulative counter samples in the "
 "range."
-msgstr "Braiins share-afwijzingspercentage over het geselecteerde bereik. "
-"Zelfde getal als de \"rejection rate\" rij in het Braiins-paneel "
-"hieronder. Server-side berekend uit de eerste en laatste cumulatieve "
+msgstr "Braiins share-afwijzingsratio over het geselecteerde bereik. Zelfde "
+"getal als de \"rejection ratio\" rij in het Braiins-paneel hieronder. "
+"Server-side berekend uit de eerste en laatste cumulatieve "
 "teller-monsters in het bereik."
 
 #: src/pages/Config.tsx
@@ -2344,11 +2344,11 @@ msgstr "Vuurt wanneer een apparaat onbereikbaar is OF 0 H/s rapporteert "
 "gekoppeld."
 
 #: src/pages/Config.tsx
-msgid "Fires when share rejection rate over the rolling window exceeds the "
+msgid "Fires when share rejection ratio over the rolling window exceeds the "
 "configured threshold. Re-armed once per window so a sustained bad period "
 "only fires periodically."
-msgstr "Vuurt wanneer het share-verwerpingspercentage over het rollende venster "
-"boven de ingestelde drempel uitkomt. Wordt eenmaal per venster opnieuw "
+msgstr "Vuurt wanneer de share-afwijzingsratio over het rollende venster boven "
+"de ingestelde drempel uitkomt. Wordt eenmaal per venster opnieuw "
 "bewapend, zodat een aanhoudende slechte periode slechts periodiek "
 "vuurt."
 
@@ -4278,12 +4278,12 @@ msgid "Rejected"
 msgstr "Geweigerd"
 
 #: src/pages/Status.tsx
-msgid "rejection rate"
-msgstr "afkeurpercentage"
+msgid "rejection ratio"
+msgstr "afwijzingsratio"
 
 #: src/pages/Status.tsx
-msgid "rejection rate (Braiins)"
-msgstr "afkeurpercentage (Braiins)"
+msgid "rejection ratio (Braiins)"
+msgstr "afwijzingsratio (Braiins)"
 
 #: src/pages/Login.tsx
 msgid "Remember me on this device"
@@ -4417,9 +4417,10 @@ msgstr "Rollend-gemiddelde venster voor de `ons bod`- en `effectief`-lijnen op "
 "marktbrede signalen."
 
 #: src/pages/Config.tsx
-msgid "Rolling-window rejection rate above which the alert fires. Default 10 %."
-msgstr "Verwerpingspercentage over het rollende venster waarboven het alarm "
-"afgaat. Standaard 10 %."
+msgid "Rolling-window rejection ratio above which the alert fires. Default 10 "
+"%."
+msgstr "Afwijzingsratio over het rollende venster waarboven het alarm afgaat. "
+"Standaard 10 %."
 
 #: src/pages/Config.tsx
 #: src/pages/Setup.tsx
@@ -5169,7 +5170,9 @@ msgstr "Uptime"
 msgid "USD unavailable: BTC/USD oracle is not responding right now. Check "
 "Config → Pool & Payout → BTC Price Oracle (use the Test connection "
 "button)."
-msgstr "USD niet beschikbaar: BTC/USD-orakel reageert nu niet. Controleer Config → Pool & Payout → BTC Price Oracle (gebruik de Test connection-knop)."
+msgstr "USD niet beschikbaar: BTC/USD-orakel reageert nu niet. Controleer "
+"Config → Pool & Payout → BTC Price Oracle (gebruik de Test "
+"connection-knop)."
 
 #: src/pages/Config.tsx
 msgid "Used by the on-chain payout balance check (when \"Bitcoin Knots RPC\" is "
@@ -5386,8 +5389,8 @@ msgid "Will raise to {target} in ~{0} min (current {current})."
 msgstr "Verhoogt naar {target} over ~{0} min (nu {current})."
 
 #: src/pages/Config.tsx
-msgid "Window over which the rejection rate is computed."
-msgstr "Venster waarover het verwerpingspercentage wordt berekend."
+msgid "Window over which the rejection ratio is computed."
+msgstr "Venster waarover de afwijzingsratio wordt berekend."
 
 #: src/pages/Status.tsx
 msgid "Wipe the local terminal-bid cache and re-paginate every bid from Braiins "

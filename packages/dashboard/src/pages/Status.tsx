@@ -603,7 +603,7 @@ export function Status() {
             <option value="pool_luck_24h">{t`pool luck (24h)`}</option>
             <option value="pool_luck_7d">{t`pool luck (7d)`}</option>
             <option value="pool_luck_30d">{t`pool luck (30d)`}</option>
-            <option value="braiins_rejection_pct">{t`rejection rate (Braiins)`}</option>
+            <option value="braiins_rejection_pct">{t`rejection ratio (Braiins)`}</option>
             {/* #149: solo-mining series only listed when the master toggle is on. */}
             {soloMiningEnabled && (
               <>
@@ -748,7 +748,7 @@ export function Status() {
               first/last non-null cumulative values in the range and
               returns one number. */}
           <Row
-            k={t`rejection rate`}
+            k={t`rejection ratio`}
             v={(() => {
               const pct = financeRangeQuery.data?.braiins_rejection_pct;
               if (pct === null || pct === undefined) return '—';

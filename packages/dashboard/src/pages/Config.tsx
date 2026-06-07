@@ -2717,7 +2717,7 @@ function SoloThresholdInputs({
         </SoloThresholdField>
         <SoloThresholdField
           label={t`Share-rejection threshold (%)`}
-          help={t`Rolling-window rejection rate above which the alert fires. Default 10 %.`}
+          help={t`Rolling-window rejection ratio above which the alert fires. Default 10 %.`}
         >
           <NumberField
             value={draft.solo_share_rejection_threshold_pct}
@@ -2729,7 +2729,7 @@ function SoloThresholdInputs({
         </SoloThresholdField>
         <SoloThresholdField
           label={t`Share-rejection window (minutes)`}
-          help={t`Window over which the rejection rate is computed.`}
+          help={t`Window over which the rejection ratio is computed.`}
         >
           <NumberField
             value={draft.solo_share_rejection_window_minutes}
@@ -3669,7 +3669,7 @@ function EventClassSubscriptions({
         {
           id: 'solo_share_rejection',
           label: t`Bitaxe miner share-rejection high`,
-          help: t`Fires when share rejection rate over the rolling window exceeds the configured threshold. Re-armed once per window so a sustained bad period only fires periodically.`,
+          help: t`Fires when share rejection ratio over the rolling window exceeds the configured threshold. Re-armed once per window so a sustained bad period only fires periodically.`,
           enabled: !disabled.has('solo_share_rejection'),
           setEnabled: (n) => toggleClass('solo_share_rejection', n),
           severity: 'IMPORTANT',

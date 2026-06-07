@@ -1222,13 +1222,13 @@ msgid "Braiins marketplace empty for"
 msgstr "Mercado Braiins vacío durante"
 
 #: src/components/TilesBar.tsx
-msgid "Braiins share-rejection rate over the selected chart range. Same figure "
-"as the \"rejection rate\" row in the Braiins panel below. Computed "
+msgid "Braiins share-rejection ratio over the selected chart range. Same figure "
+"as the \"rejection ratio\" row in the Braiins panel below. Computed "
 "server-side from the first and last cumulative counter samples in the "
 "range."
-msgstr "Tasa de rechazo de shares de Braiins en el rango seleccionado. Mismo "
-"valor que la fila \"rejection rate\" en el panel Braiins. Calculado en "
-"el servidor con la primera y la última muestra acumulada del contador."
+msgstr "Ratio de rechazo de shares de Braiins en el rango seleccionado. Mismo "
+"valor que la fila \"rejection ratio\" en el panel Braiins. Calculado en "
+"el servidor con la primera y la ultima muestra acumulada del contador."
 
 #: src/pages/Config.tsx
 msgid "Braiins's marketplace fees are currently zero (beta). These two knobs "
@@ -2358,10 +2358,10 @@ msgstr "Se dispara cuando un dispositivo es inalcanzable O reporta 0 H/s "
 "recuperacion emparejado."
 
 #: src/pages/Config.tsx
-msgid "Fires when share rejection rate over the rolling window exceeds the "
+msgid "Fires when share rejection ratio over the rolling window exceeds the "
 "configured threshold. Re-armed once per window so a sustained bad period "
 "only fires periodically."
-msgstr "Se dispara cuando la tasa de rechazo de shares en la ventana movil "
+msgstr "Se dispara cuando el ratio de rechazo de shares en la ventana movil "
 "supera el umbral configurado. Se rearma una vez por ventana, de modo "
 "que un periodo malo sostenido solo se dispara periodicamente."
 
@@ -4303,12 +4303,12 @@ msgid "Rejected"
 msgstr "Rechazado"
 
 #: src/pages/Status.tsx
-msgid "rejection rate"
-msgstr "tasa de rechazo"
+msgid "rejection ratio"
+msgstr "ratio de rechazo"
 
 #: src/pages/Status.tsx
-msgid "rejection rate (Braiins)"
-msgstr "tasa de rechazo (Braiins)"
+msgid "rejection ratio (Braiins)"
+msgstr "ratio de rechazo (Braiins)"
 
 #: src/pages/Login.tsx
 msgid "Remember me on this device"
@@ -4442,8 +4442,9 @@ msgstr "Ventana de media móvil para las líneas `our bid` y `effective` del "
 "completo."
 
 #: src/pages/Config.tsx
-msgid "Rolling-window rejection rate above which the alert fires. Default 10 %."
-msgstr "Tasa de rechazo en la ventana movil por encima de la cual se dispara la "
+msgid "Rolling-window rejection ratio above which the alert fires. Default 10 "
+"%."
+msgstr "Ratio de rechazo en la ventana movil por encima del cual se dispara la "
 "alerta. Por defecto 10 %."
 
 #: src/pages/Config.tsx
@@ -5196,7 +5197,9 @@ msgstr "Tiempo activo"
 msgid "USD unavailable: BTC/USD oracle is not responding right now. Check "
 "Config → Pool & Payout → BTC Price Oracle (use the Test connection "
 "button)."
-msgstr "USD no disponible: el oráculo BTC/USD no responde ahora mismo. Revisa Config → Pool & Payout → BTC Price Oracle (usa el botón Test connection)."
+msgstr "USD no disponible: el oráculo BTC/USD no responde ahora mismo. Revisa "
+"Config → Pool & Payout → BTC Price Oracle (usa el botón Test "
+"connection)."
 
 #: src/pages/Config.tsx
 msgid "Used by the on-chain payout balance check (when \"Bitcoin Knots RPC\" is "
@@ -5415,8 +5418,8 @@ msgid "Will raise to {target} in ~{0} min (current {current})."
 msgstr "Subirá a {target} en ~{0} min (actual {current})."
 
 #: src/pages/Config.tsx
-msgid "Window over which the rejection rate is computed."
-msgstr "Ventana sobre la que se calcula la tasa de rechazo."
+msgid "Window over which the rejection ratio is computed."
+msgstr "Ventana sobre la que se calcula el ratio de rechazo."
 
 #: src/pages/Status.tsx
 msgid "Wipe the local terminal-bid cache and re-paginate every bid from Braiins "

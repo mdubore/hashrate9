@@ -278,7 +278,7 @@ const TILE_RENDERERS: Record<DashboardTileId, (ctx: TileCtx) => TileResult> = {
     if (pct === null) return DASH;
     return {
       value: fmtPct(pct, 2, intlLocale),
-      tooltip: t`Braiins share-rejection rate over the selected chart range. Same figure as the "rejection rate" row in the Braiins panel below. Computed server-side from the first and last cumulative counter samples in the range.`,
+      tooltip: t`Braiins share-rejection ratio over the selected chart range. Same figure as the "rejection ratio" row in the Braiins panel below. Computed server-side from the first and last cumulative counter samples in the range.`,
       color:
         pct < 0.5 ? 'text-emerald-300' : pct < 1.0 ? 'text-amber-300' : 'text-red-300',
     };

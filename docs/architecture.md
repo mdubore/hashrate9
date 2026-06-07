@@ -864,8 +864,9 @@ concern (not by order; the file names are authoritative):
   _rejected_m` (REAL nullable). Sourced from a per-tick GET on
   `/spot/bid/detail/{order_id}` (`counters_committed` block; the
   bids list response doesn't carry them). The dashboard's Hashrate
-  chart adds a `rejection rate (Braiins)` right-axis series and the
-  Braiins service panel adds a `rejection rate` row, both derived
+  chart adds a `rejection ratio (Braiins)` right-axis series and the
+  Braiins service panel adds a `rejection ratio` row (Braiins's own
+  terminology), both derived
   client-side from per-tick deltas (`Δrejected / Δpurchased × 100`)
   with NULL on bid-rotation ticks (counter reset → negative
   Δpurchased) and on ticks where Δpurchased ≤ 0.

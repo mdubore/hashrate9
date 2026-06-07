@@ -919,7 +919,7 @@ export const HashrateChart = memo(function HashrateChart({
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
               }).format(v)}%`,
-            axisLabel: 'rejection rate (Braiins)',
+            axisLabel: 'rejection ratio (Braiins)',
             stroke: COLOR_RIGHT_AXIS,
           };
         }
