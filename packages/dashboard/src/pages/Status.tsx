@@ -262,9 +262,22 @@ export function Status() {
     refetchInterval: vp.liveEdge ? 60_000 : false,
   });
 
+  // #275: stat tiles aggregate over the VISIBLE viewport, not
+  // `fetchBounds`. The fetch buffer (±1 window-width) exists so chart
+  // series pan smoothly, but feeding it to /api/stats made the tiles
+  // cover a silently 3×-wider window - an off-screen no-bid tick over
+  // an hour left of the chart edge moved BID COVERAGE between 99.5
+  // and 100.0 as the operator panned, with nothing visible changing.
+  // Tooltips promise "% of the selected chart range"; honor that. At
+  // a live preset, use the range-keyed endpoint so the server-side
+  // per-range cache applies (same pattern as financeRangeQuery).
   const statsQuery = useQuery({
-    queryKey: ['stats', fetchBounds.since_ms, fetchBounds.until_ms],
-    queryFn: () => api.statsViewport(fetchBounds.since_ms, fetchBounds.until_ms),
+    queryKey: vp.liveEdge && vp.activePreset
+      ? ['stats', vp.activePreset]
+      : ['stats', vp.since_ms, vp.until_ms],
+    queryFn: () => vp.liveEdge && vp.activePreset
+      ? api.stats(vp.activePreset)
+      : api.statsViewport(vp.since_ms, vp.until_ms),
     placeholderData: keepPreviousData,
     refetchInterval: vp.liveEdge ? 60_000 : false,
   });
@@ -324,10 +337,12 @@ export function Status() {
   const financeRangeQuery = useQuery({
     queryKey: vp.liveEdge && vp.activePreset
       ? ['finance-range', vp.activePreset]
-      : ['finance-range', fetchBounds.since_ms, fetchBounds.until_ms],
+      : ['finance-range', vp.since_ms, vp.until_ms],
     queryFn: () => vp.liveEdge && vp.activePreset
       ? api.financeRange(vp.activePreset)
-      : api.financeRangeViewport(fetchBounds.since_ms, fetchBounds.until_ms),
+      : // #275: visible viewport, not the buffered fetchBounds - see
+        // statsQuery above.
+        api.financeRangeViewport(vp.since_ms, vp.until_ms),
     placeholderData: keepPreviousData,
     refetchInterval: vp.liveEdge ? 60_000 : false,
   });

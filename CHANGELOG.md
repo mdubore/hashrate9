@@ -2,6 +2,10 @@
 
 ## 2026-06-06
 
+### `[Fix]` Stat tiles now aggregate over the visible chart window, not the hidden prefetch buffer (#275)
+
+The KPI tiles (uptime, bid coverage, delivery while bidding, avg hashrate, avg cost, P&L per-day) were computed over the chart's data-fetch window, which pads the visible viewport by one full window-width on each side for smooth panning. Zoomed into a clean-looking hour, an off-screen no-bid tick from over an hour earlier could move BID COVERAGE between 99.5% and 100.0% as you panned, with nothing visible on the chart explaining it. The tiles now use exactly the visible window the tooltips promise, and live presets (3h/24h/…) hit the server's cached per-range path.
+
 ### `[UI]` USD denomination button greys out instead of disappearing when oracle is unreachable (#274)
 
 The denomination toggle (sats / BTC / USD) used to drop the USD option entirely whenever `btcPrice` was `null`, conflating two very different cases: oracle deliberately turned off (`btc_price_source = 'none'`) and oracle transiently unreachable (API down, DNS hiccup, rate-limited). The former is "USD isn't a feature on this install" — hide it; the latter is "USD should work, something's broken right now" — say so. The button now stays visible but renders disabled with `cursor-not-allowed` and a hover tooltip pointing the operator at Config → Pool & Payout → BTC Price Oracle / Test connection. The "deliberately disabled" case still hides the button, since the operator opted out.
