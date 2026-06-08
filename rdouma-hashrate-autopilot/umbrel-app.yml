@@ -7,7 +7,7 @@ manifestVersion: 1
 id: rdouma-hashrate-autopilot
 category: bitcoin
 name: Hashrate Autopilot
-version: "1.12.2"
+version: "1.13.0"
 tagline: Autopilot for renting hashrate to mine on Ocean Mining
 icon: https://raw.githubusercontent.com/rdouma/hashrate-autopilot/main/assets/icon-512.png
 # Umbrel renders description literally - no YAML folding of soft
@@ -53,6 +53,26 @@ defaultPassword: ""
 submitter: Remco Douma
 submission: https://github.com/rdouma/hashrate-autopilot
 releaseNotes: |
+  v1.13.0 - configurable stats bar, dedicated History page, synced chart crosshair, and a sweep of mobile and oracle polish.
+
+  NEW
+  - Configurable stats bar: pick which tiles appear from a catalogue of about 22 (uptime broken into bid coverage and delivery while bidding, hashrate averages by source, cost vs hashprice, hashprice, pool blocks 30d, three pool-luck windows colour-coded with window-aware thresholds, share log %, share rejection, wallet runway, hashrate target, and Bitaxe fleet hashrate / power / efficiency in J per TH / all-time best difficulty). Drag-to-reorder via hover-revealed grip handles inside the bar; choice persists so the layout follows you across browsers.
+  - Dedicated History page at /history. Flat sortable table of every bid event (create / edit price / edit speed / cancel) with filter chips by action, full bid id, locale-aware custom date picker, and a denomination-aware |Delta price| filter whose units track the TH/PH/EH toggle. Server-side infinite scroll.
+  - Synced crosshair across the Hashrate and Price charts: hover either to draw a vertical guide on both with a floating readout of every visible series at the snapped tick. Click to pin; Esc or click outside dismisses. Touch users press-and-hold then scrub.
+  - USD denomination button now greys out with a tooltip when the BTC oracle is configured but unreachable, instead of silently disappearing. The "Disabled" choice still hides the button as before.
+
+  IMPROVEMENTS
+  - Test connection button for the BTC oracle now sits inline next to the Price source dropdown, matching the rest of Config's Test-connection idiom.
+  - NerdAxe / NerdQAxe miners with numeric bestDiff are accepted (one malformed device can no longer take down the whole fleet's poll).
+  - Scan local network: clicking the X actually aborts in-flight HTTP probes so the scan ends in milliseconds, and the trigger button reliably reverts to "Scan local network".
+  - Hero price card no longer overflows on iPhone in BTC denomination.
+  - telegram_chat_id is now redacted in the Diagnostics support bundle (used to leak alongside the bot_token mask).
+  - Pool-luck step markers anchor at the higher line for FOUND blocks and the lower line for AGED OUT blocks, matching the operator mental model.
+  - BIP 110 pool / miner badge letters stay square even with long tag text alongside; Ocean's letter is now its brand blue.
+  - "rejection rate" renamed to "rejection ratio" across the dashboard, matching Braiins terminology.
+
+  Safe to upgrade from any 1.11.x / 1.12.x release; no new migrations.
+
   v1.12.2 - oracle test button + one-click diagnostics support bundle.
 
   NEW

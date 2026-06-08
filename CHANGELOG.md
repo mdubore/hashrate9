@@ -2,6 +2,10 @@
 
 ## 2026-06-07
 
+### `[Release]` v1.13.0
+
+Configurable stats bar (#266), dedicated `/history` page (#256 v2), synced crosshair across both Status charts (#257), drag-to-reorder dashboard cards via per-card grip handles (#244 v2/v3), USD denomination button greys out when the oracle is unreachable instead of disappearing (#274), and a wide sweep of polish: BTC oracle inline Test button (#270 follow-up), `telegram_chat_id` redacted in `/api/debug/dump`, scan-cancel actually aborts in-flight HTTP probes (#259 v2), NerdAxe numeric `bestDiff` accepted (#260), hero price card no longer overflows on iPhone in BTC mode (#268), bid pending-cancel race fix (#276), pool-luck step marker anchors at the higher line for FOUND and the lower line for AGED OUT, BIP 110 pool/miner badge letters stay square with brand-blue Ocean, "rejection rate" renamed to "rejection ratio" everywhere. Safe to upgrade from any 1.11.x / 1.12.x release; no new migrations.
+
 ### `[UI]` BIP 110 pool/miner badge: even-width letter on long tags, blue for Ocean
 
 The deterministic letter avatars on each BIP 110 signalling row used to squash narrower when the tag next to them was long enough to force the flex children to compete for space (`ckpool$/Block Mined by …` next to a `C` came out clearly thinner than the matching `O` two rows below). Added `shrink-0` so every letter avatar keeps its `w-5 h-5` square regardless of tag length. Ocean also gets a special-case `bg-sky-500` (its brand blue) instead of whatever the hash-of-tag picked from the generic palette, so the dominant pool in every Ocean operator's scan reads at a glance.
