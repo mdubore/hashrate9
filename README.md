@@ -167,7 +167,9 @@ Full design: [`docs/spec.md`](docs/spec.md) · [`docs/architecture.md`](docs/arc
   (TradingView-style; click a chart to activate zoom, click outside or press Escape to deactivate; blue
   outline shows the focused chart), time-range presets (3h / 6h / 12h / 24h / 1w / 1m / 1y / all) that
   stay highlighted while panning and soft-snap during zoom, viewport-scoped Y-axis that only scales to
-  visible data (out-of-view spikes don't compress the chart), a "live" button that appears when panned
+  visible data (out-of-view spikes don't compress the chart), **clickable legend** - tap any legend entry to
+  hide that series and tap again to restore it (Chart.js / Bitaxe style); hiding a series also rescales the
+  Y-axis to what's left, and the choice persists per device per chart, a "live" button that appears when panned
   away from the current edge, bid event
   markers on the price chart (each dot corresponds to a CREATE / EDIT / CANCEL; click to pin a detail panel
   that lists the target-price inputs at that tick - fillable, overpay, hashprice, caps, effective cap, plus

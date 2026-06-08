@@ -1434,6 +1434,16 @@ msgid "Click to expand"
 msgstr "Clic para expandir"
 
 #: src/components/HashrateChart.tsx
+#: src/components/PriceChart.tsx
+msgid "Click to hide"
+msgstr "Clic para ocultar"
+
+#: src/components/HashrateChart.tsx
+#: src/components/PriceChart.tsx
+msgid "Click to show"
+msgstr "Clic para mostrar"
+
+#: src/components/HashrateChart.tsx
 #: src/components/IpChangeMarkers.tsx
 #: src/components/PriceChart.tsx
 #: src/components/SpeedEditMarkers.tsx

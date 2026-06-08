@@ -2,6 +2,10 @@
 
 ## 2026-06-08
 
+### `[Feature]` Click a legend entry to show/hide that series (#280)
+
+Both charts were getting crowded with overlapping lines. Now every legend chip on the Hashrate and Price charts is a toggle - click "received (Datum)" or "hashprice" (etc.) to hide that series, click again to bring it back, exactly like the Bitaxe UI. Hidden chips dim and strike through. Hiding a series also rescales the Y-axis to what's left, so isolating one line lets it fill the chart instead of being squashed by a taller neighbour. The choice is saved per device (each chart independently), so a muted noisy line stays muted across reloads on that phone or desktop. Line series, reference lines (target / floor), the right-axis line, and the marker classes that carry a legend chip (pool block, found by us, edit speed, on-chain payout) are all toggleable; the grouped bid-event glyph legend is unchanged.
+
 ### `[Feature]` Speed-edit markers now appear on the hashrate chart (#281)
 
 A speed-limit (EDIT_SPEED) change resizes the bid's PH/s cap, which directly moves the delivered-hashrate curve - but until now those events only showed on the price chart, leaving the hashrate chart unannotated for the one bid event most relevant to it. The hashrate chart now draws the same gauge glyph at the moment of each speed edit (full-height dashed line, matching its existing retarget / IP-change markers), with a hover/click tooltip showing the new speed limit and the change reason. It reuses the price chart's `events.edit_speed` color and respects the same range gating (visible through 1w, hidden at 1m+) and the global marker cap. The price chart is unchanged.

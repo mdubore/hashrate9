@@ -51,6 +51,7 @@ import {
   type SharedCrosshair,
 } from '../lib/chartCrosshair';
 import { getChartColor, parseOverrides } from '../lib/chartColors';
+import { useSeriesVisibility } from '../lib/seriesVisibility';
 import { copyToClipboard } from '../lib/clipboard';
 import { useDenomination } from '../lib/denomination';
 import {
@@ -416,6 +417,10 @@ export const PriceChart = memo(function PriceChart({
   const COLOR_CANCEL = getChartColor('events.cancel', _colorOverrides);
   const COLOR_RIGHT_AXIS = getChartColor('price.right_axis', _colorOverrides);
   /* eslint-enable @typescript-eslint/no-shadow */
+  // #280: clickable-legend series visibility, persisted per device
+  // under this chart's own key. `hidden` feeds the Y-axis autoscale
+  // inside chartData and the per-series render gates below.
+  const { hidden, isHidden, toggle } = useSeriesVisibility('priceHiddenSeries');
   const containerRef = useRef<HTMLDivElement>(null);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
   // Per-marker tooltip state for the new on-line dots: pool-block
@@ -720,20 +725,24 @@ export const PriceChart = memo(function PriceChart({
     // excluded - the whole point of the toggle is that the flatter
     // bid/fillable/hashprice detail is crushed when the volatile
     // effective line drags the Y-axis range down.
+    // #280: the Y-axis autoscales to only the *visible* line series, so
+    // hiding e.g. hashprice lets the bid/fillable band fill the chart.
+    // A series toggled off in the legend is dropped from the sample.
     let priceSample = [
-      ...pricePoints.filter((p) => inView(p.t)).map((p) => p.v),
-      ...hashpricePoints.filter((p) => inView(p.t)).map((p) => p.v),
-      ...fillablePoints.filter((p) => inView(p.t)).map((p) => p.v),
-      ...eventPrices,
+      ...(hidden.has('bid') ? [] : pricePoints.filter((p) => inView(p.t)).map((p) => p.v)),
+      ...(hidden.has('hashprice') ? [] : hashpricePoints.filter((p) => inView(p.t)).map((p) => p.v)),
+      ...(hidden.has('fillable') ? [] : fillablePoints.filter((p) => inView(p.t)).map((p) => p.v)),
+      ...(hidden.has('bid') ? [] : eventPrices),
     ];
     if (priceSample.length === 0) {
       // Degenerate viewport with no points in view (panned past the
-      // data, or mid-fetch). Fall back to the full fetched sample so
-      // the axis holds a sane scale instead of snapping to 0..1.
+      // data, or mid-fetch), or every series hidden. Fall back to the
+      // full fetched sample of the still-visible series so the axis
+      // holds a sane scale instead of snapping to 0..1.
       priceSample = [
-        ...pricePoints.map((p) => p.v),
-        ...hashpricePoints.map((p) => p.v),
-        ...fillablePoints.map((p) => p.v),
+        ...(hidden.has('bid') ? [] : pricePoints.map((p) => p.v)),
+        ...(hidden.has('hashprice') ? [] : hashpricePoints.map((p) => p.v)),
+        ...(hidden.has('fillable') ? [] : fillablePoints.map((p) => p.v)),
       ];
     }
     const hasPrice = priceSample.length > 0;
@@ -1286,7 +1295,7 @@ export const PriceChart = memo(function PriceChart({
     // crosshair readout - the bid row mirrors the smoothed line the
     // chart draws, the cap row mirrors the per-tick effective cap.
     return { pricePoints, xs, smoothedPriceByTick, capByTick, minX, maxX, dataMinX, dataMaxX, hasPrice, priceMin, priceMax, xScale, yScale, pricePath, priceAreaPath, hashpricePath, fillablePath, fillableHasData: fillablePoints.length > 0, effectivePath, effectiveHasData: effectivePoints.length > 0, capPath, capExclusionPolygon, yTicks, xTickInterval, xTicks, visibleEvents, rightAxis, hasRightAxis, rightAxisPath, rightYTicks, rightYScale, padRight, marketplaceEmptyIntervals, braiinsUnreachableIntervals, daemonOfflineIntervals };
-  }, [points, events, showEventKinds, priceSmoothingMinutes, historicalPayoutsOffsetSat, maxOverpayVsHashpriceSatPerPhDay, chartHeight, rightAxisSeries, soloSeries, denomination, intlLocale, viewportSince, viewportUntil]);
+  }, [points, events, showEventKinds, priceSmoothingMinutes, historicalPayoutsOffsetSat, maxOverpayVsHashpriceSatPerPhDay, chartHeight, rightAxisSeries, soloSeries, denomination, intlLocale, viewportSince, viewportUntil, hidden]);
 
   const eventPriceAt = useCallback((e: BidEventView): number | null => {
     const pricePoints = chartData?.pricePoints ?? [];
@@ -1953,22 +1962,25 @@ export const PriceChart = memo(function PriceChart({
           </button>
         </div>
         <div className="flex items-center gap-3 text-xs flex-wrap">
-          <Legend color={COLOR_PRICE} label={t`our bid`} />
-          {fillableHasData && <Legend color={COLOR_FILLABLE} label={t`fillable`} />}
+          {/* #280: every series chip toggles its own visibility. The
+              "effective" chip and the right-axis chip both control the
+              right-axis line, so both map to the same 'rightAxis' key. */}
+          <Legend color={COLOR_PRICE} label={t`our bid`} hidden={isHidden('bid')} onToggle={() => toggle('bid')} />
+          {fillableHasData && <Legend color={COLOR_FILLABLE} label={t`fillable`} hidden={isHidden('fillable')} onToggle={() => toggle('fillable')} />}
           {rightAxisSeries === 'effective_rate' && effectiveHasData && (
-            <Legend color={COLOR_EFFECTIVE} label={t`effective`} />
+            <Legend color={COLOR_EFFECTIVE} label={t`effective`} hidden={isHidden('rightAxis')} onToggle={() => toggle('rightAxis')} />
           )}
-          <Legend color={COLOR_HASHPRICE} label={t`hashprice`} dashed />
-          <Legend color={COLOR_MAXBID} label={t`max bid`} />
+          <Legend color={COLOR_HASHPRICE} label={t`hashprice`} dashed hidden={isHidden('hashprice')} onToggle={() => toggle('hashprice')} />
+          <Legend color={COLOR_MAXBID} label={t`max bid`} hidden={isHidden('maxBid')} onToggle={() => toggle('maxBid')} />
           {hasRightAxis && rightAxis && (
-            <Legend color={rightAxis.stroke} label={rightAxis.axisLabel} />
+            <Legend color={rightAxis.stroke} label={rightAxis.axisLabel} hidden={isHidden('rightAxis')} onToggle={() => toggle('rightAxis')} />
           )}
           {rewardEvents.some(
               (r) =>
                 !r.reorged &&
                 r.detected_at >= chartData.minX &&
                 r.detected_at <= chartData.maxX,
-            ) && <Legend color={COLOR_PAYOUT} label={t`on-chain payout`} dashed />}
+            ) && <Legend color={COLOR_PAYOUT} label={t`on-chain payout`} dashed hidden={isHidden('payout')} onToggle={() => toggle('payout')} />}
           {showEventKinds.length > 0 && <EventLegend kinds={showEventKinds} />}
           {markersHiddenKind != null && markersHiddenCount > 0 && (
             <span
@@ -2047,7 +2059,7 @@ export const PriceChart = memo(function PriceChart({
             the amber bid line so the vertical gap between them is the
             overpay cushion at a glance; any edit the controller
             makes is explained by this line moving. */}
-        {fillablePath && (
+        {fillablePath && !isHidden('fillable') && (
           <path
             d={fillablePath}
             stroke={COLOR_FILLABLE}
@@ -2060,7 +2072,7 @@ export const PriceChart = memo(function PriceChart({
         {/* Hashprice break-even line - now a time series, not a static
             horizontal line. Moves with difficulty adjustments + block
             reward fluctuations. Below = profitable, above = unprofitable. */}
-        {hashpricePath && (
+        {hashpricePath && !isHidden('hashprice') && (
           // Hashprice is a high-variance per-tick signal, so a sparse
           // long-dash pattern reads as jagged. Use tightly-spaced round
           // dots (0.1 dash + round linecap renders the cap itself as a
@@ -2187,7 +2199,7 @@ export const PriceChart = memo(function PriceChart({
             </rect>
           );
         })}
-        {capExclusionPolygon && (
+        {capExclusionPolygon && !isHidden('maxBid') && (
           <>
             <defs>
               <linearGradient id="capExclusion" x1="0" y1="0" x2="0" y2="1">
@@ -2198,7 +2210,7 @@ export const PriceChart = memo(function PriceChart({
             <path d={capExclusionPolygon} fill="url(#capExclusion)" stroke="none" pointerEvents="none" />
           </>
         )}
-        {capPath && (
+        {capPath && !isHidden('maxBid') && (
           <path
             d={capPath}
             stroke={COLOR_MAXBID}
@@ -2207,7 +2219,7 @@ export const PriceChart = memo(function PriceChart({
             opacity="0.85"
           />
         )}
-        {priceAreaPath && (
+        {priceAreaPath && !isHidden('bid') && (
           /* Soft gradient fill below the price line - mirrors the
              delivered-hashrate fill on the chart above. Each null-gap
              sub-run is its own closed polygon down to the baseline
@@ -2215,7 +2227,7 @@ export const PriceChart = memo(function PriceChart({
              wedges across gaps after #44 split the line into subpaths). */
           <path d={priceAreaPath} fill="url(#priceFill)" opacity="0.5" pointerEvents="none" />
         )}
-        {pricePath && (
+        {pricePath && !isHidden('bid') && (
           <path d={pricePath} stroke={COLOR_PRICE} strokeWidth="1.8" fill="none" opacity="0.95" />
         )}
         {/* Effective rate is now plotted via the right-axis machinery
@@ -2403,7 +2415,7 @@ export const PriceChart = memo(function PriceChart({
         )}
 
         <g clipPath="url(#px-data-clip)">
-        {hasRightAxis && rightAxis && (
+        {hasRightAxis && rightAxis && !isHidden('rightAxis') && (
           <path
             d={rightAxisPath}
             stroke={rightAxis.stroke}
@@ -2417,8 +2429,9 @@ export const PriceChart = memo(function PriceChart({
         {/* Reward-event dots on the right-axis line. Operator click
             opens a pinned tooltip with payout date, sat amount, and
             block-explorer link. Only rendered when the right-axis
-            series actually plots paid earnings. */}
-        {visibleRewardMarkers.map(({ reward, cx, cy }) => (
+            series actually plots paid earnings. #280: hidden via the
+            "on-chain payout" legend toggle. */}
+        {!isHidden('payout') && visibleRewardMarkers.map(({ reward, cx, cy }) => (
           <g
             key={`reward-${reward.id}`}
             onMouseEnter={onRewardEnter(reward)}
@@ -3548,26 +3561,58 @@ function SatUnit({ unit }: { unit: string }) {
   return <>{localized}</>;
 }
 
-function Legend({ color, label, dashed }: { color: string; label: string; dashed?: boolean }) {
+function Legend({
+  color,
+  label,
+  dashed,
+  onToggle,
+  hidden,
+}: {
+  color: string;
+  label: string;
+  dashed?: boolean;
+  /** #280: when provided, the chip toggles the series' visibility. */
+  onToggle?: () => void;
+  hidden?: boolean;
+}) {
   // `dashed` is a misnomer kept for stable callsites; it now renders
   // tightly-spaced round dots to match the hashprice line style on
   // the chart (#hashprice-dots-2026-05-12).
+  const swatch = (
+    <svg width="14" height="6">
+      <line
+        x1="0"
+        y1="3"
+        x2="14"
+        y2="3"
+        stroke={hidden ? '#475569' : color}
+        strokeWidth="2"
+        strokeDasharray={dashed ? '0.1 3' : undefined}
+        strokeLinecap={dashed ? 'round' : undefined}
+      />
+    </svg>
+  );
+  if (!onToggle) {
+    return (
+      <span className="flex items-center gap-1 text-slate-400 whitespace-nowrap">
+        {swatch}
+        {label}
+      </span>
+    );
+  }
   return (
-    <span className="flex items-center gap-1 text-slate-400 whitespace-nowrap">
-      <svg width="14" height="6">
-        <line
-          x1="0"
-          y1="3"
-          x2="14"
-          y2="3"
-          stroke={color}
-          strokeWidth="2"
-          strokeDasharray={dashed ? '0.1 3' : undefined}
-          strokeLinecap={dashed ? 'round' : undefined}
-        />
-      </svg>
+    <button
+      type="button"
+      onClick={onToggle}
+      title={hidden ? t`Click to show` : t`Click to hide`}
+      aria-pressed={!hidden}
+      className={`flex items-center gap-1 whitespace-nowrap cursor-pointer hover:text-slate-200 transition-colors ${
+        hidden ? 'text-slate-600 line-through' : 'text-slate-400'
+      }`}
+    >
+      {swatch}
       {label}
-    </span>
+    </button>
   );
 }
 

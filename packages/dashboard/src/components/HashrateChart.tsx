@@ -48,6 +48,7 @@ import {
   type SpeedEditTooltipState,
 } from './SpeedEditMarkers';
 import { getChartColor, parseOverrides } from '../lib/chartColors';
+import { useSeriesVisibility } from '../lib/seriesVisibility';
 import {
   formatAgeMinutes,
   formatCompactNumber,
@@ -62,6 +63,9 @@ import { localizedRangeLabel } from '../lib/range-label';
 
 const WIDTH = 880;
 const HEIGHT = 200;
+// #280: stable empty array so a hidden speed-marker series doesn't
+// allocate a new array each render and thrash SpeedEditMarkers' memo.
+const EMPTY_SPEED_EVENTS: ReadonlyArray<SpeedEditMarkerEvent> = [];
 // Padding kept identical to PriceChart so the two charts can be stacked
 // and the X-axis lines up tick-for-tick. Right padding is small now that
 // the price-side Y-axis moved to the left - just enough to keep the
@@ -459,6 +463,12 @@ export const HashrateChart = memo(function HashrateChart({
   // glyph, so the speed markers read identically on both charts and
   // honor the operator's Chart-colors override.
   const COLOR_EDIT_SPEED = getChartColor('events.edit_speed', _colorOverrides);
+
+  // #280: clickable-legend series visibility. `hidden` feeds both the
+  // render gates below and the Y-axis autoscale (inside chartData), so
+  // hiding a series rescales the axis to what's left. Persisted per
+  // device under this chart's own key.
+  const { hidden, isHidden, toggle } = useSeriesVisibility('hashrateHiddenSeries');
   const COLOR_RIGHT_AXIS = getChartColor('hashrate.right_axis', _colorOverrides);
   /* eslint-enable @typescript-eslint/no-shadow */
   const dateTimeLocale = useDateTimeLocale();
@@ -997,15 +1007,26 @@ export const HashrateChart = memo(function HashrateChart({
     const minX = viewportSince ?? dataMinX;
     const maxX = viewportUntil ?? dataMaxX;
 
+    // #280: the Y-axis autoscales to only the *visible* line series, so
+    // hiding a tall series (e.g. a spiky delivered line) lets the rest
+    // fill the chart. Each series is skipped here when its legend chip
+    // is toggled off.
     let yMaxData = 0;
     for (let i = 0; i < xs.length; i++) {
       if (xs[i]! < minX || xs[i]! > maxX) continue;
-      const v = Math.max(ys[i]!, targets[i]!, floors[i]!);
+      let v = 0;
+      if (!hidden.has('delivered')) v = Math.max(v, ys[i]!);
+      if (!hidden.has('target')) v = Math.max(v, targets[i]!);
+      if (!hidden.has('floor')) v = Math.max(v, floors[i]!);
       if (v > yMaxData) yMaxData = v;
-      const d = datumYs[i] ?? null;
-      if (d !== null && d > yMaxData) yMaxData = d;
-      const o = oceanYs[i] ?? null;
-      if (o !== null && o > yMaxData) yMaxData = o;
+      if (!hidden.has('datum')) {
+        const d = datumYs[i] ?? null;
+        if (d !== null && d > yMaxData) yMaxData = d;
+      }
+      if (!hidden.has('ocean')) {
+        const o = oceanYs[i] ?? null;
+        if (o !== null && o > yMaxData) yMaxData = o;
+      }
     }
 
     const yTicks = niceYTicks(0, yMaxData > 0 ? yMaxData * 1.1 : 1, 5);
@@ -1276,6 +1297,7 @@ export const HashrateChart = memo(function HashrateChart({
     chartHeight,
     viewportSince,
     viewportUntil,
+    hidden,
   ]);
 
   // Pre-computed retarget marker positions. Filtered to the visible
@@ -1570,30 +1592,31 @@ export const HashrateChart = memo(function HashrateChart({
           </button>
         </div>
         <div className="flex items-center gap-3 text-xs flex-wrap">
-          <Legend color={COLOR_DELIVERED} label={t`delivered (Braiins)`} />
+          {/* #280: every series chip toggles its own visibility. */}
+          <Legend color={COLOR_DELIVERED} label={t`delivered (Braiins)`} hidden={isHidden('delivered')} onToggle={() => toggle('delivered')} />
           {hasDatum && (
-            <Legend color={COLOR_DATUM} label={t`received (Datum)`} />
+            <Legend color={COLOR_DATUM} label={t`received (Datum)`} hidden={isHidden('datum')} onToggle={() => toggle('datum')} />
           )}
           {hasOcean && (
-            <Legend color={COLOR_OCEAN} label={t`received (Ocean)`} />
+            <Legend color={COLOR_OCEAN} label={t`received (Ocean)`} hidden={isHidden('ocean')} onToggle={() => toggle('ocean')} />
           )}
           {hasShareLog && rightAxis && (
-            <Legend color={rightAxis.stroke} label={rightAxis.axisLabel} />
+            <Legend color={rightAxis.stroke} label={rightAxis.axisLabel} hidden={isHidden('rightAxis')} onToggle={() => toggle('rightAxis')} />
           )}
-          <Legend color={COLOR_TARGET} label={t`target`} dashed />
-          <Legend color={COLOR_FLOOR} label={t`floor`} dashed />
+          <Legend color={COLOR_TARGET} label={t`target`} dashed hidden={isHidden('target')} onToggle={() => toggle('target')} />
+          <Legend color={COLOR_FLOOR} label={t`floor`} dashed hidden={isHidden('floor')} onToggle={() => toggle('floor')} />
           {ourBlocks.some(
               (b) =>
                 b.timestamp_ms >= chartData.minX &&
                 b.timestamp_ms <= chartData.maxX &&
                 !b.found_by_us,
-            ) && <Legend color={COLOR_POOL_BLOCK} label={t`pool block`} dashed />}
+            ) && <Legend color={COLOR_POOL_BLOCK} label={t`pool block`} dashed hidden={isHidden('poolBlock')} onToggle={() => toggle('poolBlock')} />}
           {ourBlocks.some(
               (b) =>
                 b.timestamp_ms >= chartData.minX &&
                 b.timestamp_ms <= chartData.maxX &&
                 b.found_by_us,
-            ) && <Legend color={COLOR_OUR_BLOCK} label={t`found by us`} dashed />}
+            ) && <Legend color={COLOR_OUR_BLOCK} label={t`found by us`} dashed hidden={isHidden('ourBlock')} onToggle={() => toggle('ourBlock')} />}
           {/* #281: only advertise the speed-edit marker in the legend
               when one is actually on screen, so the chip doesn't sit
               there permanently on the (common) ranges with no recent
@@ -1602,7 +1625,7 @@ export const HashrateChart = memo(function HashrateChart({
               (e) =>
                 e.occurred_at >= chartData.minX &&
                 e.occurred_at <= chartData.maxX,
-            ) && <Legend color={COLOR_EDIT_SPEED} label={t`edit speed`} dashed />}
+            ) && <Legend color={COLOR_EDIT_SPEED} label={t`edit speed`} dashed hidden={isHidden('editSpeed')} onToggle={() => toggle('editSpeed')} />}
           {markersHiddenCount > 0 && (
             <span
               className="text-[10px] text-slate-500 italic"
@@ -1789,17 +1812,26 @@ export const HashrateChart = memo(function HashrateChart({
             </rect>
           );
         })}
-        <path d={targetPath} stroke={COLOR_TARGET} strokeWidth="1.2" strokeDasharray="4 3" fill="none" opacity="0.6" />
-        <path d={floorPath} stroke={COLOR_FLOOR} strokeWidth="1" strokeDasharray="2 3" fill="none" opacity="0.5" />
+        {/* #280: each series render is gated on its legend toggle. */}
+        {!isHidden('target') && (
+          <path d={targetPath} stroke={COLOR_TARGET} strokeWidth="1.2" strokeDasharray="4 3" fill="none" opacity="0.6" />
+        )}
+        {!isHidden('floor') && (
+          <path d={floorPath} stroke={COLOR_FLOOR} strokeWidth="1" strokeDasharray="2 3" fill="none" opacity="0.5" />
+        )}
 
-        <path
-          d={`${deliveredPath} L${xScale(dataMaxX).toFixed(1)},${yScale(0)} L${xScale(dataMinX).toFixed(1)},${yScale(0)} Z`}
-          fill="url(#deliveredFill)"
-          opacity="0.5"
-          pointerEvents="none"
-        />
-        <path d={deliveredPath} stroke={COLOR_DELIVERED} strokeWidth="1.8" fill="none" />
-        {hasDatum && (
+        {!isHidden('delivered') && (
+          <>
+            <path
+              d={`${deliveredPath} L${xScale(dataMaxX).toFixed(1)},${yScale(0)} L${xScale(dataMinX).toFixed(1)},${yScale(0)} Z`}
+              fill="url(#deliveredFill)"
+              opacity="0.5"
+              pointerEvents="none"
+            />
+            <path d={deliveredPath} stroke={COLOR_DELIVERED} strokeWidth="1.8" fill="none" />
+          </>
+        )}
+        {hasDatum && !isHidden('datum') && (
           <path
             d={datumPath}
             stroke={COLOR_DATUM}
@@ -1809,7 +1841,7 @@ export const HashrateChart = memo(function HashrateChart({
             strokeLinejoin="round"
           />
         )}
-        {hasOcean && (
+        {hasOcean && !isHidden('ocean') && (
           <path
             d={oceanPath}
             stroke={COLOR_OCEAN}
@@ -1819,7 +1851,7 @@ export const HashrateChart = memo(function HashrateChart({
             strokeLinejoin="round"
           />
         )}
-        {hasShareLog && rightAxis && (
+        {hasShareLog && rightAxis && !isHidden('rightAxis') && (
           <path
             d={shareLogPath}
             stroke={rightAxis.stroke}
@@ -1891,6 +1923,11 @@ export const HashrateChart = memo(function HashrateChart({
 
         {ourBlocks
             .filter((b) => b.timestamp_ms >= dataMinX && b.timestamp_ms <= dataMaxX)
+            // #280: "found by us" (gold) and "pool block" (blue/yellow)
+            // are separate legend toggles; drop whichever is hidden.
+            .filter((b) =>
+              b.found_by_us ? !isHidden('ourBlock') : !isHidden('poolBlock'),
+            )
             .map((b) => {
               const x = xScale(b.timestamp_ms);
               // #115: marker semantics, in precedence order.
@@ -2045,7 +2082,7 @@ export const HashrateChart = memo(function HashrateChart({
             price chart's EDIT_SPEED markers here. Caller pre-filters
             by kind, range gating, and the marker cap. */}
         <SpeedEditMarkers
-          events={speedEditEvents}
+          events={isHidden('editSpeed') ? EMPTY_SPEED_EVENTS : speedEditEvents}
           xScale={xScale}
           dataMinX={dataMinX}
           dataMaxX={dataMaxX}
@@ -2630,22 +2667,57 @@ function BtcRow({
   );
 }
 
-function Legend({ color, label, dashed }: { color: string; label: string; dashed?: boolean }) {
+function Legend({
+  color,
+  label,
+  dashed,
+  onToggle,
+  hidden,
+}: {
+  color: string;
+  label: string;
+  dashed?: boolean;
+  /** #280: when provided, the chip is a button that toggles the
+   *  series' visibility. Without it the chip is a plain static label. */
+  onToggle?: () => void;
+  /** #280: true when the series is currently hidden - dims the chip
+   *  and greys the swatch. */
+  hidden?: boolean;
+}) {
+  const swatch = (
+    <svg width="14" height="6">
+      <line
+        x1="0"
+        y1="3"
+        x2="14"
+        y2="3"
+        stroke={hidden ? '#475569' : color}
+        strokeWidth="2"
+        strokeDasharray={dashed ? '3 2' : undefined}
+      />
+    </svg>
+  );
+  if (!onToggle) {
+    return (
+      <span className="flex items-center gap-1 text-slate-400 whitespace-nowrap">
+        {swatch}
+        {label}
+      </span>
+    );
+  }
   return (
-    <span className="flex items-center gap-1 text-slate-400 whitespace-nowrap">
-      <svg width="14" height="6">
-        <line
-          x1="0"
-          y1="3"
-          x2="14"
-          y2="3"
-          stroke={color}
-          strokeWidth="2"
-          strokeDasharray={dashed ? '3 2' : undefined}
-        />
-      </svg>
+    <button
+      type="button"
+      onClick={onToggle}
+      title={hidden ? t`Click to show` : t`Click to hide`}
+      aria-pressed={!hidden}
+      className={`flex items-center gap-1 whitespace-nowrap cursor-pointer hover:text-slate-200 transition-colors ${
+        hidden ? 'text-slate-600 line-through' : 'text-slate-400'
+      }`}
+    >
+      {swatch}
       {label}
-    </span>
+    </button>
   );
 }
 
