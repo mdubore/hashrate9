@@ -1,5 +1,228 @@
 # Changelog
 
+## 2026-06-07
+
+### `[Release]` v1.13.0
+
+Configurable stats bar (#266), dedicated `/history` page (#256 v2), synced crosshair across both Status charts (#257), drag-to-reorder dashboard cards via per-card grip handles (#244 v2/v3), USD denomination button greys out when the oracle is unreachable instead of disappearing (#274), and a wide sweep of polish: BTC oracle inline Test button (#270 follow-up), `telegram_chat_id` redacted in `/api/debug/dump`, scan-cancel actually aborts in-flight HTTP probes (#259 v2), NerdAxe numeric `bestDiff` accepted (#260), hero price card no longer overflows on iPhone in BTC mode (#268), bid pending-cancel race fix (#276), pool-luck step marker anchors at the higher line for FOUND and the lower line for AGED OUT, BIP 110 pool/miner badge letters stay square with brand-blue Ocean, "rejection rate" renamed to "rejection ratio" everywhere. Safe to upgrade from any 1.11.x / 1.12.x release; no new migrations.
+
+### `[Infra]` StartOS package tracks upstream v1.13.0
+
+The StartOS package metadata now points at app version `1.13.0` and the StartOS version graph has a `1.13.0:0` entry with the upstream v1.13.0 release notes. The README package note now names v1.13.0 as the synced upstream baseline for `.s9pk` builds.
+
+### `[UI]` BIP 110 pool/miner badge: even-width letter on long tags, blue for Ocean
+
+The deterministic letter avatars on each BIP 110 signalling row used to squash narrower when the tag next to them was long enough to force the flex children to compete for space (`ckpool$/Block Mined by …` next to a `C` came out clearly thinner than the matching `O` two rows below). Added `shrink-0` so every letter avatar keeps its `w-5 h-5` square regardless of tag length. Ocean also gets a special-case `bg-sky-500` (its brand blue) instead of whatever the hash-of-tag picked from the generic palette, so the dominant pool in every Ocean operator's scan reads at a glance.
+
+### `[Fix]` Pool-luck step marker anchors at the higher line for FOUND, lower for AGED OUT
+
+The dot on the pool-luck overlay used to anchor at `luckAfter` for both event kinds, which only matched the operator's mental model ("FOUND = up, AGED = down") when the data co-operated. Because Ocean's `pool_luck` reading is a snapshot of the whole 30-day window (not just our block), other simultaneous events could mute or even invert the per-event direction — the FOUND dot would then sit at the lower line segment, confusing the read. v2 anchors a FOUND dot at `max(luckBefore, luckAfter)` and an AGED OUT dot at `min(luckBefore, luckAfter)`, so the dot's Y always matches the event's intuitive direction regardless of data noise. Mixed groups (both kinds in the same tick) keep `luckAfter` as before.
+
+### `[Fix]` No more duplicate cancels on bids Braiins is already unwinding (#276)
+
+Braiins accepts a bid cancellation asynchronously - the order lingers in the bids list as `PENDING_CANCEL` for up to a few minutes before disappearing. The controller treated those bids as fully alive: the Datum-down cancel sweep re-cancelled them (two cancel markers for the same order on the Price chart, observed 2026-06-06 during a gateway outage), and a dying order could even be selected as primary and receive price edits. PENDING_CANCEL bids are now excluded from every mutation path while still blocking a replacement CREATE until the old order has actually left the list, so no overlap is possible.
+
+## 2026-06-06
+
+### `[UI]` "rejection rate" renamed to "rejection ratio" everywhere
+
+Braiins's own UI and docs call this metric the rejection ratio; the dashboard said "rejection rate". Renamed across the Braiins panel row, the share-rejection tile tooltip, the chart right-axis option and axis label, and the Bitaxe alert-threshold help texts, in all three languages (en / nl / es).
+
+### `[Fix]` Price chart Y-axis scales to visible data only (#275 follow-up)
+
+Audit follow-up to the stat-tile fix: the Price chart's left Y-axis auto-range sampled every fetched point - including the off-screen prefetch buffer extending one window-width past each viewport edge - plus the prices on off-screen bid-event markers. An off-screen price spike could stretch the visible axis with nothing on the chart explaining it. The axis now samples only points inside the visible window (the Hashrate chart and both right axes already did this). Line paths still cover the full buffer, clipped at the plot edge, so panning stays seamless.
+
+### `[Fix]` Stat tiles now aggregate over the visible chart window, not the hidden prefetch buffer (#275)
+
+The KPI tiles (uptime, bid coverage, delivery while bidding, avg hashrate, avg cost, P&L per-day) were computed over the chart's data-fetch window, which pads the visible viewport by one full window-width on each side for smooth panning. Zoomed into a clean-looking hour, an off-screen no-bid tick from over an hour earlier could move BID COVERAGE between 99.5% and 100.0% as you panned, with nothing visible on the chart explaining it. The tiles now use exactly the visible window the tooltips promise, and live presets (3h/24h/…) hit the server's cached per-range path.
+
+### `[UI]` USD denomination button greys out instead of disappearing when oracle is unreachable (#274)
+
+The denomination toggle (sats / BTC / USD) used to drop the USD option entirely whenever `btcPrice` was `null`, conflating two very different cases: oracle deliberately turned off (`btc_price_source = 'none'`) and oracle transiently unreachable (API down, DNS hiccup, rate-limited). The former is "USD isn't a feature on this install" — hide it; the latter is "USD should work, something's broken right now" — say so. The button now stays visible but renders disabled with `cursor-not-allowed` and a hover tooltip pointing the operator at Config → Pool & Payout → BTC Price Oracle / Test connection. The "deliberately disabled" case still hides the button, since the operator opted out.
+
+### `[Fix]` Hero price card no longer overflows on mobile in BTC mode (#268)
+
+In BTC denomination mode the current-bid price renders as e.g. `0,00046582` — about 10 characters at `text-4xl`. Inside the hero card's `grid-cols-2` layout, each column was ~150 px on iPhone, so the big number plus the absolute-positioned ± delta badge crashed into the DELIVERED column to its right. v2 stacks the PRICE / DELIVERED columns vertically on `< sm` viewports (full card width each), drops the big-number size to `text-3xl` on mobile, and moves the ± delta badge from absolute-right to inline-below the number so the centered layout stays clean. Desktop layout is unchanged.
+
+### `[UI]` BTC oracle Test button inline + telegram_chat_id redacted in diagnostics
+
+(1) **BTC price oracle Test button** is now inline to the right of the Price source dropdown, same `flex gap-2` row, matching the Pool URL / Datum / Telegram / bitcoind / electrs Test-connection idiom across the rest of Config. Was previously below the helper text, reading as a tacked-on extra. (2) **`telegram_chat_id` is now redacted** in `/api/debug/dump`. The chat id pairs with a stolen `bot_token` to message-spam the operator's private chat; treating it as personal-but-not-credential alongside `telegram_instance_label` and the DDNS fields.
+
+### `[Release]` v1.12.2
+
+Patch release: "Test connection" button for the BTC price oracle (#270) and the one-click Diagnostics support bundle with connectivity matrix + sanitized config snapshot (#272). Safe to upgrade from any 1.11.x / 1.12.x release; no new migrations.
+
+### `[UI]` Pool-luck tiles get window-aware colour bands (#266 follow-up)
+
+The three pool-luck tiles (24h / 7d / 30d) now colour-code the value the same way uptime / share-rejection / wallet-runway already do. Bands are window-aware because the underlying variance shrinks with window length — a 0.7× read on 24h is noisy randomness, the same read on 30d is genuinely concerning: 24h: emerald ≥ 0.90, amber 0.50–0.90, red < 0.50. 7d: emerald ≥ 0.95, amber 0.70–0.95, red < 0.70. 30d: emerald ≥ 1.00, amber 0.85–1.00, red < 0.85. Tooltips updated to mention the band-tightness choice.
+
+### `[UI]` Uptime tooltip relates to its siblings, shorter delivery label, locale-aware best-diff (#266 follow-up x3)
+
+(1) **Uptime tile tooltip** now spells out the relationship to its two sibling tiles instead of describing uptime in isolation: `uptime = bid coverage × delivery while bidding`, and which one explains low uptime when it happens. The operator was reading uptime ≈ delivery rate and not seeing the difference; the difference is the denominator, and the tooltip now says so. (2) **"delivery rate (while bidding)" → "delivery while bidding"** — the longer label was wrapping to three lines on a narrow tile. The word "rate" was carrying no information; the `%` unit on the caption line already makes that clear. (3) **Bitaxe best-diff value is locale-formatted** ("149,53" in `nl-NL`, not `149.53`) and the magnitude prefix moves to the grey unit-caption line as its full SI name (`giga`, `tera`, `peta`, etc.) instead of the squashed single-letter form jammed into the number. Same idiom as every other tile.
+
+### `[UI]` Rearrange button is back; handles only show in edit mode (#244 v3)
+
+The always-on gutter from build 631 ate ~26 px off every card's width — fine on desktop, cramped on mobile, paid for a feature the operator uses three times in a dashboard's lifetime. v3 reverts to a gated approach: the **Rearrange** button is back in the header (and the hamburger), cards render plain by default, and only when the operator clicks Rearrange does the gutter + grip handles appear. The grips themselves are now amber with a subtle glow so they read as a clear handle while editing, not dust in the corner. Drag listeners stay bound to the grip button only, so chart pan/zoom and panel buttons keep working even mid-edit — that part stays better than v1's pointer-events-none.
+
+### `[UI]` Drag-handle gutter for dashboard cards (#244 v2 follow-up)
+
+The hover-to-reveal handle from the previous commit floated awkwardly above each card's title row. Build 631 moves it into a slim 20 px left gutter next to every card so the handle sits *beside* the title rather than on top of it. Always faintly visible (slate-700), brightens to amber with a subtle glow on hover, full opacity during a drag — the discoverability the operator asked for. The title text inside each card flows normally; no per-card markup changes needed.
+
+### `[Feature]` Drag any dashboard card to reorder (#244 v2)
+
+The "Rearrange" mode toggle in the header is gone. Hover any card on the Status page and a small grip handle fades in at its top-left; drag from there to slide it up or down (touch users get a 180 ms press-and-hold; on mobile-without-hover the grip is permanently faintly visible). The 6 px PointerSensor distance gate keeps a click near the grip from being treated as a drag, and charts keep their pan-and-zoom because drag listeners are bound to the grip button only, not the card body. Same pattern that's already on the TilesBar — now applied to every top-level card. The escape hatch is a tiny `reset layout` link that appears in the header on the Status page only when the saved order differs from the default.
+### `[Feature]` Diagnostics support bundle: one-click connectivity matrix + sanitized config (#272)
+
+New Config → Display & Logging → Diagnostics panel. "Run diagnostics" probes every external service the daemon talks to in parallel - Braiins API, Ocean API, Datum gateway, bitcoind RPC, electrs, Telegram, all four BTC price providers, public-IP service, plus a DNS-sanity check - each reporting latency or the concrete error (HTTP status, `ENOTFOUND`, timeout). "Copy as Markdown" produces a paste-ready block for bug reports: identity (version/build/node/uptime/run mode), the connectivity table, last-tick freshness per integration, and the full configuration with every sensitive field rendered as a loud `********** [redacted]` marker so it's visibly safe to paste - credentials, payout address, pool/DDNS hostnames and the public IP are all stripped (LAN addresses stay, they're what support needs); a separate Copy JSON button copies just the config snapshot. The bug-report template now asks for it. Born out of #267, where diagnosing a failing price oracle took days of back-and-forth curls.
+
+### `[Feature]` "Test connection" button for the BTC price oracle (#270)
+
+One click in Config → Pool & Payout → BTC price oracle now performs a live fetch against the selected provider (saved or not) and reports the result inline: the current BTC/USD price on success, or the concrete failure on error - the HTTP status (e.g. `429` rate-limited) or the underlying network error code (`ENOTFOUND`, `ECONNREFUSED`), instead of the USD toggle just silently not appearing (#267). A successful test warms the daemon's price cache so the header's USD toggle lights up immediately. Price fetches now also send an explicit User-Agent (bot-sensitive CDN endpoints reject anonymous requests) and daemon logs include the real network error instead of a bare "fetch failed".
+
+### `[Release]` v1.12.1
+
+Hotfix release carrying only the NerdAxe fix (#260): NerdAxe / NerdQAxe miners now appear on the Status page, numeric best-difficulty values are handled natively, one misbehaving device can no longer freeze the whole miners card, and unreachable-device errors include the underlying network error code. Safe to upgrade from any 1.11.x / 1.12.x release; no new migrations.
+
+### `[Fix]` Scan-local-network cancel actually stops the scan (#259 v2)
+
+Closing the scan dialog with `X` while a sweep was in flight didn't actually stop the scan, despite build 605's "cancel" handling. Two bugs compounded: (1) **daemon side**, cancel only set a `cancelRequested` flag the workers checked between probes — so each of the 8 workers ran out its current 1.5 s probe timeout before bailing, and to a watching operator the scan looked like it kept hitting hosts. (2) **dashboard side**, the status query was gated on the dialog being open, so the moment the operator closed it polling stopped — the trigger button then stayed stuck on `scanning…` indefinitely because the dashboard never observed the state transition to `cancelled`. v2 plumbs an `AbortController` signal into the per-probe fetch so cancel aborts every in-flight request immediately (cancel-to-`cancelled` latency drops from ~1.5 s to a few ms), and the dashboard keeps polling whenever the last known state was `running` regardless of dialog visibility, so the trigger button reverts to `Scan local network` on its own.
+
+### `[Feature]` Drag tiles left/right to reorder (#266 follow-up)
+
+Each tile in the stats bar now carries a grip handle in the top-left corner that's invisible by default and fades in on hover. Drag from the grip to slide the tile left/right; siblings shift to make room. No global rearrange-mode gate — the operator doesn't have to toggle anything to start reordering. Touch-friendly press-and-hold (180 ms) so vertical page scrolling on mobile isn't hijacked, and a 6 px distance gate on desktop so a click in the grip's vicinity doesn't accidentally start a drag. Order persists through `config.dashboard_tiles` the same way the picker does.
+
+### `[UI]` Self-contained pool-luck tooltips, bigger chevron hit-box (#266 follow-up x2)
+
+(1) **Pool luck 7d / 30d tooltips now stand on their own** — operator may only have one of the three pool-luck tiles on screen, so each tooltip carries the full formula and ">1 lucky / <1 unlucky" reading. No more "same formula as 24 h" cross-reference. (2) **Tile-chevron click target widened** from the 14×14 SVG to ~28×28 via padding; the visible icon is unchanged so the tile looks the same but the chevron is much easier to hit.
+
+## 2026-06-05
+
+### `[Feature]` Bitaxe best-diff tile + share-rejection consistency + pool-luck caption (#266 follow-up x3)
+
+(1) **New `Bitaxe best diff` tile.** Highest `best_diff` across reachable Bitaxe miners; matches the "best diff" row in the Bitaxe miners card below. (2) **Share-rejection tile now reads from the same source as the Braiins panel's "rejection rate" row** (`finance.braiins_rejection_pct`, first-last cumulative counter diff over the chart range). The old tile path computed a per-tick-delta SUM in `/api/stats` which diverged across bid rotations — the cumulative-diff method skips the reset point cleanly. The unused `/api/stats` field is gone. (3) **Pool-luck multiplier moved to the caption line.** Renders as `0,54` big with `× expected` small/grey below, matching the rest of the tile catalogue's "big number + grey unit" idiom.
+
+### `[UI]` Bitaxe tiles always in TH (#266 follow-up x2)
+
+(1) **Bitaxe hashrate tile always renders in TH/s**, ignoring the page-wide TH/PH/EH toggle. The toggle is right for big-network-scale figures (marketplace bid, Braiins delivered) but a typical Bitaxe is ~1 TH/s, so the global PH default rounded the fleet total to `0,00`. The tooltip now explains the deliberate unit choice. (2) **Bitaxe efficiency `J/TH` moved to the unit-caption line** (small grey below the number) to match the rest of the tile catalogue's "big number + grey unit" idiom — was previously rendering as `17,3 J/TH` all in the big-number style, breaking onto two lines.
+
+### `[Fix]` NerdAxe miners never appeared on the Status page (#260)
+
+NerdAxe / NerdQAxe firmware (shufps/ESP-Miner-NerdQAxePlus family) reports `bestDiff` / `bestSessionDiff` as raw numbers where stock Bitaxe firmware reports magnitude-suffixed strings ("4.29G"). The daemon's difficulty parser crashed on the numeric form, killing the poll tick *after* a successful fetch but *before* the snapshot update - so every successful poll was silently discarded while failed polls rendered, freezing the Bitaxe Miners card on the last failure (or showing nothing at all). Numeric difficulty values are now accepted natively (same unit - share difficulty - just unformatted), formatted for display the way AxeOS itself does, and stored at full precision for best-difficulty records. One device's malformed payload can no longer take down the whole fleet's poll, and unreachable-device errors now include the underlying network error code instead of a bare "fetch failed".
+
+### `[Fix]` Stats tiles empty + chart-marker tooltip overflow (#266 follow-up x2)
+
+(1) **`/api/stats` was returning 500**, breaking every stats-derived tile (uptime, delivery rate, avg Braiins / Datum / Ocean, etc.) — fields rendered as em-dash. Build 622 added `avg_share_rejection_pct` referencing `primary_bid_shares_purchased_m` / `_rejected_m` in the outer aggregate, but didn't carry those columns through the inner subquery's SELECT list. The whole query errored out; Fastify returned the error to the dashboard which silently fell back to "no data". Bitaxe tiles (different data source) were unaffected. (2) **Chart-marker tooltips no longer overflow into the neighbouring chart.** New `sideTooltipPosition` helper opens marker tooltips to the LEFT of the marker (RIGHT if no room left), vertically centred on the marker. Pool-block / retarget / luck-step / bid-event / deposit / payout-initiated tooltips now stay beside the data point instead of extending downward into the next chart's territory.
+
+### `[UI]` Tile-picker click fix, custom locale date picker, edit-speed prices, mobile nav (#266 follow-up x4)
+
+(1) **Tile picker options were unclickable** after build 622. The dropdown is portal-rendered to `document.body`; the parent's outside-click handler was attached on the tile's container ref, which does not contain the portaled dropdown. Result: `mousedown` on an option triggered "outside" → `setOpen(false)` → picker unmounts before the option's `onClick` (a `click` event) can land. Moved the outside-click detection into the portal component, where it can check both the dropdown contents AND the anchor. (2) **Custom date picker** for the History page From / To inputs. Browser-native `<input type=date>` renders in the browser's locale, not the dashboard's chosen language, so an NL operator using English UI saw `mm/dd/yyyy` placeholders. The new `DatePicker` formats via `Intl.DateTimeFormat` in the active locale (Mon/Tue weekday headers in Dutch, EU week starting on Monday, etc.), opens a portal popover with month navigation, includes Today/Clear shortcuts. (3) **Price columns on EDIT_SPEED rows** now show the bid's effective last-known price in both before and after, with delta = zero. New SQL CTE `effective_last_price_sat` pulls the most recent CREATE_BID/EDIT_PRICE `new_price_sat` for the same effective_order_id at-or-before the row. (4) **Mobile nav** no longer wraps to two rows: nav links (Status / Alerts / History / Config) fold into the hamburger on viewports below `sm`, keeping the top bar single-row on iPhone. Alert badge moves with them.
+
+### `[UI]` Tiles + history sweep (#266 follow-up x5, #256 follow-up)
+
+Tiles bar: (1) the question-mark icon next to each tile label is gone — operator caught it as visual noise. Tooltip now wraps the whole tile so hovering anywhere on the panel surfaces the explanation. (2) "ADD TILE" → "add tile" lowercase to match the `right axis` idiom on the other rows. (3) The picker dropdown is now a portal at `document.body` with intrinsic-width sizing (min 14rem / max 22rem) — was sometimes squashed to a single-character-wide column when the trigger sat near the right edge. Both per-tile pickers AND the "+ add tile" picker go through the same viewport-clamped positioning logic. (4) All catalogue tiles are now fully wired: `share_rejection_pct` reads a new window-averaged `avg_share_rejection_pct` on `StatsResponse`; `bitaxe_fleet_hashrate` / `bitaxe_fleet_power` / `bitaxe_fleet_efficiency_j_per_th` sum across reachable Bitaxe miners from the solo-miners snapshot. No more "data source pending" placeholders.
+
+History page: (1) SQL `effective_braiins_order_id` coalesce uses a CTE so the speed lookup can join on the COALESCED id, not the direct (often null) `e.braiins_order_id`. Build 621's join failed for the most common case — an EDIT_PRICE row on bid X looking for the CREATE's speed, when the CREATE's row had `braiins_order_id = null`. Window also widened from 5 min to 1 h. (2) Source filter and Source column removed; the OPERATOR vs AUTOPILOT distinction has no UI path to OPERATOR yet, so the filter / column were always "AUTO". (3) Column header `uppercase` removed — heads now render in Title Case as written. (4) Δ price label cleaned up: no surrounding `|...|`, no all-caps applied via CSS.
+
+### `[UI]` History page polish: action chips with glyphs, full bid id, denomination-aware Δ filter, date picker no longer drops a day, more (#256 v2 follow-up)
+
+A sweep of fixes against build 618 the operator caught: (1) Action filter chips (create / price / speed / cancel) now carry the same Lucide glyphs as the table rows, so the toolbar is a visual map of what the table will show. (2) Bid id renders in full (`B86640538376704234`), not truncated. (3) The CREATE_BID row used to show an em-dash in the Bid column because the daemon emits CREATE before Braiins echoes back the assigned ID; SQL now coalesces from the next event on the same logical bid (within 5 min) so the column is never empty for an identifiable bid. (4) Same idea for Speed: most non-CREATE / non-EDIT_SPEED rows carried `speed_limit_ph = null` because no operator action changed the speed at that moment; SQL now surfaces the most recent CREATE_BID or EDIT_SPEED's speed_limit_ph on the same bid, so the column always shows the bid's actual configured speed. (5) Fillable column moved next to Price before / Price after / Δ price so the price-related columns sit together. (6) The `|Δ price| ≥ N` filter now respects the page's hashrate denomination toggle — when on TH, the input is in sat/TH/day; when on EH, in sat/EH/day. Internal conversion to the daemon's sat/PH/day on the wire. (7) Spinner buttons on the numeric input were misaligned; hidden in favour of plain typing. (8) Date picker dropped a day every time (clicking 2 Jun set 1 Jun in UTC-3) because `new Date('2026-06-02')` parses as UTC midnight; now parses the YYYY-MM-DD string as LOCAL midnight. (9) Source dropdown gets a question-mark icon with a styled `<Tooltip>` explaining "AUTOPILOT = controller-emitted, MANUAL = operator override". (10) "Clear all" renamed to "Reset", moved to the right side of the toolbar, with a Lucide `rotate-ccw` icon.
+
+### `[UI]` Tiles bar polish: time selectors moved, picker anchored at chevron, styled tooltips (#266 follow-up x4)
+
+(1) The `+ add tile` affordance lived directly under the period block's time-range buttons (3h/6h/…/All) on the right and overlapped them on narrow viewports — couldn't be clicked. Moved the time-range buttons to the LEFT side of the period row so the right side of both rows is clear for the tile UI. (2) Re-styled the `+ add tile` as an inline label + select-style button (`add tile [pick… ▾]`) to match the `right axis [▾]` idiom used elsewhere on the page. (3) Tile tooltips now use the styled `<Tooltip>` component (portal-positioned, viewport-aware, matches the rest of the dashboard) instead of the browser's default `title=` chrome; a small question-mark icon next to each label signals hoverable detail. (4) The tile-picker dropdown was anchored to the tile's left edge and could overflow the viewport when the tile sat near the right. Now positions itself relative to the chevron the operator clicked, opens with right-edge alignment so it grows leftward into the page, and clamps to the viewport on both axes (flips above if no room below). Custom-styled scrollbar inside the dropdown so it doesn't look like a 17 px-wide raw browser track.
+
+### `[Fix]` Crosshair tooltip clamps to its own chart (#257 follow-up)
+
+The crosshair tooltip's flip / shift logic used `window.innerWidth` / `window.innerHeight` as the fence. On the Hashrate chart that meant a bottom-anchored tooltip could overflow into the Price chart's area below, and vice versa. Now clamps to the SVG's own bounding rect so each chart's tooltip stays within its own chart's box. Last-resort clamp pushes the tooltip up against the chart edge if it's taller than the chart so spill never reaches the neighbouring chart.
+
+### `[Fix]` Bitaxe scan dialog X actually cancels the scan (#259 follow-up)
+
+Build 612's fix made the button clickable again but the server-side sweep kept running. Now closing the dialog with the X calls a new `POST /api/solo-miners/scan/cancel` endpoint; the scanner's worker loop checks a `cancelRequested` flag at every iteration and bails within one probe-timeout (~1.5 s). The status transitions to a new `cancelled` state so the dashboard can distinguish "operator dismissed" from "finished naturally". A subsequent click on "Scan local network" resets the flag and starts a fresh sweep, as expected.
+
+### `[Feature]` History page rewritten as a flat filterable table (#256 v2)
+
+Operator feedback on build 617: "when did the last edit_speed happen?" is a flat-table-with-filters question, not a per-bid grouping question. Retired the collapsible-by-bid view from build 615 entirely.
+
+New layout: toolbar of filters at the top + flat table + infinite scroll. Columns are `When | Bid | Action | Price before | Price after | Δ price | Fillable | Speed | Source`. Bid id stays a column (truncated `B866…04234`, hover for full) rather than the row group. Δ price colour-coded — green = price went down, red = up. Reason column dropped (the action + numeric columns carry the meaningful info; the free-text Reason mostly repeated the numbers).
+
+Toolbar filters: action kind (toggle chips for create/price/speed/cancel), bid id text contains, date range (from/to), source (autopilot/manual), `|Δ price| ≥ N sat/PH/day`. All filters apply server-side so they work over the full dataset, not just the loaded page. "Clear all" link at the end.
+
+Server: new `GET /api/bid-history-events` endpoint with cursor pagination (100 events per page), all filters supported. Each row also includes `fillable_at_event_sat_per_ph_day` — the dashboard joins-via-subquery to find the most recent tick at-or-before each event with a non-null fillable reading. Auto-loads the next page via IntersectionObserver when the sentinel near the bottom enters view; a "Load more" button is the manual fallback.
+
+Note: the design interview picked "three fillable columns (before / after / Δ)". v2 ships a single `Fillable` column showing the value at the event time; computing meaningful before / after / Δ values per row across pagination boundaries needs more work and ships in a v3 follow-up.
+
+nl + es translations included.
+
+### `[UI]` Tiles + history disclosure: a sweep of small fixes (#266 follow-up x3, #256 polish)
+
+Tiles bar (#266 follow-up x3): (1) `auto-rows-fr` so every tile matches the row's tallest — pool-luck (no unit caption) and uptime (with caption) line up at the same baseline. Caption slot is always reserved (non-breaking space when no unit) so two tiles next to each other don't end up at different heights. (2) Chevron moved out of the label row into a proper 14×14 Lucide `chevron-down` glyph in the top-right corner of each tile. The label now allowed to wrap to two lines instead of being clipped (so "AVG COST VS HASHPRICE" doesn't become "AVG COST VS HA…"). (3) The "+ add" tile no longer sits in the grid eating a panel width — moved to a small icon button anchored above the section's top-right corner. (4) Picking a tile that's already in another slot used to silently duplicate it, making the source slot look like it had disappeared. Now disabled in the picker with "(already in use)" hint — operator removes the other slot first if they want to move it. (5) Wallet runway reads "17 days" instead of "17 d".
+
+History page (#256 polish): the disclosure triangle (`▸` / `▾`) on each bid header was rendering as a tiny dot at the page's text size; replaced with a 16×16 Lucide chevron glyph. Same treatment applied to the Alerts page disclosure triangle (operator caught both at once).
+
+### `[Feature]` Chart crosshair: hover or place a marker to read every series at a point (#257)
+
+NerdAxe-style crosshair on the Status charts. Hovering either chart draws a vertical marker line through both (they share a time axis) and shows a per-chart floating readout of every visible series at the snapped tick — delivered/Datum/Ocean/target/floor on the Hashrate chart, bid/fillable/hashprice/max-bid on the Price chart, plus whichever right-axis series is selected, all in the global sats/BTC/USD and TH/PH/EH units. Click pins the marker so it survives moving away (Esc or a click outside dismisses); on touch, press-and-hold ~300 ms then scrub to move the marker, lift to pin — a quick drag still pans as before. Hovering a block/retarget/IP marker icon shows its rich tooltip instead, as today.
+
+### `[Feature]` Standalone /history page with bid-grouped event log (#256 follow-up)
+
+Replaces the bottom-of-Status `OrderHistoryCard` from build 612 with a dedicated `/history` route (new "History" tab between Alerts and Config). Each bid renders as a collapsible parent row with summary stats (created → last event, first price → last price, event count, status badge); click to expand the bid and load every event for that order, oldest first. Modification table columns are `When | Action | Delta | Reason` (matches what Braiins's own Buy Order History tab shows). Bid headers paginate with a "Load older bids" button at the bottom — no more 200-row cap. Server-side: new `GET /api/bid-history?limit=N&before_ms=cursor` for the paginated bid summaries, `GET /api/bid-history/:order_id/events` for one bid's full event list. nl + es translations included.
+
+### `[Fix]` Tiles bar auto-flows past 6 columns + add-tile affordance no longer eats a row (#266 follow-up x2)
+
+Build 614's `lg:grid-cols-6` cap meant a wide 4K screen could only show 6 tiles per row even with room for 10+. Switched to `grid-template-columns: repeat(auto-fit, minmax(160px, 1fr))` so the grid stretches to the natural maximum at each viewport size. Same pass: the always-visible dashed "+ add" tile from build 614 consumed a full extra row whenever the tile count wasn't a multiple of the column count. Replaced with a slim ghost-tile-sized `+` button that sits at the row's end, still discoverable but doesn't eat vertical space.
+
+### `[Fix]` Configurable tiles: picker now works in rearrange mode + visual styling matches the old StatCard (#266 follow-up)
+
+Two regressions caught immediately on first try: (1) the picker chevron and `+ add` button didn't respond to clicks while the page was in rearrange mode — SortableDashboard wraps block content in `pointer-events-none` while rearranging (intentional per #244 so a stray tap can't fire a button mid-drag), but that also killed the picker since the picker *is* the tile customisation flow. Picker controls now carry `pointer-events-auto` so they're exempt from the block-level inert wrapper while the rest of the content stays inert. (2) The tile rendering didn't match the original StatCard idiom — the value and unit ran together in the same big font. Now matches: centered value (big mono), slim grey unit caption below, sat symbol where appropriate. The whole tile header strip is clickable now (not just the tiny chevron triangle).
+
+Behavioural change: the picker is no longer gated behind rearrange mode at all (per the original design-interview pick "same flow whether in rearrange mode or not"). Click the tile's header anywhere to open the dropdown; pick a different tile to swap, or use "Remove this tile" at the bottom of the dropdown to drop the slot. `+ add` at the row end always shows when count < max.
+
+### `[Feature]` Configurable StatsBar tiles (#266)
+
+The horizontal six-tile bar at the top of Status is now operator-customisable. Each tile slot has a chevron dropdown (visible in rearrange mode) over a curated catalogue of ~22 entries: the existing 6, the uptime decomposition tiles from #254, hashrate target (#255), avg overpay intent/settled, hashprice now, pool blocks 30d, pool luck 24h/7d/30d, share log %, share rejection, wallet runway, and Bitaxe fleet hashrate / power / J-per-TH. Variable slot count — add up to 24 tiles, remove via the × in rearrange mode, swap by picking a different entry. Choice persists to `config.dashboard_tiles` (daemon-side), so the layout follows the operator across browsers and devices. Defaults to today's six tiles when the field is empty, so existing installs see no change. nl + es translations included. A few tiles (share rejection, Bitaxe fleet) render an em-dash for now and call out "follow-up" in the tooltip — the underlying data sources need additional dashboard plumbing that will land in a separate commit.
+
+### `[Fix]` Price chart bottom x-axis line no longer overlaps the right-axis labels (#262)
+
+The grey x-axis line at the bottom of the Price chart drew from `PADDING.left` to `WIDTH - PADDING.right` even when a right-axis was rendered. The right-axis labels live further left, in `padRight` instead of `PADDING.right`, so the x-axis line extended into the labels. The Hashrate chart already used `padRight`; the Price chart had drifted. One-character fix on the `x2` attribute.
+
+### `[Fix]` Bitaxe scan button no longer stays stuck on "scanning…" after the scan dialog is dismissed (#259)
+
+Closing the local-network scan popup with the X left the underlying scan running server-side. The scan button stayed disabled and showing "scanning…" until the scan finished naturally, with no way to re-open the dialog or cancel. Now the button stays clickable while the scan is in progress; clicking it during a scan re-opens the dialog showing live progress instead of trying to start a new scan that the server would reject anyway.
+
+### `[Feature]` Hashrate target line on the chart now steps when cheap-mode engages or disengages (#255)
+
+`tick_metrics.target_ph` was persisting the *configured* `target_hashrate_ph` regardless of cheap-mode state, so the dashed "target" line on the Hashrate chart stayed flat even when the controller had dropped to `cheap_target_hashrate_ph`. Now persists the *effective* target (post-cheap-mode), so the dashed line steps the moment cheap-mode engages and steps back when it disengages — gives the operator visibility into when the autopilot is being thrifty.
+
+### `[Feature]` Uptime tile decomposes into bid-coverage × delivery-when-bidding (#254)
+
+The UPTIME tile previously showed a single percentage that conflated "orderbook didn't cooperate" with "hardware/connection failed". Tooltip now breaks down the figure as two components: bid coverage (% of window with an active Braiins bid — orderbook availability) and delivery rate while bidding (% of that bid-active time that actually delivered hashrate — hardware/connection/Datum-side quality). The two multiply to the overall uptime number. New fields `uptime_bid_coverage_pct` and `uptime_delivery_when_bid_active_pct` on the stats API; tile catalogue (#266) will surface them as discrete tiles when that lands.
+
+### `[Feature]` Order history card on the Status page (#256)
+
+New card mirroring Braiins's History tab on the Buy Order window. Shows every controller action (CREATE / EDIT_PRICE / EDIT_SPEED / CANCEL) for the selected chart range as a scrollable table: timestamp, action with the same Lucide glyph as the chart marker, price change with delta, Braiins order ID, and the controller's reason. Newest first, capped at 200 rows per range. Operator no longer has to round-trip to braiins.com to see what the autopilot has been doing. Block ID `order_history`, sits between Profit & Loss and Last tick proposals in the default order; reorderable via the existing #244 drag-to-rearrange flow.
+
+### `[UI]` Bid-event glyphs swapped for domain-meaningful Lucide icons (#265 follow-up x3)
+
+CREATE_BID now uses Lucide `circle-plus` (filled-feel new-bid mark), EDIT_SPEED uses `gauge` (literal speedometer for what's actually changing), CANCEL_BID uses `ban` (universal "no" symbol). Replaces the bare `plus` / `diamond` / `x` shapes from build 610 — same Lucide library, but icons that carry the meaning of the event rather than just acting as geometric markers. EDIT_PRICE stays as the bare yellow circle because the band-of-dots pattern *is* the meaning, no icon helps. Chart legend at the top and Config → Chart colors row-previews updated in lockstep so the operator's lookup ("see + in legend → find + on chart") keeps holding.
+
+### `[UI]` Rare bid-event glyphs match the pool-block cube size and position + visible on zoom-out (#265 follow-up x2)
+
+Two regressions from the build 608 redesign that the operator caught against side-by-side cubes: (1) the +/◆/× glyphs at the chart top were 8×8 SVG units while the pool-block cubes next to them were 14×14, making the rare-event markers look ~75 % smaller; (2) the glyphs sat at `y = PADDING.top - 1` while the cubes sit at `y = PADDING.top - 11`, so the bid-event markers were 3 px lower than the blocks they were supposed to align with. Re-rendered as inline `<svg viewBox="0 0 24 24">` with Lucide-style paths (plus, x, diamond) at the same 14×14 footprint and same y as the cubes — visual parity at any zoom.
+
+Same release: server-side `/api/bid-events` used the fetch span (visible × 3) for the kind filter, while the client expected kinds based on visible span. At 60 h visible the fetch span is 180 h, past the 7-day cutoff in `showEventKindsForSpan`, so the server returned empty even though the client expected to render CREATE / EDIT_SPEED / CANCEL glyphs. Symptom: at any zoom past ~56 h visible the rare markers vanished entirely. Added a `span=<ms>` query parameter so the filter sees the visible span; client passes it; legacy callers (no `span`) keep the old behaviour.
+
+### `[Infra]` Debug-dump endpoint now covers every diagnosable subsystem
+
+`/api/debug/dump` previously bundled tick_metrics, pool_blocks, alert_events, bid_events, reward_events, app_config, and daemon_info. Added every other table that's actually load-bearing when triaging a bug report: `solo_miners` + the live `solo_miner_snapshot` (what the Status page actually renders), `solo_miner_samples`, `solo_best_diff_events`, `owned_bids` (current Braiins-side bid roster), `braiins_deposits` (settle history), `decisions` (controller per-tick proposals), `ip_change_events`, and `runtime_state`. Time-series tables (samples, decisions, events) honour the existing `hours` window; lookup state (solo_miners, owned_bids, snapshot, runtime_state, deposits) always returns the full current snapshot. Same `debug_api_enabled` gate, same `tables=` filter behaviour. The motivation: solo-mining bug reports (e.g. #260) previously needed an extra round-trip to `/api/solo-miners` because the dump didn't include the device list or snapshot.
+
+### `[UI]` Rare bid-event markers move to the top of the price chart (#265 follow-up)
+
+Build 607's "thin dashed guide line from chart top" wasn't bold enough — operator still had to zoom to 400 % to spot the green +. Redesigned the rare markers to match the pool-block idiom that already works on this chart: the CREATE / EDIT_SPEED / CANCEL glyph sits at the chart's top edge (next to where the pool-block cubes live), a dashed vertical connector runs down through the chart, and a small filled bubble lands on the our_bid line at the event's price level. The top glyph gives you something to scan along the top of the chart for; the bubble gives you the price coordinate; the connector ties them together. EDIT_PRICE still sits as a plain yellow circle on the line — individual edits are read as a band, and a top glyph per edit would clutter the chart beyond use.
+
+### `[Fix]` Pool-luck step dots back on the post-step segment (#264)
+
+The pool-luck step-marker rewrite in build 605 anchored the dot's y-position at `points[afterIdx][luckKey]` — the persisted luck reading at the first daemon tick at-or-after the block's on-chain timestamp. Ocean's `/v1/statsnap` refresher only re-polls every ~5 min, so the value at that tick is often still the pre-event baseline, leaving the dot drawn on the lower (pre-step) horizontal segment of the line while the visible step lands a tick or two later. Mirrored PriceChart's already-working scan-forward pattern: after the timestamp-based grouping, scan up to 15 ticks forward for the first tick where the luck value actually steps off the pre-event baseline and anchor the dot's `cx`/`cy` there. Attribution by `afterIdx` (which keeps multi-event in/out cancellations correct) is unchanged.
+
 ## 2026-06-04
 
 ### `[Release]` v1.12.0

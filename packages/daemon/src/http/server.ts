@@ -47,6 +47,7 @@ import { registerBitcoindTestRoute } from './routes/bitcoind-test.js';
 import { registerElectrsTestRoute } from './routes/electrs-test.js';
 import { registerBlockFoundSoundRoute } from './routes/block-found-sound.js';
 import { registerBtcPriceRoute } from './routes/btc-price.js';
+import { registerDiagnosticsRoute } from './routes/diagnostics.js';
 import { registerConfigRoutes } from './routes/config.js';
 import { registerDecisionsRoutes } from './routes/decisions.js';
 import { registerDepositsRoute } from './routes/deposits.js';
@@ -70,6 +71,7 @@ import type { BraiinsClient } from '@hashrate-autopilot/braiins-client';
 import type { PublicIpService } from '../services/public-ip.js';
 import type { DdnsUpdaterService } from '../services/ddns-updater.js';
 import type { AxeOSPoller } from '../services/axeos-poller.js';
+import type { BraiinsDepositsRepo } from '../state/repos/braiins_deposits.js';
 import type { SoloMinersRepo } from '../state/repos/solo_miners.js';
 import { registerSoloMinersRoute } from './routes/solo-miners.js';
 import type { RewardEventsRepo } from '../state/repos/reward_events.js';
@@ -106,6 +108,8 @@ export interface HttpServerDeps {
   readonly rewardEventsRepo: RewardEventsRepo;
   /** #149: AxeOS poller - exposes the in-memory live snapshot used by the Solo miners card. */
   readonly axeOSPoller: AxeOSPoller;
+  /** #260 follow-up: Braiins deposit history for the debug-dump endpoint. */
+  readonly braiinsDepositsRepo: BraiinsDepositsRepo;
   /**
    * Fires after a successful PUT /api/config. main.ts wires this to
    * refresh the live config reference + kick the DDNS updater when
@@ -251,6 +255,16 @@ export async function createHttpServer(deps: HttpServerDeps): Promise<HttpServer
     btcPriceService: deps.btcPriceService,
     configRepo: deps.configRepo,
   });
+  // #272: one-shot support bundle (connectivity matrix + sanitized config).
+  await registerDiagnosticsRoute(app, {
+    configRepo: deps.configRepo,
+    runtimeRepo: deps.runtimeRepo,
+    braiinsClient: deps.braiinsClient,
+    bitcoindClient: deps.bitcoindClient,
+    btcPriceService: deps.btcPriceService,
+    db: deps.db,
+    tickIntervalMs: deps.tickIntervalMs,
+  });
   await registerDdnsRoute(app, {
     configRepo: deps.configRepo,
     publicIpService: deps.publicIpService,
@@ -280,6 +294,12 @@ export async function createHttpServer(deps: HttpServerDeps): Promise<HttpServer
     bidEventsRepo: deps.bidEventsRepo,
     rewardEventsRepo: deps.rewardEventsRepo,
     runtimeRepo: deps.runtimeRepo,
+    soloMinersRepo: deps.soloMinersRepo,
+    axeOSPoller: deps.axeOSPoller,
+    ownedBidsRepo: deps.ownedBidsRepo,
+    decisionsRepo: deps.decisionsRepo,
+    ipChangeEventsRepo: deps.ipChangeEventsRepo,
+    braiinsDepositsRepo: deps.braiinsDepositsRepo,
   });
 
   // Serve built dashboard if present.

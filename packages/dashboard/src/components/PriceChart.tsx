@@ -15,6 +15,7 @@ import { useLingui } from '@lingui/react';
 import { useQuery } from '@tanstack/react-query';
 import type React from 'react';
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { sideTooltipPosition } from '../lib/tooltipPosition';
 
 import {
   formatTimeTick,
@@ -39,7 +40,16 @@ import {
   inferRetargetBlockHeight,
   projectSoloSeries,
 } from './HashrateChart';
+import { type IpChangeMarkerEvent } from './IpChangeMarkers';
 import { applyExplorerTemplate } from '../lib/blockExplorer';
+import {
+  clientXToTickAt,
+  CrosshairReadout,
+  nearestTickIndex,
+  useCrosshairPointer,
+  type CrosshairReadoutRow,
+  type SharedCrosshair,
+} from '../lib/chartCrosshair';
 import { getChartColor, parseOverrides } from '../lib/chartColors';
 import { copyToClipboard } from '../lib/clipboard';
 import { useDenomination } from '../lib/denomination';
@@ -234,6 +244,7 @@ export const PriceChart = memo(function PriceChart({
   rewardEvents = [],
   deposits = [],
   ourBlocks = [],
+  ipChangeEvents = [],
   blockExplorerTemplate,
   txExplorerTemplate,
   shareLogPct = null,
@@ -247,6 +258,7 @@ export const PriceChart = memo(function PriceChart({
   viewportSince,
   viewportUntil,
   chartColorOverrides,
+  crosshair,
 }: {
   points: readonly MetricPoint[];
   events?: readonly BidEventView[];
@@ -326,6 +338,8 @@ export const PriceChart = memo(function PriceChart({
    * chart they hovered.
    */
   ourBlocks?: readonly OurBlockMarker[];
+  /** #250: public-IP change events, drawn as router-icon markers. */
+  ipChangeEvents?: ReadonlyArray<IpChangeMarkerEvent>;
   /** Block-explorer URL template for pool-block markers (`{hash}` / `{height}` placeholders). */
   blockExplorerTemplate?: string;
   /** Transaction-explorer URL template for reward-event markers (`{txid}` / `{hash}` placeholders). */
@@ -359,6 +373,9 @@ export const PriceChart = memo(function PriceChart({
   /** #238: per-series chart color overrides as a JSON string from
    *  `config.chart_color_overrides`. */
   chartColorOverrides?: string;
+  /** #257: shared crosshair state (synced with HashrateChart). When
+   *  undefined the crosshair is disabled entirely. */
+  crosshair?: SharedCrosshair;
 }) {
   const { i18n } = useLingui();
   void i18n;
@@ -656,7 +673,17 @@ export const PriceChart = memo(function PriceChart({
     const minX = viewportSince ?? dataMinX;
     const maxX = viewportUntil ?? dataMaxX;
 
+    // #275 follow-up: Y-axis auto-range samples ONLY the visible
+    // window. The fetched data extends one window-width past each
+    // viewport edge (prefetch buffer for smooth panning), and sampling
+    // that buffer let an off-screen price spike stretch the visible
+    // Y-axis with nothing on the chart explaining it - the same
+    // hidden-buffer surprise as the stat tiles in #275. The line
+    // paths still cover the full buffer (clipped at the plot edge)
+    // so panning stays seamless; only the scale is viewport-true.
+    const inView = (t: number): boolean => t >= minX && t <= maxX;
     const eventPrices = events
+      .filter((e) => inView(e.occurred_at))
       .flatMap((e) => [e.old_price_sat_per_ph_day, e.new_price_sat_per_ph_day])
       .filter((p): p is number => p !== null && Number.isFinite(p));
     // Deliberately exclude capPoints from Y-axis auto-scaling. The cap
@@ -680,12 +707,22 @@ export const PriceChart = memo(function PriceChart({
     // excluded - the whole point of the toggle is that the flatter
     // bid/fillable/hashprice detail is crushed when the volatile
     // effective line drags the Y-axis range down.
-    const priceSample = [
-      ...pricePoints.map((p) => p.v),
-      ...hashpricePoints.map((p) => p.v),
-      ...fillablePoints.map((p) => p.v),
+    let priceSample = [
+      ...pricePoints.filter((p) => inView(p.t)).map((p) => p.v),
+      ...hashpricePoints.filter((p) => inView(p.t)).map((p) => p.v),
+      ...fillablePoints.filter((p) => inView(p.t)).map((p) => p.v),
       ...eventPrices,
     ];
+    if (priceSample.length === 0) {
+      // Degenerate viewport with no points in view (panned past the
+      // data, or mid-fetch). Fall back to the full fetched sample so
+      // the axis holds a sane scale instead of snapping to 0..1.
+      priceSample = [
+        ...pricePoints.map((p) => p.v),
+        ...hashpricePoints.map((p) => p.v),
+        ...fillablePoints.map((p) => p.v),
+      ];
+    }
     const hasPrice = priceSample.length > 0;
     let priceMinRaw = hasPrice ? Infinity : 0;
     let priceMaxRaw = hasPrice ? -Infinity : 1;
@@ -1232,7 +1269,10 @@ export const PriceChart = memo(function PriceChart({
       }
     }
 
-    return { pricePoints, minX, maxX, dataMinX, dataMaxX, hasPrice, priceMin, priceMax, xScale, yScale, pricePath, priceAreaPath, hashpricePath, fillablePath, fillableHasData: fillablePoints.length > 0, effectivePath, effectiveHasData: effectivePoints.length > 0, capPath, capExclusionPolygon, yTicks, xTickInterval, xTicks, visibleEvents, rightAxis, hasRightAxis, rightAxisPath, rightYTicks, rightYScale, padRight, marketplaceEmptyIntervals, braiinsUnreachableIntervals, daemonOfflineIntervals };
+    // xs / smoothedPriceByTick / capByTick exposed for the #257
+    // crosshair readout - the bid row mirrors the smoothed line the
+    // chart draws, the cap row mirrors the per-tick effective cap.
+    return { pricePoints, xs, smoothedPriceByTick, capByTick, minX, maxX, dataMinX, dataMaxX, hasPrice, priceMin, priceMax, xScale, yScale, pricePath, priceAreaPath, hashpricePath, fillablePath, fillableHasData: fillablePoints.length > 0, effectivePath, effectiveHasData: effectivePoints.length > 0, capPath, capExclusionPolygon, yTicks, xTickInterval, xTicks, visibleEvents, rightAxis, hasRightAxis, rightAxisPath, rightYTicks, rightYScale, padRight, marketplaceEmptyIntervals, braiinsUnreachableIntervals, daemonOfflineIntervals };
   }, [points, events, showEventKinds, priceSmoothingMinutes, historicalPayoutsOffsetSat, maxOverpayVsHashpriceSatPerPhDay, chartHeight, rightAxisSeries, soloSeries, denomination, intlLocale, viewportSince, viewportUntil]);
 
   const eventPriceAt = useCallback((e: BidEventView): number | null => {
@@ -1748,6 +1788,83 @@ export const PriceChart = memo(function PriceChart({
     return out;
   }, [points, ourBlocks]);
 
+  // #257: crosshair wiring - mirror of the HashrateChart block. The
+  // svg ref is shared with the wheel-zoom ref callback; pointer
+  // handlers compose viewport pan/zoom with crosshair hover /
+  // click-to-pin / touch long-press scrub.
+  const svgElRef = useRef<SVGSVGElement | null>(null);
+  const svgRefCb = useCallback((node: SVGSVGElement | null) => {
+    svgElRef.current = node;
+    wheelRef?.(node);
+  }, [wheelRef]);
+
+  const clientToTick = useCallback((svg: SVGSVGElement, clientX: number): number | null => {
+    if (!chartData) return null;
+    return clientXToTickAt(svg, clientX, {
+      width: WIDTH,
+      padLeft: PADDING.left,
+      padRight: chartData.padRight,
+      minX: chartData.minX,
+      maxX: chartData.maxX,
+      xs: chartData.xs,
+    });
+  }, [chartData]);
+
+  const crosshairHandlers = useCrosshairPointer({
+    chartId: 'price',
+    crosshair,
+    viewportHandlers,
+    clientToTick,
+  });
+
+  // Marker line position + readout rows at the snapped tick. Bid uses
+  // the smoothed series the chart draws; fillable / hashprice come
+  // straight off the tick; cap is the per-tick effective cap; the
+  // right-axis series formats through its own axis formatter.
+  const crosshairView = useMemo(() => {
+    const cs = crosshair?.state;
+    if (!cs || !chartData || isDragging) return null;
+    if (cs.tickAt < chartData.minX || cs.tickAt > chartData.maxX) return null;
+    const i = nearestTickIndex(chartData.xs, cs.tickAt);
+    if (i < 0) return null;
+    const { xScale, yScale, rightYScale, rightYTicks, smoothedPriceByTick, capByTick, hasRightAxis, rightAxis } = chartData;
+    const p = points[i]!;
+    const rows: CrosshairReadoutRow[] = [];
+    const dots: Array<{ cy: number; color: string }> = [];
+    const fmtRate = (v: number) => denomination.formatSatPerPhDay(v, intlLocale);
+    const bid = smoothedPriceByTick.get(p.tick_at) ?? null;
+    if (bid !== null) {
+      rows.push({ color: COLOR_PRICE, label: t`our bid`, value: fmtRate(bid) });
+      dots.push({ cy: yScale(bid), color: COLOR_PRICE });
+    }
+    const fillable = p.fillable_ask_sat_per_ph_day;
+    if (fillable !== null && Number.isFinite(fillable)) {
+      rows.push({ color: COLOR_FILLABLE, label: t`fillable`, value: fmtRate(fillable) });
+      dots.push({ cy: yScale(fillable), color: COLOR_FILLABLE });
+    }
+    const hashprice = p.hashprice_sat_per_ph_day;
+    if (hashprice !== null && Number.isFinite(hashprice)) {
+      rows.push({ color: COLOR_HASHPRICE, label: t`hashprice`, value: fmtRate(hashprice), dashed: true });
+      dots.push({ cy: yScale(hashprice), color: COLOR_HASHPRICE });
+    }
+    const cap = capByTick.get(p.tick_at) ?? null;
+    if (cap !== null) {
+      // No dot: the cap usually sits far above the auto-ranged
+      // viewport, so a dot would render off-plot most of the time.
+      rows.push({ color: COLOR_MAXBID, label: t`max bid`, value: fmtRate(cap) });
+    }
+    if (hasRightAxis && rightAxis) {
+      const v = rightAxis.values[i];
+      if (v !== null && v !== undefined && Number.isFinite(v)) {
+        const span = (rightYTicks[rightYTicks.length - 1] ?? 1) - (rightYTicks[0] ?? 0);
+        rows.push({ color: rightAxis.stroke, label: rightAxis.axisLabel, value: rightAxis.formatTick(v, span) });
+        dots.push({ cy: rightYScale(v), color: rightAxis.stroke });
+      }
+    }
+    const x = xScale(cs.tickAt);
+    return { state: cs, x, lineXFrac: x / WIDTH, rows, dots };
+  }, [crosshair?.state, chartData, isDragging, points, denomination, intlLocale, _colorOverrides]);
+
   if (!chartData) {
     return (
       <div className="bg-slate-900 border border-slate-800 rounded-lg p-4">
@@ -1809,7 +1926,7 @@ export const PriceChart = memo(function PriceChart({
   };
 
   return (
-    <div ref={containerRef} className="bg-slate-900 border rounded-lg p-4 relative border-slate-800">
+    <div ref={containerRef} className="bg-slate-900 border rounded-lg p-4 relative border-slate-800" data-chart-crosshair>
       <div className="flex items-center justify-between mb-2 gap-3 flex-wrap">
         <div className="flex items-center gap-2">
           <h3 className="text-xs uppercase tracking-wider text-slate-100"><Trans>Price</Trans></h3>
@@ -1851,7 +1968,7 @@ export const PriceChart = memo(function PriceChart({
         </div>
       </div>
       <svg
-        ref={wheelRef}
+        ref={svgRefCb}
         viewBox={`0 0 ${WIDTH} ${chartHeight}`}
         preserveAspectRatio="xMidYMid meet"
         className="w-full h-auto"
@@ -1862,7 +1979,7 @@ export const PriceChart = memo(function PriceChart({
           outlineOffset: '2px',
           borderRadius: '8px',
         }}
-        {...viewportHandlers}
+        {...crosshairHandlers}
       >
         <defs>
           <clipPath id="px-data-clip">
@@ -2111,12 +2228,47 @@ export const PriceChart = memo(function PriceChart({
             onClick: onMarkerClick(e),
             style: { cursor: 'pointer' },
           };
+          // #265 v3: build 608's top-edge glyphs were 8×8 SVG units
+          // and positioned at y = PADDING.top - 1, while the pool-block
+          // cubes next to them are 14×14 at y = PADDING.top - 11.
+          // Result: the bid-event glyphs looked ~75% smaller than the
+          // cubes AND sat ~3 px lower, breaking the "scan along the
+          // top of the chart" pattern they were supposed to slot into.
+          // Re-rendered as inline SVG with viewBox="0 0 24 24", same
+          // 14×14 footprint and same y position as the cubes, using
+          // Lucide-style paths (plus / x / diamond) for visual parity.
+          const GLYPH_W = 14;
+          const GLYPH_X = cx - GLYPH_W / 2;
+          const GLYPH_Y = PADDING.top - 11;            // matches pool-block cube
+          const GLYPH_BOTTOM = GLYPH_Y + GLYPH_W;       // y at which the glyph box ends
+          const lineTopY = GLYPH_BOTTOM + 1;
+          const bubbleR = 3.5;
+          const lineBottomY = cy - bubbleR;
+          const hitTopY = GLYPH_Y - 1;
+          const hitH = Math.max(GLYPH_W + 2, cy - hitTopY + bubbleR + 2);
           if (e.kind === 'CREATE_BID') {
             return (
               <g key={e.id} {...common}>
-                <line x1={cx - 5} x2={cx + 5} y1={cy} y2={cy} stroke={COLOR_CREATE} strokeWidth="2.2" />
-                <line x1={cx} x2={cx} y1={cy - 5} y2={cy + 5} stroke={COLOR_CREATE} strokeWidth="2.2" />
-                <rect x={cx - 8} y={cy - 8} width="16" height="16" fill="transparent" />
+                {/* Lucide `circle-plus`. */}
+                <svg
+                  x={GLYPH_X} y={GLYPH_Y}
+                  width={GLYPH_W} height={GLYPH_W} viewBox="0 0 24 24"
+                  fill="none" stroke={COLOR_CREATE} strokeWidth="2"
+                  strokeLinecap="round" strokeLinejoin="round"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M8 12h8" />
+                  <path d="M12 8v8" />
+                </svg>
+                {lineBottomY > lineTopY + 1 && (
+                  <line
+                    x1={cx} x2={cx} y1={lineTopY} y2={lineBottomY}
+                    stroke={COLOR_CREATE} strokeWidth="1.3"
+                    strokeDasharray="3 3" opacity="0.7" pointerEvents="none"
+                  />
+                )}
+                <circle cx={cx} cy={cy} r={bubbleR} fill={COLOR_CREATE} stroke="#0f172a" strokeWidth="1" />
+                <rect x={cx - 8} y={hitTopY} width="16" height={hitH} fill="transparent" />
               </g>
             );
           }
@@ -2129,32 +2281,52 @@ export const PriceChart = memo(function PriceChart({
             );
           }
           if (e.kind === 'EDIT_SPEED') {
-            // Speed-edit marker: hollow blue diamond on the price line at
-            // the event time. Earlier I parked it at chart-top reasoning
-            // that a speed change has no inherent price coordinate - but
-            // operator pointed out (correctly) that anchoring it to the
-            // price line is what makes it readable: you see *at what
-            // price* the capacity got resized, lined up with the rest of
-            // the events.
-            const r = 4.5;
             return (
               <g key={e.id} {...common}>
-                <polygon
-                  points={`${cx},${cy - r} ${cx + r},${cy} ${cx},${cy + r} ${cx - r},${cy}`}
-                  fill="none"
-                  stroke={COLOR_EDIT_SPEED}
-                  strokeWidth="1.6"
-                />
-                <rect x={cx - 8} y={cy - 8} width="16" height="16" fill="transparent" />
+                {/* Lucide `gauge`. */}
+                <svg
+                  x={GLYPH_X} y={GLYPH_Y}
+                  width={GLYPH_W} height={GLYPH_W} viewBox="0 0 24 24"
+                  fill="none" stroke={COLOR_EDIT_SPEED} strokeWidth="2"
+                  strokeLinecap="round" strokeLinejoin="round"
+                >
+                  <path d="m12 14 4-4" />
+                  <path d="M3.34 19a10 10 0 1 1 17.32 0" />
+                </svg>
+                {lineBottomY > lineTopY + 1 && (
+                  <line
+                    x1={cx} x2={cx} y1={lineTopY} y2={lineBottomY}
+                    stroke={COLOR_EDIT_SPEED} strokeWidth="1.3"
+                    strokeDasharray="3 3" opacity="0.7" pointerEvents="none"
+                  />
+                )}
+                <circle cx={cx} cy={cy} r={bubbleR} fill={COLOR_EDIT_SPEED} stroke="#0f172a" strokeWidth="1" />
+                <rect x={cx - 8} y={hitTopY} width="16" height={hitH} fill="transparent" />
               </g>
             );
           }
           if (e.kind === 'CANCEL_BID') {
             return (
               <g key={e.id} {...common}>
-                <line x1={cx - 5} x2={cx + 5} y1={cy - 5} y2={cy + 5} stroke={COLOR_CANCEL} strokeWidth="2.2" />
-                <line x1={cx - 5} x2={cx + 5} y1={cy + 5} y2={cy - 5} stroke={COLOR_CANCEL} strokeWidth="2.2" />
-                <rect x={cx - 8} y={cy - 8} width="16" height="16" fill="transparent" />
+                {/* Lucide `ban`. */}
+                <svg
+                  x={GLYPH_X} y={GLYPH_Y}
+                  width={GLYPH_W} height={GLYPH_W} viewBox="0 0 24 24"
+                  fill="none" stroke={COLOR_CANCEL} strokeWidth="2"
+                  strokeLinecap="round" strokeLinejoin="round"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="m4.9 4.9 14.2 14.2" />
+                </svg>
+                {lineBottomY > lineTopY + 1 && (
+                  <line
+                    x1={cx} x2={cx} y1={lineTopY} y2={lineBottomY}
+                    stroke={COLOR_CANCEL} strokeWidth="1.3"
+                    strokeDasharray="3 3" opacity="0.7" pointerEvents="none"
+                  />
+                )}
+                <circle cx={cx} cy={cy} r={bubbleR} fill={COLOR_CANCEL} stroke="#0f172a" strokeWidth="1" />
+                <rect x={cx - 8} y={hitTopY} width="16" height={hitH} fill="transparent" />
               </g>
             );
           }
@@ -2162,9 +2334,15 @@ export const PriceChart = memo(function PriceChart({
         })}
         </g>
 
+        {/* #262: bottom x-axis line stops at the data-area edge
+            (WIDTH - padRight) instead of the SVG-padding edge
+            (WIDTH - PADDING.right). Without this, when a right axis
+            is rendered the line extends past the data area and into
+            the right-axis labels. The HashrateChart already does it
+            this way; the PriceChart had drifted. */}
         <line
           x1={PADDING.left}
-          x2={WIDTH - PADDING.right}
+          x2={WIDTH - padRight}
           y1={chartHeight - PADDING.bottom}
           y2={chartHeight - PADDING.bottom}
           stroke="#334155"
@@ -2532,6 +2710,34 @@ export const PriceChart = memo(function PriceChart({
             only - they correlate with delivered-vs-received hashrate
             (Datum/Braiins re-establishing connections after a router
             IP rotation), not with the price-axis content. */}
+
+        {/* #257: crosshair marker line + per-series dots. Pinned
+            renders solid; transient hover renders dashed. */}
+        {crosshairView && (
+          <g pointerEvents="none">
+            <line
+              x1={crosshairView.x}
+              x2={crosshairView.x}
+              y1={PADDING.top}
+              y2={chartHeight - PADDING.bottom}
+              stroke="#94a3b8"
+              strokeWidth="1"
+              strokeDasharray={crosshairView.state.pinned ? undefined : '3 3'}
+              opacity={crosshairView.state.pinned ? 0.9 : 0.6}
+            />
+            {crosshairView.dots.map((d, di) => (
+              <circle
+                key={`xh-dot-${di}`}
+                cx={crosshairView.x}
+                cy={d.cy}
+                r="3"
+                fill={d.color}
+                stroke="#0f172a"
+                strokeWidth="1"
+              />
+            ))}
+          </g>
+        )}
         </g>
 
         {hasRightAxis && rightAxis && (
@@ -2548,6 +2754,27 @@ export const PriceChart = memo(function PriceChart({
           </text>
         )}
       </svg>
+
+      {/* #257: per-chart value readout for the crosshair. Suppressed
+          while a marker hover-tooltip is open - markers win on direct
+          hover (pinned marker tooltips coexist fine). */}
+      {crosshairView && !(
+        (tooltip !== null && !tooltip.pinned) ||
+        (poolBlockTip !== null && !poolBlockTip.pinned) ||
+        (rewardTip !== null && !rewardTip.pinned) ||
+        (depositTip !== null && !depositTip.pinned) ||
+        (retargetTip !== null && !retargetTip.pinned) ||
+        (unpaidDropTip !== null && !unpaidDropTip.pinned)
+      ) && (
+        <CrosshairReadout
+          chartId="price"
+          state={crosshairView.state}
+          svgEl={svgElRef.current}
+          lineXFrac={crosshairView.lineXFrac}
+          rows={crosshairView.rows}
+          onClose={() => crosshair?.clear()}
+        />
+      )}
 
       {poolBlockTip && (
         <PoolBlockTooltip
@@ -2682,13 +2909,9 @@ function RewardEventTooltip({
     const el = ref.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
-    const margin = 8;
-    let left = tip.x + 12;
-    let top = tip.y + 12;
-    if (left + rect.width > window.innerWidth - margin) left = tip.x - rect.width - 12;
-    if (top + rect.height > window.innerHeight - margin) top = tip.y - rect.height - 12;
-    if (left < margin) left = margin;
-    if (top < margin) top = margin;
+    // #266 follow-up: side-positioned so the tooltip doesn't
+    // reach into the neighbouring (hashrate) chart above.
+    const { left, top } = sideTooltipPosition(tip.x, tip.y, rect);
     setPos({ left, top, ready: true });
   }, [tip.x, tip.y, reward.id]);
 
@@ -2792,13 +3015,7 @@ function DepositTooltip({
     const el = ref.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
-    const margin = 8;
-    let left = tip.x + 12;
-    let top = tip.y + 12;
-    if (left + rect.width > window.innerWidth - margin) left = tip.x - rect.width - 12;
-    if (top + rect.height > window.innerHeight - margin) top = tip.y - rect.height - 12;
-    if (left < margin) left = margin;
-    if (top < margin) top = margin;
+    const { left, top } = sideTooltipPosition(tip.x, tip.y, rect);
     setPos({ left, top, ready: true });
   }, [tip.x, tip.y, deposit.tx_id]);
 
@@ -3017,25 +3234,9 @@ function EventTooltip({
     const el = ref.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
-    const margin = 12;
-    const safeEdge = 8;
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-
-    let left = tip.x + margin;
-    if (left + rect.width > vw - safeEdge) {
-      // Flip to the left side of the cursor.
-      left = tip.x - rect.width - margin;
-    }
-    if (left < safeEdge) left = safeEdge;
-
-    let top = tip.y + margin;
-    if (top + rect.height > vh - safeEdge) {
-      // Flip above the cursor.
-      top = tip.y - rect.height - margin;
-    }
-    if (top < safeEdge) top = safeEdge;
-
+    // #266 follow-up: side-positioned so the bid-event tooltip
+    // doesn't reach into the hashrate chart above.
+    const { left, top } = sideTooltipPosition(tip.x, tip.y, rect);
     setPos({ left, top, ready: true });
   }, [tip.x, tip.y, tip.event.id]);
 
@@ -3359,13 +3560,28 @@ function Legend({ color, label, dashed }: { color: string; label: string; dashed
 
 function EventLegend({ kinds }: { kinds: readonly BidEventKind[] }) {
   const has = (k: BidEventKind) => kinds.includes(k);
+  // #265 v4: legend icons mirror the chart-top glyphs so the
+  // operator's mental "+ create" / "gauge edit speed" / "ban cancel"
+  // lookup carries over. Same Lucide paths as the in-chart markers,
+  // downscaled to 12x12 viewBox-coords-per-12px so the strokes
+  // stay legible inline.
+  const iconProps = {
+    width: 12,
+    height: 12,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    strokeWidth: 2,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+  };
   return (
     <span className="flex items-center gap-2 text-slate-400 pl-2 border-l border-slate-700 flex-wrap">
       {has('CREATE_BID') && (
         <span className="flex items-center gap-1 whitespace-nowrap">
-          <svg width="10" height="10">
-            <line x1="1" y1="5" x2="9" y2="5" stroke={COLOR_CREATE} strokeWidth="2" />
-            <line x1="5" y1="1" x2="5" y2="9" stroke={COLOR_CREATE} strokeWidth="2" />
+          <svg {...iconProps} stroke={COLOR_CREATE}>
+            <circle cx="12" cy="12" r="10" />
+            <path d="M8 12h8" />
+            <path d="M12 8v8" />
           </svg>
           <Trans>create</Trans>
         </span>
@@ -3380,22 +3596,18 @@ function EventLegend({ kinds }: { kinds: readonly BidEventKind[] }) {
       )}
       {has('EDIT_SPEED') && (
         <span className="flex items-center gap-1 whitespace-nowrap">
-          <svg width="10" height="10">
-            <polygon
-              points="5,1 9,5 5,9 1,5"
-              fill="none"
-              stroke={COLOR_EDIT_SPEED}
-              strokeWidth="1.4"
-            />
+          <svg {...iconProps} stroke={COLOR_EDIT_SPEED}>
+            <path d="m12 14 4-4" />
+            <path d="M3.34 19a10 10 0 1 1 17.32 0" />
           </svg>
           <Trans>edit speed</Trans>
         </span>
       )}
       {has('CANCEL_BID') && (
         <span className="flex items-center gap-1 whitespace-nowrap">
-          <svg width="10" height="10">
-            <line x1="1" y1="1" x2="9" y2="9" stroke={COLOR_CANCEL} strokeWidth="2" />
-            <line x1="9" y1="1" x2="1" y2="9" stroke={COLOR_CANCEL} strokeWidth="2" />
+          <svg {...iconProps} stroke={COLOR_CANCEL}>
+            <circle cx="12" cy="12" r="10" />
+            <path d="m4.9 4.9 14.2 14.2" />
           </svg>
           <Trans>cancel</Trans>
         </span>
@@ -3430,13 +3642,7 @@ function UnpaidDropTooltip({
     const el = ref.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
-    const margin = 8;
-    let left = tip.x + 12;
-    let top = tip.y + 12;
-    if (left + rect.width > window.innerWidth - margin) left = tip.x - rect.width - 12;
-    if (top + rect.height > window.innerHeight - margin) top = tip.y - rect.height - 12;
-    if (left < margin) left = margin;
-    if (top < margin) top = margin;
+    const { left, top } = sideTooltipPosition(tip.x, tip.y, rect);
     setPos({ left, top, ready: true });
   }, [tip.x, tip.y, tip.tick_at]);
 

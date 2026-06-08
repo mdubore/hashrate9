@@ -1,10 +1,11 @@
-// #244: shared dashboard card-order + rearrange-mode state.
+// #244 v3: shared dashboard card-order state + rearrange-mode flag.
 //
-// The order itself is consumed by the Status page (to render blocks in
-// the saved sequence) but the "Rearrange" toggle lives in the global
-// header (Layout), so the edit-mode flag and the order controls have to
-// be reachable from both. This context, mounted above both the header
-// and the routed page, is that shared home.
+// v1 had a Rearrange toggle; v2 went always-on with a left gutter; v3
+// brings the toggle back because the always-on gutter cost was too
+// high (especially on mobile, where 20 px off every card hurt). The
+// grip handles are kept (small icons, easier to find than v1's full
+// title-bar) but only shown in rearrange mode, alongside a small
+// visual lift on each draggable card.
 
 import { createContext, useContext, useState, type ReactNode } from 'react';
 import { useCardOrder, type CardOrderControls } from './cardOrder';
@@ -39,10 +40,10 @@ const CardOrderContext = createContext<CardOrderContextValue | null>(null);
 export function CardOrderProvider({ children }: { children: ReactNode }) {
   const controls = useCardOrder(DEFAULT_BLOCK_ORDER);
   const [rearranging, setRearranging] = useState(false);
-  // Recomputed only when the provider re-renders (i.e. on an actual
-  // order or rearranging change), so consumers don't churn per frame.
   const value: CardOrderContextValue = { ...controls, rearranging, setRearranging };
-  return <CardOrderContext.Provider value={value}>{children}</CardOrderContext.Provider>;
+  return (
+    <CardOrderContext.Provider value={value}>{children}</CardOrderContext.Provider>
+  );
 }
 
 export function useCardOrderContext(): CardOrderContextValue {

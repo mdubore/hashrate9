@@ -1,13 +1,24 @@
-// #244: drag-to-reorder for the top-level dashboard blocks.
+// #244 v3: drag-to-reorder for the top-level dashboard blocks, gated
+// behind a Rearrange toggle in the header.
 //
-// Rather than an always-on grip on every card (which would collide
-// with each card's existing top-right refresh countdown, and whose
-// drag gesture would fight the charts' own pan/zoom drag), reordering
-// lives behind an explicit "Rearrange" mode. While editing, each block
-// gets a labelled drag bar and its content is inert (pointer-events
-// off) so a stray tap can't fire a button mid-drag; outside edit mode
-// the blocks render exactly as before with zero wrappers and no DnD
-// listeners mounted.
+// v1 used a whole-card title-bar as the drag affordance and rendered
+// the card content as pointer-events:none while editing - charts and
+// buttons inside the card couldn't be interacted with mid-edit, and
+// the title-bar chrome was bulky.
+//
+// v2 went always-on: a slim 20 px gutter to the LEFT of every card,
+// holding a grip handle. The handles were discoverable but the
+// permanent gutter ate too much horizontal space (especially on
+// mobile) for an affordance the operator uses three times in a
+// dashboard's life.
+//
+// v3 reverts to the gated approach but with the v2 grip-only idiom:
+//   - Outside rearrange mode: cards render plain. Zero overhead, no
+//     gutter, no handles, no DnD listeners mounted.
+//   - Inside rearrange mode: each card grows a temporary left gutter
+//     with a prominent amber grip. Drag listeners are bound to the
+//     grip button only, so the card body stays interactive (you can
+//     still hover charts and read tooltips while reordering).
 //
 // Persistence + reconciliation against the live block set lives in
 // lib/cardOrder.ts; this component is purely the drag surface.
@@ -31,18 +42,20 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { t } from '@lingui/core/macro';
 
 export interface DashboardBlock {
   /** Stable block ID, persisted in the saved order. */
   id: string;
-  /** Human-readable, translated label shown on the drag bar. */
+  /** Human-readable, translated label shown on the grip's tooltip / aria. */
   label: string;
   /** The rendered block. */
   node: React.ReactNode;
 }
 
 function GripIcon() {
-  // Lucide grip-vertical - the universal drag-handle affordance.
+  // Lucide grip-vertical, slightly larger than v2 so it reads as a
+  // clear handle in rearrange mode rather than dust in the corner.
   return (
     <svg
       width="16"
@@ -62,20 +75,14 @@ function GripIcon() {
   );
 }
 
-function SortableItem({
-  block,
-  dragHint,
-}: {
-  block: DashboardBlock;
-  dragHint: string;
-}) {
+function SortableItem({ block }: { block: DashboardBlock }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: block.id });
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.85 : 1,
+    opacity: isDragging ? 0.9 : 1,
     zIndex: isDragging ? 30 : undefined,
   };
 
@@ -83,26 +90,29 @@ function SortableItem({
     <div
       ref={setNodeRef}
       style={style}
-      className={`rounded-lg ring-2 ${
-        isDragging
-          ? 'ring-emerald-500 shadow-lg shadow-black/40'
-          : 'ring-slate-700/60'
+      className={`flex items-stretch gap-2 rounded-lg ${
+        isDragging ? 'ring-2 ring-amber-500 shadow-lg shadow-black/40' : ''
       }`}
     >
-      <button
-        type="button"
-        {...attributes}
-        {...listeners}
-        title={dragHint}
-        aria-label={`${dragHint}: ${block.label}`}
-        className="flex w-full items-center gap-2 rounded-t-lg bg-slate-800 px-3 py-1.5 text-left text-xs font-medium uppercase tracking-wider text-slate-200 cursor-grab active:cursor-grabbing touch-none select-none hover:bg-slate-700"
-      >
-        <GripIcon />
-        <span className="truncate">{block.label}</span>
-      </button>
-      {/* Content is inert while rearranging so taps can't trigger the
-          card's own controls (buttons, chart pan/zoom) mid-drag. */}
-      <div className="pointer-events-none p-2 opacity-80">{block.node}</div>
+      {/* Visible-while-editing grip. Amber + subtle glow so the
+          affordance is unmistakable. Drag listeners are bound here
+          only, so chart pan/zoom and panel buttons stay interactive
+          inside the card body while the operator is reordering. */}
+      <div className="flex-none w-6 flex justify-center pt-4">
+        <button
+          type="button"
+          {...attributes}
+          {...listeners}
+          aria-label={`${t`Drag to reorder`}: ${block.label}`}
+          title={`${t`Drag to reorder`}: ${block.label}`}
+          className={`p-1 rounded text-amber-300 cursor-grab active:cursor-grabbing touch-none transition drop-shadow-[0_0_4px_rgba(252,211,77,0.35)] hover:bg-slate-800/60 hover:drop-shadow-[0_0_6px_rgba(252,211,77,0.6)] ${
+            isDragging ? 'drop-shadow-[0_0_6px_rgba(252,211,77,0.6)]' : ''
+          }`}
+        >
+          <GripIcon />
+        </button>
+      </div>
+      <div className="min-w-0 flex-1">{block.node}</div>
     </div>
   );
 }
@@ -111,30 +121,27 @@ export function SortableDashboard({
   blocks,
   editing,
   onReorder,
-  dragHint,
 }: {
   blocks: DashboardBlock[];
   editing: boolean;
   onReorder: (ids: string[]) => void;
-  /** Translated "drag to reorder" hint for the bar tooltip/aria. */
-  dragHint: string;
 }) {
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      // Small distance gate so a click on the bar doesn't register as a
-      // drag; matters on desktop.
-      activationConstraint: { distance: 4 },
+      // 6 px gate so a click near the grip doesn't become a drag.
+      activationConstraint: { distance: 6 },
     }),
     useSensor(TouchSensor, {
-      // Short press-and-hold to start on touch, so vertical scrolling
-      // through the (now-tall) edit view isn't hijacked.
+      // Press-and-hold to start on touch so vertical scrolling isn't
+      // hijacked by an accidental long-touch on the grip.
       activationConstraint: { delay: 180, tolerance: 6 },
     }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
   if (!editing) {
-    // Zero-overhead path: render the blocks plain, exactly as before.
+    // Zero-overhead path: render plain divs, no DnD context, no
+    // gutter, no grips. Mirrors v1's idle path.
     return (
       <>
         {blocks.map((b) => (
@@ -166,7 +173,7 @@ export function SortableDashboard({
         strategy={verticalListSortingStrategy}
       >
         {blocks.map((b) => (
-          <SortableItem key={b.id} block={b} dragHint={dragHint} />
+          <SortableItem key={b.id} block={b} />
         ))}
       </SortableContext>
     </DndContext>

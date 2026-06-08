@@ -15,6 +15,8 @@ import {
 
 import { Bip110ScanCard } from '../components/Bip110ScanCard';
 import { SoloMinersCard } from '../components/SoloMinersCard';
+import { TilesBar } from '../components/TilesBar';
+import { parseDashboardTiles } from '@hashrate-autopilot/shared';
 import { HashrateChart, type HashrateRightAxis } from '../components/HashrateChart';
 import { type PriceRightAxis } from '../components/PriceChart';
 import { PriceChart } from '../components/PriceChart';
@@ -50,6 +52,7 @@ import { actionModeLabel, bidStatusClass, bidStatusLabel } from '../lib/labels';
 import { useDateTimeLocale, useFormatters, useLocale } from '../lib/locale';
 import { localizedRangeLabel } from '../lib/range-label';
 import { useChartViewport } from '../lib/useChartViewport';
+import { useSharedCrosshair } from '../lib/chartCrosshair';
 import { useCardOrderContext } from '../lib/cardOrderContext';
 
 const RUN_MODES = ['DRY_RUN', 'LIVE', 'PAUSED'] as const;
@@ -138,6 +141,9 @@ export function Status() {
   void i18n;
 
   const chartViewport = useChartViewport();
+  // #257: one crosshair position shared by both charts - hover/pin on
+  // either draws the synced marker line + per-chart readout on both.
+  const chartCrosshair = useSharedCrosshair();
   const chartRange = chartViewport.viewport.activePreset ?? DEFAULT_CHART_RANGE;
   const setChartRange = chartViewport.setPreset;
   const vp = chartViewport.settledViewport;
@@ -174,10 +180,9 @@ export function Status() {
     window.localStorage.setItem(PRICE_RIGHT_AXIS_KEY, priceRightAxis);
   }, [priceRightAxis]);
 
-  // #244: operator-defined dashboard block order (drag to reorder),
-  // stored per-device in localStorage. The order + the "Rearrange"
-  // edit-mode flag live in CardOrderProvider (mounted in Layout) so the
-  // toggle can sit in the global header instead of costing page height.
+  // #244 v3: operator-defined dashboard block order. Rearrange mode
+  // toggles via a header button (always-on gutter was too costly,
+  // especially on mobile). The grip handles only show in edit mode.
   const cardOrder = useCardOrderContext();
   const rearranging = cardOrder.rearranging;
 
@@ -237,8 +242,9 @@ export function Status() {
   }, [dataStartMs, chartViewport.viewport.since_ms, chartViewport.viewport.until_ms]);
 
   const bidEventsQuery = useQuery({
-    queryKey: ['bid-events', fetchBounds.since_ms, fetchBounds.until_ms],
-    queryFn: () => api.bidEventsViewport(fetchBounds.since_ms, fetchBounds.until_ms),
+    queryKey: ['bid-events', fetchBounds.since_ms, fetchBounds.until_ms, visibleSpan],
+    queryFn: () =>
+      api.bidEventsViewport(fetchBounds.since_ms, fetchBounds.until_ms, visibleSpan),
     placeholderData: keepPreviousData,
     refetchInterval: vp.liveEdge ? 60_000 : false,
   });
@@ -252,9 +258,22 @@ export function Status() {
     refetchInterval: vp.liveEdge ? 60_000 : false,
   });
 
+  // #275: stat tiles aggregate over the VISIBLE viewport, not
+  // `fetchBounds`. The fetch buffer (±1 window-width) exists so chart
+  // series pan smoothly, but feeding it to /api/stats made the tiles
+  // cover a silently 3×-wider window - an off-screen no-bid tick over
+  // an hour left of the chart edge moved BID COVERAGE between 99.5
+  // and 100.0 as the operator panned, with nothing visible changing.
+  // Tooltips promise "% of the selected chart range"; honor that. At
+  // a live preset, use the range-keyed endpoint so the server-side
+  // per-range cache applies (same pattern as financeRangeQuery).
   const statsQuery = useQuery({
-    queryKey: ['stats', fetchBounds.since_ms, fetchBounds.until_ms],
-    queryFn: () => api.statsViewport(fetchBounds.since_ms, fetchBounds.until_ms),
+    queryKey: vp.liveEdge && vp.activePreset
+      ? ['stats', vp.activePreset]
+      : ['stats', vp.since_ms, vp.until_ms],
+    queryFn: () => vp.liveEdge && vp.activePreset
+      ? api.stats(vp.activePreset)
+      : api.statsViewport(vp.since_ms, vp.until_ms),
     placeholderData: keepPreviousData,
     refetchInterval: vp.liveEdge ? 60_000 : false,
   });
@@ -266,6 +285,15 @@ export function Status() {
     queryKey: ['ocean'],
     queryFn: api.ocean,
     refetchInterval: 60_000,
+  });
+
+  // #266 follow-up: solo-miners snapshot powers the Bitaxe fleet
+  // tiles (hashrate, power, J/TH) in TilesBar. Shared query key with
+  // SoloMinersCard so React Query dedupes.
+  const soloMinersQuery = useQuery({
+    queryKey: ['solo-miners'],
+    queryFn: api.soloMiners,
+    refetchInterval: 30_000,
   });
 
   // Reward events drive the per-payout dot markers on the Price
@@ -305,10 +333,12 @@ export function Status() {
   const financeRangeQuery = useQuery({
     queryKey: vp.liveEdge && vp.activePreset
       ? ['finance-range', vp.activePreset]
-      : ['finance-range', fetchBounds.since_ms, fetchBounds.until_ms],
+      : ['finance-range', vp.since_ms, vp.until_ms],
     queryFn: () => vp.liveEdge && vp.activePreset
       ? api.financeRange(vp.activePreset)
-      : api.financeRangeViewport(fetchBounds.since_ms, fetchBounds.until_ms),
+      : // #275: visible viewport, not the buffered fetchBounds - see
+        // statsQuery above.
+        api.financeRangeViewport(vp.since_ms, vp.until_ms),
     placeholderData: keepPreviousData,
     refetchInterval: vp.liveEdge ? 60_000 : false,
   });
@@ -526,7 +556,30 @@ export function Status() {
         onResetToLive={chartViewport.goLive}
       />
     ),
-    indicators: <StatsBar statsData={statsQuery.data} />,
+    indicators: (
+      <TilesBar
+        tileIds={parseDashboardTiles(configQuery.data?.config?.dashboard_tiles)}
+        statsData={statsQuery.data}
+        statusData={query.data}
+        oceanData={oceanQuery.data}
+        soloMinersData={soloMinersQuery.data}
+        financeRangeData={financeRangeQuery.data}
+        onTilesChange={(next) => {
+          // PATCH /api/config with the new tile list. Optimistic
+          // - we don't bounce the cache; React Query will refetch
+          // - on the next interval. Persist failure surfaces in the
+          // - existing config mutation error UI.
+          if (!configQuery.data?.config) return;
+          const cfg = {
+            ...configQuery.data.config,
+            dashboard_tiles: JSON.stringify(next),
+          };
+          void api.updateConfig(cfg).then(() => {
+            qc.invalidateQueries({ queryKey: ['config'] });
+          });
+        }}
+      />
+    ),
     hashrate: (
       <div className="space-y-1">
         <div className="flex justify-end items-center gap-2 text-[11px] text-slate-400">
@@ -545,7 +598,7 @@ export function Status() {
             <option value="pool_luck_24h">{t`pool luck (24h)`}</option>
             <option value="pool_luck_7d">{t`pool luck (7d)`}</option>
             <option value="pool_luck_30d">{t`pool luck (30d)`}</option>
-            <option value="braiins_rejection_pct">{t`rejection rate (Braiins)`}</option>
+            <option value="braiins_rejection_pct">{t`rejection ratio (Braiins)`}</option>
             {/* #149: solo-mining series only listed when the master toggle is on. */}
             {soloMiningEnabled && (
               <>
@@ -576,6 +629,7 @@ export function Status() {
           viewportUntil={chartViewport.viewport.until_ms}
           chartColorOverrides={configQuery.data?.config?.chart_color_overrides}
           ipChangeEvents={ipChangesQuery.data?.events ?? EMPTY_IP_CHANGES}
+          crosshair={chartCrosshair}
         />
       </div>
     ),
@@ -641,6 +695,8 @@ export function Status() {
           viewportSince={effectiveViewportSince}
           viewportUntil={chartViewport.viewport.until_ms}
           chartColorOverrides={configQuery.data?.config?.chart_color_overrides}
+          ipChangeEvents={ipChangesQuery.data?.events ?? EMPTY_IP_CHANGES}
+          crosshair={chartCrosshair}
         />
       </div>
     ),
@@ -685,7 +741,7 @@ export function Status() {
               first/last non-null cumulative values in the range and
               returns one number. */}
           <Row
-            k={t`rejection rate`}
+            k={t`rejection ratio`}
             v={(() => {
               const pct = financeRangeQuery.data?.braiins_rejection_pct;
               if (pct === null || pct === undefined) return '—';
@@ -966,17 +1022,15 @@ export function Status() {
       {/* #113: stale-URL banner. Renders only when there's a real
           mismatch between config and an active bid - silent otherwise. */}
       <StaleUrlBanner />
-      {/* #244: the Rearrange toggle lives in the global header (zero
-          page height when idle). While editing, this one-line bar
-          carries the hint plus an always-visible Done (and reset), so
-          on mobile the operator doesn't have to reopen the hamburger
-          to confirm - the header toggle and this Done are deliberately
-          redundant. The order is saved on every drag, so Done just
-          exits edit mode; nothing is persisted on click. */}
+      {/* #244 v3: edit-mode hint + redundant Done button. The header
+          toggle and this banner's Done are deliberately redundant -
+          on mobile the operator shouldn't have to re-open the
+          hamburger to confirm. Order is saved on every drag, so Done
+          just exits edit mode. */}
       {rearranging && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[11px] text-slate-500">
           <span>
-            <Trans>Drag the cards by their title bar to reorder.</Trans>{' '}
+            <Trans>Drag from the amber grip handle on the left of each card to reorder.</Trans>{' '}
             <Trans>Your layout is saved on this device.</Trans>
           </span>
           {cardOrder.isCustomized && (
@@ -1001,7 +1055,6 @@ export function Status() {
         blocks={orderedBlocks}
         editing={rearranging}
         onReorder={cardOrder.setOrder}
-        dragHint={t`Drag to reorder`}
       />
     </div>
   );
@@ -1088,15 +1141,25 @@ function OperationsCard({
       className={`bg-gradient-to-br ${heroColors[s.run_mode]} border rounded-xl p-5 h-full flex flex-col justify-center items-center text-center`}
     >
       {currentPricePH !== null ? (
-        <div className="grid grid-cols-2 gap-6 w-full">
+        // #268: stacks vertically on mobile so the BTC-denomination
+        // price (e.g. "0,00046582" - much longer than the sat
+        // equivalent "46.582") has the full card width and doesn't
+        // collide with the DELIVERED column on iPhone.
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 w-full">
           <Tooltip text={t`Current owned-bid price (sat/PH/day). Under pay-your-bid this is exactly what Braiins charges per delivered EH-day - the live price you're paying. The plus/minus next to it is the spread vs Ocean's spot hashprice (positive = paying above break-even, negative = below). For the spend-weighted average paid across the selected chart range (handy when the bid moved during the window), see the AVG COST / PH DELIVERED stats card.`}>
             <div className="flex flex-col items-center cursor-help">
               <div className="text-[11px] uppercase tracking-wider text-slate-100 mb-1"><Trans>price</Trans></div>
-              {/* relative wrapper so the ±delta can be position:absolute
-                  outside the flow - that way the big number stays centered
-                  regardless of how wide the badge gets (e.g. "+9" vs "+126"). */}
-              <div className="relative leading-none">
-                <span className="text-4xl font-mono font-semibold text-slate-100 tabular-nums">
+              {/* #268: number + delta badge.
+                  - On sm+ (>=640px): the wrapper is `relative` and the
+                    badge is position:absolute outside the flow so the
+                    big number stays centered regardless of badge width.
+                  - On mobile (<sm): the wrapper is a flex-col so the
+                    badge falls BELOW the number. The absolute path
+                    overflowed the card on iPhone in BTC mode, where
+                    the longer number (10 chars vs ~6 in sat mode)
+                    pushed the badge past the right edge. */}
+              <div className="leading-none flex flex-col items-center sm:block sm:relative">
+                <span className="text-3xl sm:text-4xl font-mono font-semibold text-slate-100 tabular-nums">
                   {(() => {
                     // Route through the same formatter the muted subtitle
                     // uses, then drop the unit. The full formatter returns
@@ -1114,7 +1177,7 @@ function OperationsCard({
                     return m?.[1] ?? full;
                   })()}
                 </span>
-                <span className="absolute left-full top-1/2 -translate-y-1/2 ml-1.5 whitespace-nowrap">
+                <span className="mt-1 sm:mt-0 sm:absolute sm:left-full sm:top-1/2 sm:-translate-y-1/2 sm:ml-1.5 whitespace-nowrap">
                   <PriceDeltaVsHashprice
                     currentPH={currentPricePH}
                     hashpricePH={hashpricePH}
@@ -1154,7 +1217,7 @@ function OperationsCard({
           >
             <div className="flex flex-col items-center">
               <div className="text-[11px] uppercase tracking-wider text-slate-100 mb-1"><Trans>delivered</Trans></div>
-              <div className={`text-4xl font-mono font-semibold tabular-nums leading-none ${deliveredColor}`}>
+              <div className={`text-3xl sm:text-4xl font-mono font-semibold tabular-nums leading-none ${deliveredColor}`}>
                 {(() => {
                   const hr = denomination.formatHashrate(s.actual_hashrate_ph, intlLocale);
                   const split = splitUnit(hr);
@@ -1751,7 +1814,12 @@ function FilterBar({
   const { i18n } = useLingui();
   void i18n;
   return (
-    <section className="flex items-center justify-end flex-wrap gap-2">
+    // #266 follow-up: moved the time-range buttons to the LEFT side
+    // of the period block so the tiles bar's "+ add tile" affordance
+    // (anchored at the top-right of the indicators block right below
+    // this one) doesn't overlap with them. The right side of this row
+    // is now empty real estate the tile UI can use.
+    <section className="flex items-center justify-start flex-wrap gap-2">
       {!isLiveEdge && (
         <button
           onClick={onResetToLive}
@@ -1815,7 +1883,16 @@ function StatsBar({ statsData }: { statsData: StatsResponse | undefined }) {
 
   if (statsData.tick_count < 2) return null;
 
-  const { uptime_pct, avg_hashrate_ph, avg_datum_hashrate_ph, avg_ocean_hashrate_ph, avg_cost_per_ph_sat_per_ph_day, avg_overpay_vs_hashprice_sat_per_ph_day } = statsData;
+  const {
+    uptime_pct,
+    uptime_bid_coverage_pct,
+    uptime_delivery_when_bid_active_pct,
+    avg_hashrate_ph,
+    avg_datum_hashrate_ph,
+    avg_ocean_hashrate_ph,
+    avg_cost_per_ph_sat_per_ph_day,
+    avg_overpay_vs_hashprice_sat_per_ph_day,
+  } = statsData;
   // total_ph_hours + mutation_count remain on the server-side
   // StatsResponse even though no card consumes them - keeping the
   // shape stable so we can re-surface either later without a backend
@@ -1828,7 +1905,24 @@ function StatsBar({ statsData }: { statsData: StatsResponse | undefined }) {
       <StatCard
         label={t`uptime`}
         value={uptime_pct !== null ? `${formatNumber(uptime_pct, { minimumFractionDigits: 1, maximumFractionDigits: 1 }, intlLocale)}%` : '\u2014'}
-        tooltip={t`Duration-weighted % of time with delivered hashrate > 0, computed over the selected chart range. Each tick is weighted by its actual duration (time until the next tick) so gaps after restarts count proportionally. Updates with the range selector above.`}
+        tooltip={
+          // #254: surface the orderbook-coverage vs delivery-quality
+          // breakdown so the operator can tell "expected" downtime
+          // (no order met our criteria) from "unexpected" downtime
+          // (hardware / connection / Datum-side failure while a bid
+          // was active). uptime_pct = bid_coverage \u00d7 delivery_when_bid_active.
+          uptime_bid_coverage_pct !== null && uptime_delivery_when_bid_active_pct !== null
+            ? t`Duration-weighted % of time with delivered hashrate > 0, computed over the selected chart range. Decomposes as bid coverage \u00d7 delivery rate while bidding: ${formatNumber(
+                uptime_bid_coverage_pct,
+                { minimumFractionDigits: 1, maximumFractionDigits: 1 },
+                intlLocale,
+              )}% of the window had an active Braiins bid (orderbook availability \u2014 low value here = "nothing matched my criteria", which is expected idle); of that bid-active time, ${formatNumber(
+                uptime_delivery_when_bid_active_pct,
+                { minimumFractionDigits: 1, maximumFractionDigits: 1 },
+                intlLocale,
+              )}% was actually delivering hashrate (hardware / connection / Datum-side quality \u2014 low value here = unexpected downtime). Each tick is weighted by its actual duration (time until the next tick) so gaps after restarts count proportionally. Updates with the range selector above.`
+            : t`Duration-weighted % of time with delivered hashrate > 0, computed over the selected chart range. Each tick is weighted by its actual duration (time until the next tick) so gaps after restarts count proportionally. Updates with the range selector above.`
+        }
         color={
           uptime_pct === null
             ? 'text-slate-400'

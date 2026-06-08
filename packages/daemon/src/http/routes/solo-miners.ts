@@ -206,4 +206,10 @@ export async function registerSoloMinersRoute(
   app.get('/api/solo-miners/scan/status', async () => {
     return scanner.getStatus();
   });
+  // POST /api/solo-miners/scan/cancel - operator closed the scan
+  // dialog. Tells the in-flight worker loop to bail out at its next
+  // iteration; subsequent /scan POST starts fresh. Idempotent.
+  app.post('/api/solo-miners/scan/cancel', async () => {
+    return scanner.cancel();
+  });
 }

@@ -190,6 +190,45 @@ export interface MetricPoint {
   primary_bid_shares_rejected_m: number | null;
 }
 
+/** #256 follow-up: one bid's roll-up shown as a collapsible header on the History page. */
+export interface BidHistorySummary {
+  braiins_order_id: string;
+  first_event_at_ms: number;
+  last_event_at_ms: number;
+  first_price_sat_per_ph_day: number | null;
+  last_price_sat_per_ph_day: number | null;
+  event_count: number;
+  status: 'cancelled' | 'closed_or_active';
+}
+
+export interface BidHistoryPage {
+  bids: BidHistorySummary[];
+  /** Pass to `bidHistorySummaries` to fetch the next page; null when this was the last page. */
+  next_cursor_ms: number | null;
+}
+
+/** #256 v2: flat-table toolbar filter shape. */
+export interface BidHistoryFilters {
+  kinds?: ReadonlyArray<'CREATE_BID' | 'EDIT_PRICE' | 'EDIT_SPEED' | 'CANCEL_BID'>;
+  source?: 'AUTOPILOT' | 'OPERATOR';
+  orderIdContains?: string;
+  sinceMs?: number;
+  untilMs?: number;
+  /** In sat/PH/day. EDIT_PRICE events with |Δ| < this are hidden. */
+  minAbsPriceDelta?: number;
+}
+
+/** #256 v2: one row on the flat /history table. */
+export interface BidHistoryFlatEvent extends BidEventView {
+  /** Fillable ask at the moment of the event, sat/PH/day. Null when no qualifying tick. */
+  fillable_at_event_sat_per_ph_day: number | null;
+}
+
+export interface BidHistoryFlatPage {
+  events: BidHistoryFlatEvent[];
+  next_cursor_id: number | null;
+}
+
 export interface BidEventView {
   id: number;
   occurred_at: number;
@@ -348,6 +387,10 @@ export interface AppConfig {
    *  `'{}'` means use every series's built-in default. Parsed
    *  defensively via `lib/chartColors.parseOverrides`. */
   chart_color_overrides: string;
+  /** #266: StatsBar tile selection + order as a JSON-encoded array of
+   *  catalogue ids. `'[]'` means "use the dashboard defaults".
+   *  Parsed via `parseDashboardTiles` from `@hashrate-autopilot/shared`. */
+  dashboard_tiles: string;
   /** #244: RESERVED / dormant. Daemon-side card-order column kept for
    *  forward compatibility; the dashboard stores the drag-chosen order
    *  per-device in localStorage (see lib/cardOrder) and does not read or
@@ -451,6 +494,8 @@ export interface SoloMinerSnapshotEntry {
   stratum_user: string | null;
   best_diff_text: string | null;
   best_session_diff_text: string | null;
+  /** Exact numeric best difficulty (#260); text fields are display-formatted. */
+  best_diff_numeric: number | null;
   error: string | null;
 }
 
@@ -693,10 +738,36 @@ export const api = {
     request<{ events: BidEventView[] }>(
       `/api/bid-events?range=${encodeURIComponent(range)}`,
     ),
-  bidEventsViewport: (since: number, until: number) =>
+  bidEventsViewport: (since: number, until: number, visibleSpan?: number) =>
     request<{ events: BidEventView[] }>(
-      `/api/bid-events?since=${since}&until=${until}`,
+      `/api/bid-events?since=${since}&until=${until}${
+        visibleSpan != null ? `&span=${visibleSpan}` : ''
+      }`,
     ),
+  // #256 follow-up: history page endpoints.
+  bidHistorySummaries: (limit = 20, beforeMs?: number) =>
+    request<BidHistoryPage>(
+      `/api/bid-history?limit=${limit}${beforeMs ? `&before_ms=${beforeMs}` : ''}`,
+    ),
+  bidHistoryEvents: (orderId: string) =>
+    request<{ events: BidEventView[] }>(
+      `/api/bid-history/${encodeURIComponent(orderId)}/events`,
+    ),
+  // #256 v2: flat-table page endpoint.
+  bidHistoryFlatEvents: (filters: BidHistoryFilters, beforeId?: number, limit = 100) => {
+    const qs = new URLSearchParams();
+    qs.set('limit', String(limit));
+    if (beforeId !== undefined) qs.set('before_id', String(beforeId));
+    if (filters.kinds && filters.kinds.length > 0) qs.set('kinds', filters.kinds.join(','));
+    if (filters.source) qs.set('source', filters.source);
+    if (filters.orderIdContains) qs.set('order_id', filters.orderIdContains);
+    if (filters.sinceMs != null) qs.set('since_ms', String(filters.sinceMs));
+    if (filters.untilMs != null) qs.set('until_ms', String(filters.untilMs));
+    if (filters.minAbsPriceDelta != null && filters.minAbsPriceDelta > 0) {
+      qs.set('min_abs_price_delta', String(filters.minAbsPriceDelta));
+    }
+    return request<BidHistoryFlatPage>(`/api/bid-history-events?${qs.toString()}`);
+  },
   // #250: public-IP change markers for the charts.
   ipChangesViewport: (since: number, until: number) =>
     request<{ events: IpChangeEvent[] }>(
@@ -761,6 +832,14 @@ export const api = {
     return URL.createObjectURL(blob);
   },
   btcPrice: () => request<BtcPriceResponse>('/api/btc-price'),
+  /** #270: live oracle probe for the Config panel's Test connection button. */
+  btcPriceTest: (source: string) =>
+    request<BtcPriceTestResponse>('/api/btc-price/test', {
+      method: 'POST',
+      body: JSON.stringify({ source }),
+    }),
+  /** #272: one-shot support bundle (runs all connectivity probes server-side, ~5s). */
+  diagnostics: () => request<DiagnosticsResponse>('/api/diagnostics'),
   ddns: () => request<DdnsRouteResponse>('/api/ddns'),
   // #149: solo-mining device list + live AxeOS snapshot.
   soloMiners: () => request<SoloMinersResponse>('/api/solo-miners'),
@@ -786,6 +865,8 @@ export const api = {
     }),
   soloMinersScanStatus: () =>
     request<SoloScanStatus>('/api/solo-miners/scan/status'),
+  cancelSoloMinersScan: () =>
+    request<SoloScanStatus>('/api/solo-miners/scan/cancel', { method: 'POST' }),
   soloFleetSeries: (sinceMs?: number) => {
     const q = sinceMs !== undefined ? `?since=${sinceMs}` : '';
     return request<SoloFleetSeriesResponse>(`/api/solo-miners/series${q}`);
@@ -898,6 +979,10 @@ export const api = {
 
 export interface StatsResponse {
   uptime_pct: number | null;
+  /** #254: % of window time with an active Braiins bid (orderbook coverage). */
+  uptime_bid_coverage_pct: number | null;
+  /** #254: % of bid-active time that actually delivered hashrate (hardware/connection quality). */
+  uptime_delivery_when_bid_active_pct: number | null;
   avg_hashrate_ph: number | null;
   avg_datum_hashrate_ph: number | null;
   avg_ocean_hashrate_ph: number | null;
@@ -961,6 +1046,47 @@ export interface BtcPriceResponse {
   usd_per_btc: number | null;
   source: string;
   fetched_at_ms: number | null;
+}
+
+/** #270: response of POST /api/btc-price/test. */
+export interface BtcPriceTestResponse {
+  ok: boolean;
+  usd_per_btc: number | null;
+  source: string;
+  error: string | null;
+}
+
+/** #272: one entry of the diagnostics connectivity matrix. */
+export interface ConnectivityProbe {
+  target: string;
+  status: 'ok' | 'failed' | 'not_configured';
+  latency_ms: number | null;
+  detail: string | null;
+  error: string | null;
+}
+
+/** #272: GET /api/diagnostics support bundle. */
+export interface DiagnosticsResponse {
+  identity: {
+    version: string;
+    build: number;
+    hash: string;
+    node: string;
+    platform: string;
+    uptime_seconds: number;
+    run_mode: string | null;
+    tick_interval_ms: number;
+  };
+  config: Record<string, unknown>;
+  connectivity: ConnectivityProbe[];
+  tick_health: {
+    last_tick_at: number | null;
+    last_tick_age_seconds: number | null;
+    braiins_reachable_last_tick: boolean | null;
+    datum_data_last_tick: boolean | null;
+    ocean_data_last_tick: boolean | null;
+    btc_price_cache_age_seconds: number | null;
+  };
 }
 
 export interface Bip110ScanSignalingBlock {

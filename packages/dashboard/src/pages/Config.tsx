@@ -21,13 +21,17 @@ import {
   UnauthorizedError,
   type AlertSeverity,
   type AppConfig,
+  type BtcPriceTestResponse,
+  type DiagnosticsResponse,
   type DatumTestResponse,
   type DdnsTestResponse,
   type PoolUrlTestResponse,
+  type SoloScanState,
   type StorageEstimateBucket,
   type StorageEstimateResponse,
 } from '../lib/api';
 import { blockFoundSoundUrl } from '../lib/block-found-sound';
+import { copyToClipboard } from '../lib/clipboard';
 import { useDenomination } from '../lib/denomination';
 import {
   celsiusToFahrenheit,
@@ -788,7 +792,7 @@ const TAB_SECTIONS: Record<TabId, readonly string[]> = {
   strategy: ['hashrate-targets', 'cheap-mode', 'pricing', 'fee-protection', 'budget', 'daemon-startup'],
   pool: ['pool-destination', 'ddns', 'payout-source', 'profit-and-loss', 'btc-price-oracle'],
   notifications: ['notifications', 'block-found-sound'],
-  display: ['display-settings', 'chart-colors', 'solo-miners', 'block-explorer', 'chart-smoothing', 'chart-markers', 'log-retention', 'debug-api'],
+  display: ['display-settings', 'chart-colors', 'solo-miners', 'block-explorer', 'chart-smoothing', 'chart-markers', 'log-retention', 'debug-api', 'diagnostics'],
 };
 
 function isTabId(s: string | null): s is TabId {
@@ -851,6 +855,17 @@ function ConfigTabsAndContent({
     notifications: {
       title: t`Notifications`,
       labels: [t`Telegram bot token`, t`Chat ID`, t`Instance label (optional)`, t`Send messages to Telegram`, t`Retry interval`, t`Wallet runway below`, t`Ocean pool-block credited`],
+    },
+    diagnostics: {
+      title: t`Diagnostics`,
+      labels: [
+        t`Run diagnostics`,
+        t`Copy as Markdown`,
+        // Aliases - operators search by what they're trying to do.
+        'support bundle',
+        'connectivity',
+        'tech support',
+      ],
     },
     'display-settings': {
       title: t`Display`,
@@ -1027,6 +1042,9 @@ function ConfigTabsAndContent({
     }
     if (sid === 'solo-miners') {
       return wrapHighlight(sid, <SoloMinersSection draft={draft} onChange={onChange} />);
+    }
+    if (sid === 'diagnostics') {
+      return wrapHighlight(sid, <DiagnosticsSection />);
     }
     const std = sections.find((s) => s.id === sid);
     if (!std) return null;
@@ -1314,6 +1332,14 @@ function SectionCard({
           onChange={onChange}
           gridCls={gridCls}
         />
+      ) : section.id === 'btc-price-oracle' ? (
+        <BtcOracleSectionBody
+          section={section}
+          draft={draft}
+          locale={locale}
+          onChange={onChange}
+          gridCls={gridCls}
+        />
       ) : (
         <div className={gridCls}>
           {section.fields.map((f) => (
@@ -1336,6 +1362,118 @@ function SectionCard({
         <BlockFoundSoundExtras draft={draft} onChange={onChange} />
       )}
     </section>
+  );
+}
+
+/**
+ * #270: BTC price oracle section body. Renders the Price source
+ * dropdown with the "Test connection" button INLINE to its right (same
+ * `flex gap-2` pattern as Pool URL / Datum stats API / Telegram /
+ * bitcoind / electrs - the established idiom). The test result or
+ * concrete error (HTTP status / network error code) renders below.
+ *
+ * Born out of #267, where the only observable signal for a failing
+ * oracle was the USD toggle silently not appearing. A successful
+ * probe warms the daemon's price cache, so invalidating the
+ * ['btc-price'] query right after makes the header's USD toggle
+ * light up immediately.
+ *
+ * The inline button was originally placed below the helper text
+ * (#270 v1) which read as a tacked-on extra rather than belonging to
+ * the field; the operator caught the inconsistency vs the other
+ * Test-connection fields and the v2 layout matches them.
+ */
+function BtcOracleSectionBody({
+  section,
+  draft,
+  locale,
+  onChange,
+  gridCls,
+}: {
+  section: Section;
+  draft: AppConfig;
+  locale: string | undefined;
+  onChange: <K extends keyof AppConfig>(k: K, v: AppConfig[K]) => void;
+  gridCls: string;
+}) {
+  const qc = useQueryClient();
+  const test = useMutation<BtcPriceTestResponse, Error, void>({
+    mutationFn: () => api.btcPriceTest(draft.btc_price_source),
+    onSuccess: (res) => {
+      if (res.ok) qc.invalidateQueries({ queryKey: ['btc-price'] });
+    },
+  });
+  const testDisabled = draft.btc_price_source === 'none' || test.isPending;
+  const priceStr =
+    test.data?.ok && test.data.usd_per_btc !== null
+      ? test.data.usd_per_btc.toLocaleString(locale, { maximumFractionDigits: 0 })
+      : null;
+  return (
+    <>
+      <div className={gridCls}>
+        {section.fields.map((f) => (
+          <div key={f.key as string}>
+            {f.key === 'btc_price_source' && f.kind === 'select' ? (
+              <label className="block">
+                <span className="block text-sm text-slate-300 mb-1">{f.label}</span>
+                <div className="flex gap-2 items-stretch">
+                  <select
+                    value={draft.btc_price_source as string}
+                    onChange={(e) =>
+                      onChange('btc_price_source', e.target.value as never)
+                    }
+                    className="flex-1 bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm"
+                  >
+                    {f.options.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => test.mutate()}
+                    disabled={testDisabled}
+                    className="px-3 py-1.5 text-sm rounded bg-amber-400 text-slate-900 font-medium hover:bg-amber-300 disabled:opacity-50 whitespace-nowrap"
+                  >
+                    {test.isPending ? <Trans>Testing…</Trans> : <Trans>Test connection</Trans>}
+                  </button>
+                </div>
+                {f.help && (
+                  <span className="block text-xs text-slate-500 mt-1">{f.help}</span>
+                )}
+              </label>
+            ) : (
+              <Field spec={f} draft={draft} locale={locale} onChange={onChange} />
+            )}
+          </div>
+        ))}
+      </div>
+      {(draft.btc_price_source === 'none' || test.data || test.isError) && (
+        <div className="mt-2">
+          {draft.btc_price_source === 'none' && !test.data && !test.isError && (
+            <span className="text-xs text-slate-500">
+              <Trans>Select a price source to test.</Trans>
+            </span>
+          )}
+          {test.data && test.data.ok && priceStr !== null && (
+            <div className="text-xs text-emerald-300 font-mono">
+              OK · ${priceStr} · {test.data.source}
+            </div>
+          )}
+          {test.data && !test.data.ok && (
+            <div className="text-xs text-red-400 font-mono break-words">
+              {test.data.error}
+            </div>
+          )}
+          {test.isError && (
+            <div className="text-xs text-red-400 font-mono break-words">
+              {test.error.message}
+            </div>
+          )}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -2186,12 +2324,18 @@ function ChartColorRowIcon({
       </svg>
     );
   }
-  // Bid event markers - mirror the chart glyph.
+  // Bid event markers - mirror the chart glyph (Lucide
+  // circle-plus / gauge / ban; EDIT_PRICE keeps its bare circle).
   if (keyId === 'events.create') {
     return (
-      <svg width="14" height="14" viewBox="0 0 14 14" className="shrink-0">
-        <line x1="2" y1="7" x2="12" y2="7" stroke={color} strokeWidth="2.2" />
-        <line x1="7" y1="2" x2="7" y2="12" stroke={color} strokeWidth="2.2" />
+      <svg
+        width="14" height="14" viewBox="0 0 24 24" className="shrink-0"
+        fill="none" stroke={color} strokeWidth="2"
+        strokeLinecap="round" strokeLinejoin="round"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <path d="M8 12h8" />
+        <path d="M12 8v8" />
       </svg>
     );
   }
@@ -2204,16 +2348,25 @@ function ChartColorRowIcon({
   }
   if (keyId === 'events.edit_speed') {
     return (
-      <svg width="14" height="14" viewBox="0 0 14 14" className="shrink-0">
-        <path d="M7 1 L13 7 L7 13 L1 7 Z" fill={color} stroke="#0f172a" strokeWidth="1.4" strokeLinejoin="round" />
+      <svg
+        width="14" height="14" viewBox="0 0 24 24" className="shrink-0"
+        fill="none" stroke={color} strokeWidth="2"
+        strokeLinecap="round" strokeLinejoin="round"
+      >
+        <path d="m12 14 4-4" />
+        <path d="M3.34 19a10 10 0 1 1 17.32 0" />
       </svg>
     );
   }
   if (keyId === 'events.cancel') {
     return (
-      <svg width="14" height="14" viewBox="0 0 14 14" className="shrink-0">
-        <line x1="2" y1="2" x2="12" y2="12" stroke={color} strokeWidth="2.2" />
-        <line x1="2" y1="12" x2="12" y2="2" stroke={color} strokeWidth="2.2" />
+      <svg
+        width="14" height="14" viewBox="0 0 24 24" className="shrink-0"
+        fill="none" stroke={color} strokeWidth="2"
+        strokeLinecap="round" strokeLinejoin="round"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <path d="m4.9 4.9 14.2 14.2" />
       </svg>
     );
   }
@@ -2562,7 +2715,7 @@ function SoloThresholdInputs({
         </SoloThresholdField>
         <SoloThresholdField
           label={t`Share-rejection threshold (%)`}
-          help={t`Rolling-window rejection rate above which the alert fires. Default 10 %.`}
+          help={t`Rolling-window rejection ratio above which the alert fires. Default 10 %.`}
         >
           <NumberField
             value={draft.solo_share_rejection_threshold_pct}
@@ -2574,7 +2727,7 @@ function SoloThresholdInputs({
         </SoloThresholdField>
         <SoloThresholdField
           label={t`Share-rejection window (minutes)`}
-          help={t`Window over which the rejection rate is computed.`}
+          help={t`Window over which the rejection ratio is computed.`}
         >
           <NumberField
             value={draft.solo_share_rejection_window_minutes}
@@ -2634,12 +2787,27 @@ function ScanLocalNetworkButton() {
     }
   };
 
+  // #259 follow-up v2: the polling enable gate used to be just `open`,
+  // which meant the moment the operator closed the dialog the
+  // dashboard stopped checking for scan progress. The trigger button
+  // would then stay stuck on "scanning…" indefinitely because we
+  // never re-saw the state transition to 'cancelled' / 'done'. The
+  // `lastKnownState` mirror keeps us polling whenever the latest
+  // status we've seen says 'running', regardless of whether the
+  // modal is open.
+  const [lastKnownState, setLastKnownState] = useState<SoloScanState | undefined>(
+    undefined,
+  );
   const statusQuery = useQuery({
     queryKey: ['solo-miners-scan-status'],
-    queryFn: () => api.soloMinersScanStatus(),
-    enabled: open,
+    queryFn: async () => {
+      const s = await api.soloMinersScanStatus();
+      setLastKnownState(s.state);
+      return s;
+    },
+    enabled: open || lastKnownState === 'running',
     // Fast poll while the sweep is in flight; stop once we've reached
-    // a terminal state so the modal isn't generating idle traffic.
+    // a terminal state so the dashboard isn't generating idle traffic.
     refetchInterval: (q) => {
       const s = q.state.data?.state;
       return s === 'running' ? 400 : false;
@@ -2700,6 +2868,18 @@ function ScanLocalNetworkButton() {
 
   const onClose = (): void => {
     setOpen(false);
+    // #259 follow-up: closing the dialog while a scan is running
+    // should ACTUALLY stop the scan, not just hide the progress
+    // dialog. Tell the daemon to abort; the worker loop bails at
+    // its next iteration and the button reverts to "Scan local
+    // network" within ~1 probe-timeout. Fire-and-forget; failure
+    // is harmless (e.g. scan already finished naturally between
+    // dialog close and the request landing).
+    if (isRunning) {
+      void api.cancelSoloMinersScan().catch(() => {
+        // Quiet failure; nothing the operator can do about it.
+      });
+    }
     // Keep the last scan's edits cached for the session - if the
     // operator reopens before refreshing, they see the most recent
     // results without re-triggering a sweep.
@@ -2735,8 +2915,24 @@ function ScanLocalNetworkButton() {
         />
         <button
           type="button"
-          onClick={() => startMutation.mutate()}
-          disabled={startMutation.isPending || isRunning}
+          // #259: when the operator closes the scan dialog mid-run, the
+          // scan keeps running server-side. Before the fix the button
+          // was disabled whenever `isRunning` was true, even when the
+          // dialog was closed - the operator had no way to re-open the
+          // dialog to see progress or to cancel and retry. Now: while
+          // a scan is running we *re-open* the dialog on click instead
+          // of trying to start a new one (server would reject with
+          // "scan already in progress" anyway). When no scan is
+          // running, click starts a fresh scan as before. Only the
+          // brief start-request round-trip keeps the button disabled.
+          onClick={() => {
+            if (isRunning) {
+              setOpen(true);
+            } else {
+              startMutation.mutate();
+            }
+          }}
+          disabled={startMutation.isPending}
           className="text-[11px] text-amber-300 border border-amber-700 rounded px-2 py-0.5 hover:bg-amber-500/10 disabled:opacity-40"
         >
           {isRunning ? <Trans>scanning…</Trans> : <Trans>Scan local network</Trans>}
@@ -3471,7 +3667,7 @@ function EventClassSubscriptions({
         {
           id: 'solo_share_rejection',
           label: t`Bitaxe miner share-rejection high`,
-          help: t`Fires when share rejection rate over the rolling window exceeds the configured threshold. Re-armed once per window so a sustained bad period only fires periodically.`,
+          help: t`Fires when share rejection ratio over the rolling window exceeds the configured threshold. Re-armed once per window so a sustained bad period only fires periodically.`,
           enabled: !disabled.has('solo_share_rejection'),
           setEnabled: (n) => toggleClass('solo_share_rejection', n),
           severity: 'IMPORTANT',
@@ -5211,4 +5407,206 @@ function DdnsSection({
       </div>
     </section>
   );
+}
+
+/**
+ * #272: Diagnostics support bundle. One click runs the daemon-side
+ * connectivity sweep (every integration incl. all four price
+ * providers) and renders the result; "Copy as Markdown" produces a
+ * paste-ready block for GitHub issues. Secrets are stripped
+ * server-side and render as a loud asterisk marker so the operator
+ * can SEE the bundle is safe to paste.
+ */
+/** Lucide `copy` / `check`, inlined per the house icon rule. */
+function CopyIcon({ done }: { done: boolean }) {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="inline-block mr-1 -mt-px"
+      aria-hidden
+    >
+      {done ? (
+        <path d="M20 6 9 17l-5-5" />
+      ) : (
+        <>
+          <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+          <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+        </>
+      )}
+    </svg>
+  );
+}
+
+function DiagnosticsSection() {
+  const [copied, setCopied] = useState<'md' | 'json' | null>(null);
+  const diag = useMutation<DiagnosticsResponse, Error, void>({
+    mutationFn: () => api.diagnostics(),
+    onSuccess: () => setCopied(null),
+  });
+  const d = diag.data;
+
+  const onCopy = async () => {
+    if (!d) return;
+    await copyToClipboard(diagnosticsToMarkdown(d));
+    setCopied('md');
+  };
+  const onCopyJson = async () => {
+    if (!d) return;
+    await copyToClipboard(JSON.stringify(d.config, null, 2));
+    setCopied('json');
+  };
+
+  return (
+    <section className="bg-slate-900 border border-slate-800 rounded-lg p-4">
+      <header className="mb-3">
+        <h3 className="text-sm uppercase tracking-wider text-amber-400">
+          <Trans>Diagnostics</Trans>
+        </h3>
+        <p className="text-xs text-slate-500 mt-1">
+          <Trans>
+            One-click support bundle: probes every external service the daemon talks to
+            (marketplace, pool, node, price providers) and snapshots the configuration with
+            all secrets stripped. Use "Copy as Markdown" to paste the result into a bug
+            report.
+          </Trans>
+        </p>
+      </header>
+      <div className="flex flex-wrap gap-2 items-center">
+        <button
+          type="button"
+          onClick={() => diag.mutate()}
+          disabled={diag.isPending}
+          className="px-3 py-1.5 text-sm rounded bg-amber-400 text-slate-900 font-medium hover:bg-amber-300 disabled:opacity-50 whitespace-nowrap"
+        >
+          {diag.isPending ? <Trans>Running…</Trans> : <Trans>Run diagnostics</Trans>}
+        </button>
+        {d && (
+          <button
+            type="button"
+            onClick={() => void onCopy()}
+            className="px-3 py-1.5 text-sm rounded border border-slate-700 text-slate-300 hover:bg-slate-800 whitespace-nowrap"
+          >
+            <CopyIcon done={copied === 'md'} />
+            {copied === 'md' ? <Trans>Copied</Trans> : <Trans>Copy as Markdown</Trans>}
+          </button>
+        )}
+      </div>
+      {diag.isError && (
+        <div className="mt-2 text-xs text-red-400 font-mono break-words">
+          {diag.error.message}
+        </div>
+      )}
+      {d && (
+        <div className="mt-4 space-y-4 text-xs">
+          <div className="font-mono text-slate-400">
+            v{d.identity.version} · build {d.identity.build} · {d.identity.hash} · node{' '}
+            {d.identity.node} · {d.identity.platform} · {d.identity.run_mode ?? '?'} ·{' '}
+            <Trans>uptime</Trans> {formatUptime(d.identity.uptime_seconds)}
+          </div>
+          <table className="w-full text-left">
+            <thead>
+              <tr className="text-slate-500">
+                <th className="py-1 pr-3 font-normal"><Trans>Target</Trans></th>
+                <th className="py-1 pr-3 font-normal"><Trans>Status</Trans></th>
+                <th className="py-1 pr-3 font-normal"><Trans>Latency</Trans></th>
+                <th className="py-1 font-normal"><Trans>Detail</Trans></th>
+              </tr>
+            </thead>
+            <tbody className="font-mono">
+              {d.connectivity.map((probe) => (
+                <tr key={probe.target} className="border-t border-slate-800">
+                  <td className="py-1 pr-3 whitespace-nowrap">{probe.target}</td>
+                  <td
+                    className={
+                      'py-1 pr-3 whitespace-nowrap ' +
+                      (probe.status === 'ok'
+                        ? 'text-emerald-300'
+                        : probe.status === 'failed'
+                          ? 'text-red-400'
+                          : 'text-slate-500')
+                    }
+                  >
+                    {probe.status === 'ok' ? 'OK' : probe.status === 'failed' ? t`failed` : t`not configured`}
+                  </td>
+                  <td className="py-1 pr-3 whitespace-nowrap text-slate-400">
+                    {probe.latency_ms !== null && probe.status === 'ok' ? `${probe.latency_ms} ms` : ''}
+                  </td>
+                  <td className="py-1 break-words text-slate-400">
+                    {probe.detail ?? probe.error ?? ''}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <details>
+            <summary className="cursor-pointer text-slate-400">
+              <Trans>Configuration snapshot (secrets stripped)</Trans>
+            </summary>
+            <button
+              type="button"
+              onClick={() => void onCopyJson()}
+              className="mt-2 px-2 py-1 text-xs rounded border border-slate-700 text-slate-300 hover:bg-slate-800"
+            >
+              <CopyIcon done={copied === 'json'} />
+              {copied === 'json' ? <Trans>Copied</Trans> : <Trans>Copy JSON</Trans>}
+            </button>
+            <pre className="mt-2 bg-slate-950 border border-slate-800 rounded p-2 overflow-x-auto text-[11px] leading-snug">
+              {JSON.stringify(d.config, null, 2)}
+            </pre>
+          </details>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function formatUptime(seconds: number): string {
+  if (seconds < 3600) return `${Math.round(seconds / 60)}m`;
+  if (seconds < 86400) return `${(seconds / 3600).toFixed(1)}h`;
+  return `${(seconds / 86400).toFixed(1)}d`;
+}
+
+/** Build the paste-ready Markdown block. Plain string building - no i18n; the bundle is read by maintainers, not the operator. */
+function diagnosticsToMarkdown(d: DiagnosticsResponse): string {
+  const lines: string[] = [];
+  lines.push('### Hashrate Autopilot support bundle');
+  lines.push('');
+  lines.push(
+    `v${d.identity.version} · build ${d.identity.build} · ${d.identity.hash} · node ${d.identity.node} · ${d.identity.platform} · ${d.identity.run_mode ?? '?'} · uptime ${formatUptime(d.identity.uptime_seconds)} · tick ${Math.round(d.identity.tick_interval_ms / 1000)}s`,
+  );
+  lines.push('');
+  lines.push('| target | status | latency | detail |');
+  lines.push('|---|---|---|---|');
+  for (const probe of d.connectivity) {
+    const status =
+      probe.status === 'ok' ? '✅ ok' : probe.status === 'failed' ? '❌ failed' : '– not configured';
+    const latency = probe.latency_ms !== null && probe.status === 'ok' ? `${probe.latency_ms} ms` : '';
+    const detail = (probe.detail ?? probe.error ?? '').replace(/\|/g, '\\|');
+    lines.push(`| ${probe.target} | ${status} | ${latency} | ${detail} |`);
+  }
+  lines.push('');
+  const th = d.tick_health;
+  lines.push(
+    `Last tick: ${th.last_tick_age_seconds !== null ? `${th.last_tick_age_seconds}s ago` : 'n/a'} · braiins ${fmtBool(th.braiins_reachable_last_tick)} · datum ${fmtBool(th.datum_data_last_tick)} · ocean ${fmtBool(th.ocean_data_last_tick)} · price cache ${th.btc_price_cache_age_seconds !== null ? `${th.btc_price_cache_age_seconds}s old` : 'cold'}`,
+  );
+  lines.push('');
+  lines.push('<details><summary>config (secrets stripped)</summary>');
+  lines.push('');
+  lines.push('```json');
+  lines.push(JSON.stringify(d.config, null, 2));
+  lines.push('```');
+  lines.push('');
+  lines.push('</details>');
+  return lines.join('\n');
+}
+
+function fmtBool(v: boolean | null): string {
+  return v === null ? 'n/a' : v ? 'ok' : 'no-data';
 }

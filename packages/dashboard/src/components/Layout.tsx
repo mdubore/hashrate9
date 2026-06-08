@@ -29,6 +29,7 @@ function useNavItems() {
   return [
     { label: t`Status`, to: '/' },
     { label: t`Alerts`, to: '/alerts' },
+    { label: t`History`, to: '/history' },
     { label: t`Config`, to: '/config' },
   ];
 }
@@ -154,7 +155,10 @@ export function Layout() {
             <div className="text-amber-400 font-semibold leading-tight">Hashrate Autopilot</div>
           </div>
 
-          <nav className="flex items-center gap-1">
+          {/* #266 follow-up: nav inline only at sm+; on mobile it
+              folds into the hamburger so the top bar stays single-row
+              (operator caught it wrapping on iPhone). */}
+          <nav className="hidden sm:flex items-center gap-1">
             {navItems.map((item) => {
               const active =
                 item.to === '/'
@@ -187,9 +191,11 @@ export function Layout() {
               from a dropdown so the top bar stays single-row on
               mobile with only Status/Alerts/Config visible. */}
           <div className="hidden sm:flex items-center gap-3 ml-auto text-xs">
-            {/* #244: Rearrange toggle lives in the header (not on the
-                page) so it costs zero page height. Status-only - it
-                reorders Status cards and is meaningless elsewhere. */}
+            {/* #244 v3: Rearrange toggle returns to the header. v2's
+                always-on grip handles needed a permanent left gutter
+                that ate too much horizontal space (especially on
+                mobile) for an affordance used three times in a
+                dashboard's life. */}
             {location.pathname === '/' && <RearrangeControl />}
             <HashrateUnitToggle />
             <DenominationToggle />
@@ -203,7 +209,12 @@ export function Layout() {
           </div>
 
           <div className="sm:hidden ml-auto">
-            <MobileMenu onSignOut={logout} showRearrange={location.pathname === '/'} />
+            <MobileMenu
+              onSignOut={logout}
+              showRearrange={location.pathname === '/'}
+              navItems={navItems}
+              unreadCount={unreadCount}
+            />
           </div>
         </div>
         </header>
@@ -251,12 +262,17 @@ export function Layout() {
 function MobileMenu({
   onSignOut,
   showRearrange,
+  navItems,
+  unreadCount,
 }: {
   onSignOut: () => void;
   showRearrange: boolean;
+  navItems: Array<{ label: string; to: string }>;
+  unreadCount: number;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const location = useLocation();
   const { rearranging, setRearranging, isCustomized, reset } = useCardOrderContext();
 
   useEffect(() => {
@@ -296,8 +312,38 @@ function MobileMenu({
 
       {open && (
         <div className="absolute right-0 mt-2 w-64 bg-slate-900 border border-slate-700 rounded-lg shadow-lg p-3 z-30 space-y-3">
-          {/* #244: dashboard layout - Status page only. Toggling closes
-              the menu so the operator can immediately drag cards. */}
+          {/* #266 follow-up: nav links folded in for mobile. */}
+          <div className="flex flex-col gap-1">
+            {navItems.map((item) => {
+              const active =
+                item.to === '/'
+                  ? location.pathname === '/'
+                  : location.pathname.startsWith(item.to);
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  onClick={() => setOpen(false)}
+                  className={
+                    'px-3 py-1.5 text-sm rounded-md transition flex items-center justify-between ' +
+                    (active
+                      ? 'bg-slate-800 text-amber-400'
+                      : 'text-slate-300 hover:bg-slate-800/60')
+                  }
+                >
+                  <span>{item.label}</span>
+                  {item.to === '/alerts' && unreadCount > 0 && (
+                    <span className="inline-flex items-center justify-center min-w-[1.25rem] h-4 px-1 text-[10px] font-medium rounded-full bg-red-500 text-white">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+          {/* #244 v3: Rearrange toggle returns. Toggling closes the
+              menu so the operator can immediately drag cards. Reset
+              only appears once the order has been customised. */}
           {showRearrange && (
             <div>
               <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
@@ -364,10 +410,10 @@ function MobileMenu({
 }
 
 /**
- * #244: header "Rearrange" toggle for the Status dashboard. Lives in
- * the top bar (desktop) so it costs no page height; toggling flips the
- * shared edit-mode flag the Status page reads to enable drag-to-reorder.
- * "Reset" only appears once the order has been customised.
+ * #244 v3: header Rearrange toggle for the Status dashboard. Lives
+ * in the top bar (desktop) so it costs no page height; toggling flips
+ * the shared edit-mode flag the Status page reads to enable drag-to-
+ * reorder. "Reset" only appears once the order has been customised.
  */
 function RearrangeControl() {
   const { rearranging, setRearranging, isCustomized, reset } = useCardOrderContext();
@@ -418,12 +464,30 @@ function DenominationToggle() {
   const { i18n } = useLingui();
   void i18n;
 
+  // #274: distinguish "USD deliberately disabled" (price source =
+  // 'none' → hide the button entirely; this isn't a feature on this
+  // install) from "USD configured but not currently reachable" (any
+  // other source + btcPrice null → render the button disabled with a
+  // tooltip explaining why, so the operator can act on the cause
+  // instead of wondering whether the option was removed). React Query
+  // dedupes against Layout's existing config query, so no extra
+  // network hop.
+  const configQuery = useQuery({
+    queryKey: ['config'],
+    queryFn: api.config,
+  });
+  const priceSource = configQuery.data?.config?.btc_price_source ?? null;
+  const usdConfigured = priceSource !== null && priceSource !== 'none';
+  const usdReachable = btcPrice !== null;
+  const usdDisabled = usdConfigured && !usdReachable;
+
   const priceStr = btcPrice
     ? btcPrice.toLocaleString('en-US', { maximumFractionDigits: 0 })
     : null;
   const titleText = priceStr
     ? t`BTC/USD: $${priceStr} - select display currency`
     : t`Select display currency`;
+  const usdDisabledTooltip = t`USD unavailable: BTC/USD oracle is not responding right now. Check Config → Pool & Payout → BTC Price Oracle (use the Test connection button).`;
 
   return (
     <div
@@ -452,14 +516,20 @@ function DenominationToggle() {
       >
         <BtcSymbol /> BTC
       </button>
-      {btcPrice !== null && (
+      {usdConfigured && (
         <button
-          onClick={() => setMode('usd')}
+          onClick={() => {
+            if (!usdDisabled) setMode('usd');
+          }}
+          disabled={usdDisabled}
+          title={usdDisabled ? usdDisabledTooltip : undefined}
           className={
             'px-2 py-1 transition border-l border-slate-700 ' +
-            (mode === 'usd'
-              ? 'bg-amber-400 text-slate-900 font-medium'
-              : 'text-slate-400 hover:bg-slate-800')
+            (usdDisabled
+              ? 'text-slate-600 cursor-not-allowed'
+              : mode === 'usd'
+                ? 'bg-amber-400 text-slate-900 font-medium'
+                : 'text-slate-400 hover:bg-slate-800')
           }
         >
           USD

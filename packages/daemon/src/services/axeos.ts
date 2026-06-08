@@ -45,8 +45,17 @@ export interface AxeOSSystemInfo {
   stratumURL?: string;
   stratumPort?: number;
   stratumUser?: string;
-  bestDiff?: string;
-  bestSessionDiff?: string;
+  /**
+   * Best share difficulty (lifetime / since-boot). Stock Bitaxe
+   * ESP-Miner serialises these as magnitude-suffixed strings
+   * ("4.29G"); the NerdAxe / NerdQAxe firmware family
+   * (shufps/ESP-Miner-NerdQAxePlus) deliberately switched them to
+   * raw numbers (#260). Both express the same unit - share
+   * difficulty relative to difficulty 1, the value both firmwares
+   * feed through cgminer's `suffixString()` for display.
+   */
+  bestDiff?: string | number;
+  bestSessionDiff?: string | number;
   poolDifficulty?: number;
   errorPercentage?: number;
   isUsingFallbackStratum?: number | boolean;
@@ -83,11 +92,24 @@ export class AxeOSClient {
    * structured `{ reachable, info, error }` so callers can persist
    * the unreachable case as a sample row without try/catch
    * pollution.
+   *
+   * `externalSignal` (#259 follow-up) - optional caller-provided
+   * abort signal. When the scanner cancels mid-sweep we abort all
+   * in-flight probes immediately rather than waiting up to
+   * `timeoutMs` for each to time out naturally.
    */
-  async getSystemInfo(ip: string): Promise<AxeOSFetchResult> {
+  async getSystemInfo(
+    ip: string,
+    externalSignal?: AbortSignal,
+  ): Promise<AxeOSFetchResult> {
     const url = `http://${ip}/api/system/info`;
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), this.timeoutMs);
+    const onExternalAbort = () => ctrl.abort();
+    if (externalSignal) {
+      if (externalSignal.aborted) ctrl.abort();
+      else externalSignal.addEventListener('abort', onExternalAbort, { once: true });
+    }
     try {
       const resp = await this.fetchImpl(url, { signal: ctrl.signal });
       if (!resp.ok) {
@@ -96,10 +118,19 @@ export class AxeOSClient {
       const body = (await resp.json()) as AxeOSSystemInfo;
       return { reachable: true, info: body, error: null };
     } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
+      // undici wraps every connection-level failure in a generic
+      // `TypeError: fetch failed` and hides the real code
+      // (ECONNREFUSED / EHOSTUNREACH / ...) in `cause`. Surface it -
+      // a bare "fetch failed" in the snapshot cost a day of
+      // diagnosis on #260.
+      let message = e instanceof Error ? e.message : String(e);
+      if (e instanceof Error && e.cause instanceof Error && e.cause.message) {
+        message = `${message}: ${e.cause.message}`;
+      }
       return { reachable: false, info: null, error: message };
     } finally {
       clearTimeout(timer);
+      externalSignal?.removeEventListener('abort', onExternalAbort);
     }
   }
 }

@@ -20,3 +20,10 @@ export const v1_12_0_0 = VersionInfo.of({
     'Updates Hashrate Autopilot to upstream v1.12.0. Includes public-IP change tracking, drag-to-reorder Status cards, configurable marker colors, return-on-spend P&L, Braiins share-rejection metrics, the Bitaxe miner rename, and migrations 0106-0109.',
   migrations: {},
 })
+
+export const v1_13_0_0 = VersionInfo.of({
+  version: '1.13.0:0',
+  releaseNotes:
+    'Updates Hashrate Autopilot to upstream v1.13.0. Includes configurable stats tiles, the dedicated History page, synced chart crosshair, dashboard card handle reordering, BTC oracle and mobile polish, and the pending-cancel race fix. No new upstream migrations.',
+  migrations: {},
+})

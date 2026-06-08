@@ -89,6 +89,35 @@ export class BraiinsDepositsRepo {
     return row;
   }
 
+  /**
+   * Every deposit row, newest first. Used by the debug-dump endpoint
+   * so an operator filing a deposit/fee bug can ship one curl that
+   * includes the full deposit history. Deposits are rare (Braiins
+   * settles ~weekly), so the row count stays bounded regardless of
+   * uptime.
+   */
+  async listAll(): Promise<BraiinsDepositRow[]> {
+    const rows = await this.db
+      .selectFrom('braiins_deposits')
+      .selectAll()
+      .orderBy('first_seen_at_ms', 'desc')
+      .execute();
+    return rows.map((row) => ({
+      tx_id: row.tx_id,
+      amount_sat: row.amount_sat,
+      address: row.address,
+      last_seen_status: row.last_seen_status,
+      last_seen_return_tx_id: row.last_seen_return_tx_id,
+      first_seen_at_ms: row.first_seen_at_ms,
+      updated_at_ms: row.updated_at_ms,
+      tx_timestamp_ms: row.tx_timestamp_ms ?? null,
+      credited_at_ms: row.credited_at_ms ?? null,
+      notified_detected: row.notified_detected === 1,
+      notified_available: row.notified_available === 1,
+      notified_returned: row.notified_returned === 1,
+    }));
+  }
+
   /** Row count - used by the watcher to detect fresh-install state. */
   async countAll(): Promise<number> {
     const row = await this.db
