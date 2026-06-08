@@ -208,7 +208,11 @@ function SignalingBlockCard({
       : null;
 
   return (
-    <div className="bg-slate-950 border border-slate-800 rounded-lg p-4">
+    // #278 v3: `min-w-0` lets this card (a grid item) shrink to its
+    // track instead of holding `min-width:auto` and growing to fit a
+    // long miner tag - which previously pushed the whole card, and its
+    // right-aligned reward/fees values, past the viewport edge.
+    <div className="min-w-0 bg-slate-950 border border-slate-800 rounded-lg p-4">
       {/* #278: items-start instead of items-baseline so a tall or
           wrapping badge column doesn't drag the height number's
           baseline; gap-3 (instead of gap-2) keeps a visible breathing
@@ -780,7 +784,14 @@ function EpochBreakdown({
                 </div>
               </div>
               {isOpen && epochBlocks.length > 0 && (
-                <div className="px-3 pb-3 pt-1 bg-slate-950/60 border-t border-slate-800/60 grid gap-3 sm:grid-cols-2">
+                // #278 v3: `grid-cols-1` (not bare `grid`) gives a
+                // minmax(0,1fr) track that can shrink below content;
+                // paired with `min-w-0` on each card below, a long
+                // miner tag truncates instead of widening the card past
+                // the viewport. The earlier v2 left the grid item at the
+                // default `min-width:auto`, so the card grew to fit the
+                // full tag and pushed the right-aligned values off-screen.
+                <div className="px-3 pb-3 pt-1 bg-slate-950/60 border-t border-slate-800/60 grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {epochBlocks.map((b) => (
                     <SignalingBlockCard
                       key={b.hash}
