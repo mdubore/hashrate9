@@ -1654,6 +1654,12 @@ export const PriceChart = memo(function PriceChart({
     // inherits block 1's anchor and the stagger pass below visually
     // separates the two dots.
     const MAX_LAG_TICKS = 15;
+    // #282: a block may only inherit a *previous* block's unpaid step
+    // (the Ocean-batched-credit case) when the two are within this
+    // window. Ocean's unpaid column refreshes on a ~5-min cadence, so
+    // genuinely-batched blocks land within a refresh or two; 30 min is
+    // a generous bound that still rejects the hours-apart false match.
+    const BATCH_PROXIMITY_MS = 30 * 60 * 1000;
     let cursor = 0;
     let scanFromIdx = 0;
     let lastClaimedSteppedIdx = -1;
@@ -1694,7 +1700,24 @@ export const PriceChart = memo(function PriceChart({
           scanFromIdx = steppedIdx + 1;
           lastClaimedSteppedIdx = steppedIdx;
           lastClaimedValue = stepped;
-        } else if (lastClaimedSteppedIdx >= 0 && lastClaimedValue !== null) {
+        } else if (
+          lastClaimedSteppedIdx >= 0 &&
+          lastClaimedValue !== null &&
+          // #282: only inherit the previous block's step when this
+          // block is genuinely *near* it in time - the batched-credit
+          // case is two blocks minutes apart that Ocean combined into
+          // one unpaid refresh. Time-based (not tick-count) so the
+          // bound holds at any bucket size. Without it, a block whose
+          // own step isn't found within the scan window (e.g. one in
+          // the prefetch buffer hours past the viewport, where the
+          // unpaid series is flat or null) would inherit a step hours
+          // away and paint a phantom second dot staggered next to an
+          // unrelated block. Empirical: block 952867 (13:19) attaching
+          // to 952842 (08:29) gave two dots for one visible block; the
+          // phantom vanished on zoom-in as 952867 left the data
+          // extent (#282).
+          b.timestamp_ms - points[lastClaimedSteppedIdx]!.tick_at <= BATCH_PROXIMITY_MS
+        ) {
           // No further step found - Ocean batched this block's credit
           // into the previous step. Share the previous anchor; stagger
           // pass below pulls the dots apart visually.
@@ -1837,6 +1860,7 @@ export const PriceChart = memo(function PriceChart({
     crosshair,
     viewportHandlers,
     clientToTick,
+    isFocused,
   });
 
   // Marker line position + readout rows at the snapped tick. Bid uses

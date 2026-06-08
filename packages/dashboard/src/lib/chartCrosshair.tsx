@@ -8,9 +8,12 @@
  * lands on the same pixel column in both.
  *
  * Interaction model (operator-interviewed, see issue #257):
- *  - Mouse hover shows a transient crosshair; click pins it at that
- *    tick (re-click re-pins). Esc or a click outside the charts
- *    dismisses a pinned crosshair.
+ *  - Mouse hover shows a transient crosshair. Clicking an already-
+ *    focused chart pins it at that tick (re-click re-pins). The first
+ *    click on an *unfocused* chart only focuses it (to enable wheel-
+ *    zoom) and does NOT pin, so the operator isn't forced to dismiss
+ *    the readout before panning/zooming (#282). Esc or a click outside
+ *    the charts dismisses a pinned crosshair.
  *  - Touch: a quick drag still pans (unchanged viewport gesture); a
  *    ~300 ms long-press engages scrub mode where the finger drives
  *    the crosshair instead of the pan, and lifting the finger pins.
@@ -152,14 +155,25 @@ export function useCrosshairPointer(opts: {
   /** clientX -> snapped tick, with the chart's current geometry.
    *  Null when the pointer is outside the data region. */
   clientToTick: (svg: SVGSVGElement, clientX: number) => number | null;
+  /** #282: whether the chart is currently focused (zoom-active). A
+   *  click on an *unfocused* chart only activates it - it must not
+   *  also pin the crosshair tooltip, or the operator has to dismiss
+   *  the readout before they can drag/zoom. Pinning happens on the
+   *  next click, once the chart is already focused. */
+  isFocused?: boolean;
 }): CrosshairSvgHandlers {
-  const { chartId, crosshair, viewportHandlers, clientToTick } = opts;
+  const { chartId, crosshair, viewportHandlers, clientToTick, isFocused } = opts;
 
   const downRef = useRef<{ x: number; y: number; pointerType: string } | null>(null);
   const movedRef = useRef(false);
   const scrubRef = useRef(false);
   const suppressClickRef = useRef(false);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // #282: focus state at the moment the gesture began. The viewport's
+  // onPointerUp flips focus on before onClick fires, so we can't read
+  // the live value in onClick to tell "this click just focused us"
+  // apart from "we were already focused" - snapshot it at pointer-down.
+  const wasFocusedAtDownRef = useRef(false);
 
   // Keep the latest callbacks in refs so the returned handlers stay
   // referentially stable across renders (the charts are memo'd).
@@ -169,6 +183,8 @@ export function useCrosshairPointer(opts: {
   viewportRef.current = viewportHandlers;
   const clientToTickRef = useRef(clientToTick);
   clientToTickRef.current = clientToTick;
+  const isFocusedRef = useRef(isFocused);
+  isFocusedRef.current = isFocused;
 
   useEffect(() => () => {
     if (longPressTimer.current) clearTimeout(longPressTimer.current);
@@ -183,6 +199,7 @@ export function useCrosshairPointer(opts: {
 
   const onPointerDown = useCallback<React.PointerEventHandler<SVGSVGElement>>((e) => {
     viewportRef.current?.onPointerDown(e);
+    wasFocusedAtDownRef.current = isFocusedRef.current === true;
     downRef.current = { x: e.clientX, y: e.clientY, pointerType: e.pointerType };
     movedRef.current = false;
     scrubRef.current = false;
@@ -263,6 +280,11 @@ export function useCrosshairPointer(opts: {
     }
     // A drag that ended on this chart still fires a click; don't pin.
     if (movedRef.current) return;
+    // #282: the click that focuses an unfocused chart (to enable
+    // wheel-zoom) must not also pin the crosshair - otherwise the
+    // operator has to close the readout before they can pan/zoom.
+    // Pinning is available on the next click, once focused.
+    if (!wasFocusedAtDownRef.current) return;
     const tick = clientToTickRef.current(e.currentTarget, e.clientX);
     if (tick === null) return;
     crosshairRef.current?.pin(chartId, tick, e.clientX, e.clientY);

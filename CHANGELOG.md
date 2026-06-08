@@ -2,6 +2,10 @@
 
 ## 2026-06-08
 
+### `[Fix]` Price chart: phantom pool-block dot + click-to-zoom no longer pins the crosshair (#282)
+
+Two interaction fixes. (1) **Phantom pool-block dot:** at a wide zoom the Price chart could draw two blue dots a few pixels apart on the unpaid-earnings line next to a single visible block, with the extra one vanishing as you zoomed in. The pool-block markers process every block in the data extent (which includes the off-screen prefetch buffer), and a block whose own unpaid step wasn't found would inherit the previous block's step with no distance bound - so a block hours away in the buffer painted a phantom dot beside an unrelated one. The inheritance is now bounded to a 30-minute window (the genuine Ocean-batched-credit case it exists for). (2) **Click-to-focus no longer pins:** clicking a chart to focus it for wheel-zoom also pinned the synced crosshair readout, which then sat over the chart and had to be dismissed before you could pan or zoom. The focusing click no longer pins; pinning is still available on the next click once the chart is focused.
+
 ### `[Feature]` Click a legend entry to show/hide that series (#280)
 
 Both charts were getting crowded with overlapping lines. Now every legend chip on the Hashrate and Price charts is a toggle - click "received (Datum)" or "hashprice" (etc.) to hide that series, click again to bring it back, exactly like the Bitaxe UI. Hidden chips dim and strike through. Hiding a series also rescales the Y-axis to what's left, so isolating one line lets it fill the chart instead of being squashed by a taller neighbour. The choice is saved per device (each chart independently), so a muted noisy line stays muted across reloads on that phone or desktop. Line series, reference lines (target / floor), the right-axis line, and the marker classes that carry a legend chip (pool block, found by us, edit speed, on-chain payout) are all toggleable; the grouped bid-event glyph legend is unchanged.

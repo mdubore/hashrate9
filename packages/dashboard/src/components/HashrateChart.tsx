@@ -1508,6 +1508,7 @@ export const HashrateChart = memo(function HashrateChart({
     crosshair,
     viewportHandlers,
     clientToTick,
+    isFocused,
   });
 
   // Marker line position + readout rows at the snapped tick. Values
