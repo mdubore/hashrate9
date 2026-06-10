@@ -3,6 +3,8 @@ dist/
 coverage/
 javascript/
 *.s9pk
+SHA256SUMS
+.github/release-notes.generated.md
 *.log
 .DS_Store
 

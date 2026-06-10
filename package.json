@@ -30,6 +30,11 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "release:preflight": "./scripts/release-github.sh preflight",
+    "release:artifacts": "./scripts/release-github.sh build",
+    "release:checksums": "./scripts/release-github.sh checksums",
+    "release:dry-run": "./scripts/release-github.sh dry-run",
+    "release:github": "./scripts/release-github.sh release",
     "smoke": "tsx scripts/smoke-braiins.ts",
     "setup": "tsx scripts/setup.ts",
     "daemon": "tsx packages/daemon/src/main.ts"

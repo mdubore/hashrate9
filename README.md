@@ -479,8 +479,20 @@ hashrate-autopilot-9_x86_64.s9pk
 hashrate-autopilot-9_aarch64.s9pk
 ```
 
-When this fork publishes GitHub releases, prebuilt `.s9pk` files will be attached on the
-[releases page](https://github.com/mdubore/hashrate9/releases). Until then, build the package locally.
+Prebuilt `.s9pk` files are published on the
+[releases page](https://github.com/mdubore/hashrate9/releases) when a StartOS package release is cut. Release
+artifacts are produced by the repo-local GitHub release profile:
+
+```bash
+pnpm run release:dry-run
+```
+
+That command verifies the repo, builds both package architectures, writes `SHA256SUMS`, and performs local artifact
+verification. Maintainers can publish the draft GitHub release with:
+
+```bash
+pnpm run release:github
+```
 
 The package declares Bitcoin (`bitcoind`, covering Bitcoin Knots and Bitcoin Core), Electrs, and Datum Gateway as
 required StartOS dependencies. StartOS surfaces those requirements during install and setup. After the service

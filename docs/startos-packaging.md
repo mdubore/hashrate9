@@ -17,6 +17,8 @@ published packaging documentation at `https://docs.start9.com/packaging/`.
 - `startos/init/index.ts` - runtime initialization before the daemon starts.
 - `instructions.md` - install-time operator instructions shown by StartOS.
 - `Makefile` and `s9pk.mk` - convenience targets around `start-cli s9pk pack`.
+- `.github/release-profile.env` - GitHub release profile consumed by the local `publishing-github-releases` Codex skill.
+- `scripts/release-github.sh` - wrapper around the reusable release skill for StartOS package releases.
 
 ## Maintenance expectations
 
@@ -25,3 +27,26 @@ published packaging documentation at `https://docs.start9.com/packaging/`.
   `rdouma/hashrate-autopilot`.
 - Keep operator-facing copy concise and explicit about DRY-RUN mode, live bid risk, dependencies, and backups.
 - Verify package builds after changing manifest, dependency, init, backup, Dockerfile, or Makefile behavior.
+
+## GitHub release workflow
+
+StartOS package releases attach both architecture-specific `.s9pk` files and a checksum file:
+
+- `hashrate-autopilot-9_x86_64.s9pk`
+- `hashrate-autopilot-9_aarch64.s9pk`
+- `SHA256SUMS`
+
+Use the release wrapper from the repo root:
+
+```bash
+pnpm run release:dry-run
+```
+
+After reviewing the generated artifacts and notes, publish a draft release:
+
+```bash
+pnpm run release:github
+```
+
+The wrapper delegates to the reusable `publishing-github-releases` Codex skill. Override
+`GITHUB_RELEASE_SKILL_DIR` only when testing a local copy of that skill.
