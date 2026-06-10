@@ -2,6 +2,15 @@
   "name": "hashrate-autopilot",
   "version": "0.1.0",
   "description": "StartOS packaging workspace for Hashrate Autopilot, an operator-run Braiins Hashpower controller and Ocean/Datum mining dashboard.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mdubore/hashrate9.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mdubore/hashrate9/issues"
+  },
+  "homepage": "https://github.com/mdubore/hashrate9#readme",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@10.33.0",

@@ -1,13 +1,18 @@
-# Umbrel app manifest. Loaded when this repo is added as a Community
-# App Store. Umbrel community-store convention: the directory name
-# (and the `id:` field below) must be prefixed with the store's id
-# from `umbrel-app-store.yml` - here that's `rdouma-`.
+# Preserved upstream Umbrel app manifest. The StartOS package in this
+# fork does not use this file; it is retained so upstream Umbrel
+# metadata stays available for comparison and compatibility checks.
+#
+# Umbrel community-store convention: the directory name (and the `id:`
+# field below) must be prefixed with the store's id from
+# `umbrel-app-store.yml` - here that's `rdouma-`. The developer,
+# submitter, website, repo, support, icon, and gallery fields below
+# intentionally point at the upstream Umbrel app.
 
 manifestVersion: 1
 id: rdouma-hashrate-autopilot
 category: bitcoin
 name: Hashrate Autopilot
-version: "1.13.0"
+version: '1.13.0'
 tagline: Autopilot for renting hashrate to mine on Ocean Mining
 icon: https://raw.githubusercontent.com/rdouma/hashrate-autopilot/main/assets/icon-512.png
 # Umbrel renders description literally - no YAML folding of soft
@@ -47,9 +52,9 @@ gallery:
   - https://raw.githubusercontent.com/rdouma/hashrate-autopilot/main/rdouma-hashrate-autopilot/4.png
   - https://raw.githubusercontent.com/rdouma/hashrate-autopilot/main/rdouma-hashrate-autopilot/5.png
   - https://raw.githubusercontent.com/rdouma/hashrate-autopilot/main/rdouma-hashrate-autopilot/6.png
-path: ""
-defaultUsername: ""
-defaultPassword: ""
+path: ''
+defaultUsername: ''
+defaultPassword: ''
 submitter: Remco Douma
 submission: https://github.com/rdouma/hashrate-autopilot
 releaseNotes: |

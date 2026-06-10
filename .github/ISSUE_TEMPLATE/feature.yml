@@ -1,27 +1,23 @@
 name: Feature request
 description: Suggest a new feature, an improvement, or a behaviour change
-title: "[feature] "
-labels: ["feature", "backlog", "user-submitted"]
+title: '[feature] '
+labels: ['feature', 'backlog', 'user-submitted']
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for the suggestion! A few things worth knowing before
-        you write:
+        Before opening a feature request:
 
-        - This is a solo hobby project. I read every request, but I
-          can't promise to ship them on any particular timeline -
-          and I do say "out of scope" when something doesn't fit
-          the project's direction. Don't take it personally.
-        - For open-ended questions ("could it support X?", "would
-          you ever want to do Y?"), [Discussions](https://github.com/rdouma/hashrate-autopilot/discussions)
-          is usually a better fit than an issue. Issues are for
-          concrete asks I can act on.
-        - The autopilot is deliberately scoped to non-custodial
-          mining via Datum-compatible pools, with Braiins as the
-          first hashpower marketplace. Other markets / pools / use
-          cases are not automatically out of scope, but they need
-          a strong case.
+        - This repository maintains the StartOS package and downstream
+          integration. General application behavior requests may belong
+          upstream at `rdouma/hashrate-autopilot`.
+        - For open-ended questions ("could it support X?", "would it
+          make sense to do Y?"), [Discussions](https://github.com/mdubore/hashrate9/discussions)
+          is usually a better fit than an issue.
+        - The application is scoped to non-custodial mining via
+          Datum-compatible pools, with Braiins as the first hashpower
+          marketplace. Other markets, pools, or use cases need a clear
+          operator-focused case.
 
   - type: textarea
     id: problem

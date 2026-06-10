@@ -1,5 +1,10 @@
 # Exposing the Datum Gateway API on Umbrel
 
+> **StartOS note:** This is an advanced Umbrel-only appendix. StartOS
+> installs should use the package defaults from `instructions.md`;
+> Hashrate Autopilot reads the StartOS Datum dashboard HTML fallback
+> without this Umbrel compose-file workaround.
+>
 > **Status:** **WORKING and stable.** Verified live on 2026-04-19
 > and running uninterrupted since - the daemon has been polling
 > Datum stats every tick, recording `datum_hashrate_ph` on every
