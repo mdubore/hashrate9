@@ -4,8 +4,7 @@ The daemon resolves configuration in priority order:
 
 1. **Environment variables** - anything matching `BHA_*` (table below).
 2. **SQLite database** (`data/state.db`) - written by the dashboard's
-   Config page, by `pnpm setup`, or by the future first-run wizard
-   (#57).
+   Config page, by `pnpm setup`, or by the first-run setup wizard.
 3. **Schema defaults** - see `packages/daemon/src/config/schema.ts`.
 
 Env-var overrides are read **once at boot** and re-validated through
@@ -14,7 +13,7 @@ loudly on startup rather than being silently ignored.
 
 ## Why this exists
 
-Appliance environments (Umbrel, Start9, vanilla `docker run`) inject
+Appliance environments (Umbrel, StartOS, vanilla `docker run`) inject
 configuration declaratively as environment variables. The
 SOPS-encrypted file + interactive `setup.ts` flow stays for power
 users; this layer makes "set these env vars and start the container"
@@ -24,7 +23,7 @@ a complete path.
 
 Every env-var is `BHA_<UPPER_SNAKE_CASE>` of the underlying schema
 field. The `BHA_` prefix (historical, from early Braiins-only days) avoids collision
-with the unrelated `BITCOIN_RPC_*` env vars Umbrel and Start9 inject
+with the unrelated `BITCOIN_RPC_*` env vars Umbrel and StartOS inject
 for bitcoind discovery - that integration is a separate concern, see
 issue #60.
 

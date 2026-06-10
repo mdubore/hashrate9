@@ -1,18 +1,18 @@
-import { setupManifest } from '@start9labs/start-sdk'
-import { appVersion } from '../utils'
-import { short, long } from './i18n'
+import { setupManifest } from '@start9labs/start-sdk';
+import { appVersion } from '../utils';
+import { short, long } from './i18n';
 
 export const manifest = setupManifest({
   id: 'hashrate-autopilot-9',
-  title: 'Hashrate-Autopilot-9',
+  title: 'Hashrate Autopilot for StartOS',
   license: 'MIT',
-  packageRepo: 'https://github.com/rdouma/hashrate-autopilot',
+  packageRepo: 'https://github.com/mdubore/hashrate9',
   upstreamRepo: 'https://github.com/rdouma/hashrate-autopilot',
-  marketingUrl: 'https://github.com/rdouma/hashrate-autopilot',
+  marketingUrl: 'https://github.com/mdubore/hashrate9',
   donationUrl: null,
   docsUrls: [
-    'https://github.com/rdouma/hashrate-autopilot',
-    'https://github.com/rdouma/hashrate-autopilot/blob/main/docs/configuration.md',
+    'https://github.com/mdubore/hashrate9',
+    'https://github.com/mdubore/hashrate9/blob/main/docs/configuration.md',
   ],
   description: { short, long },
   volumes: ['main'],
@@ -43,7 +43,7 @@ export const manifest = setupManifest({
   dependencies: {
     bitcoind: {
       description:
-        'Provides a local Bitcoin node, including Bitcoin Knots, for Datum Gateway and optional BIP 110 block-header checks.',
+        'Provides the local Bitcoin node used by Datum Gateway and optional BIP 110 block-header checks.',
       optional: false,
       s9pk: null,
     },
@@ -55,9 +55,9 @@ export const manifest = setupManifest({
     },
     datum: {
       description:
-        'Receives rented hashrate and exposes Datum Gateway statistics for the dashboard.',
+        'Receives rented hashrate from Braiins and exposes Datum Gateway statistics for the dashboard.',
       optional: false,
       s9pk: null,
     },
   },
-})
+});

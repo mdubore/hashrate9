@@ -1,11 +1,14 @@
-# Umbrel Community App Store manifest. Lives at the repo root because
-# Umbrel's "Add App Store" flow expects this file there.
+# Preserved upstream Umbrel Community App Store manifest. The StartOS
+# package in this fork does not use this file, but it remains at the
+# repository root because Umbrel's "Add App Store" flow expects it
+# there when targeting the upstream app store layout.
 #
 # Operators add this store to their Umbrel via:
 #   Settings → App Stores → Add App Store
 #   → https://github.com/rdouma/hashrate-autopilot
-# Umbrel then walks each top-level directory of this repo looking for
-# umbrel-app.yml manifests. Today there's exactly one: hashrate-autopilot/.
+# Umbrel then walks each top-level directory of the upstream repo
+# looking for umbrel-app.yml manifests. This fork keeps that metadata
+# under rdouma-hashrate-autopilot/.
 #
 # When the official Umbrel store accepts a submission of the same
 # manifest, this Community Store entry can be deprecated in favour
@@ -15,4 +18,4 @@ id: rdouma
 # Umbrel renders this as "<name> App Store" - so this becomes
 # "Hashrate Autopilot App Store".
 name: Hashrate Autopilot
-tagline: Decentralizing Bitcoin mining, one pleb at a time
+tagline: Decentralized hashrate automation for Bitcoin mining

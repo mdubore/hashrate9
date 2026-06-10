@@ -1,49 +1,53 @@
-# Hashrate Autopilot
+# Hashrate Autopilot for StartOS
 
-A personal-scale autopilot and monitor for the [Braiins Hashpower marketplace](https://hashpower.braiins.com/).
-Keeps a rented-hashrate bid continuously alive at an operator-chosen price ceiling, so purchased hashrate keeps
-landing at your own Datum-connected pool without manual babysitting.
+StartOS packaging for [Hashrate Autopilot](https://github.com/rdouma/hashrate-autopilot), an operator-run
+daemon and dashboard for the [Braiins Hashpower marketplace](https://hashpower.braiins.com/). It keeps a
+rented-hashrate bid alive within operator-defined limits and routes delivered hashrate to an Ocean/Datum mining
+setup.
+
+This fork tracks upstream Hashrate Autopilot v1.13.0 and adds the StartOS service wrapper, dependency
+declarations, persistent data volume, backup hooks, web interface wiring, and `.s9pk` build flow. Upstream
+application behavior is intentionally kept close to `rdouma/hashrate-autopilot`; StartOS-specific work lives in
+`startos/`, `instructions.md`, `Makefile`, and `s9pk.mk`.
 
 ![Dashboard in real-time mode](docs/images/dashboard.png)
 
-## StartOS packaging variation
+## Project status
 
-This repository packages Hashrate Autopilot for StartOS. The upstream application was already structured for
-Docker and had an Umbrel Community App Store manifest; this variation adds the StartOS service wrapper needed to
-build and sideload `.s9pk` packages while leaving the daemon, dashboard, and controller behavior intact.
+| Item | Status |
+| --- | --- |
+| Downstream package repo | `mdubore/hashrate9` |
+| Upstream app repo | `rdouma/hashrate-autopilot` |
+| Upstream version tracked | `v1.13.0` |
+| StartOS package id | `hashrate-autopilot-9` |
+| Package architectures | `x86_64`, `aarch64` |
+| Verified sideload target | `x86_64` StartOS server |
 
-The StartOS work lives in `startos/` and defines the service manifest, version graph, persistent data volume,
-dashboard interface, dependency declarations for Bitcoin Knots or Core via StartOS package ID `bitcoind`,
-Electrs, and Datum Gateway, backup hooks, and the runtime daemon entrypoint. `Makefile` and `s9pk.mk` wrap
-`start-cli s9pk pack`, and `instructions.md` gives operators the
-StartOS-specific setup notes shown during install. The package build supports `x86_64` and `aarch64`; the
-`x86_64` package has been sideloaded and started on a StartOS server.
+Use this repository when you want the StartOS package project. Use the upstream repo for Docker, bare-metal,
+and Umbrel-focused deployments unless you are intentionally testing this fork.
 
-Current package note: this StartOS variation is synced with upstream Hashrate Autopilot v1.13.0 and carries the
-StartOS-specific build fixes needed to produce reproducible `.s9pk` packages from a clean checkout, including
-workspace library prebuilds, dashboard locale compilation before checks, and the v1.13.0 StartOS version graph.
+## Documentation map
 
-Use this repository when you want the StartOS package project. Use the original Umbrel metadata under
-`rdouma-hashrate-autopilot/` when targeting Umbrel.
+- [StartOS sideload](#path-a---startos-sideload) - build and install a `.s9pk` package.
+- [StartOS packaging notes](docs/startos-packaging.md) - maintainer notes for package metadata and builds.
+- [Configuration reference](docs/configuration.md) - environment variables and service settings.
+- [Architecture](docs/architecture.md) - daemon, dashboard, persistence, and control-loop internals.
+- [Control-loop specification](docs/spec.md) - market model, bidding rules, and safety constraints.
+- [Datum API setup](docs/setup-datum-api.md) - optional Datum Gateway stats integration.
 
-The Status page is a single scroll: a hero card with the **live current bid** (the price Braiins charges
-per delivered EH·day under pay-your-bid, so the bid *is* the truthful real-time number to anchor the
-dashboard on) and its delta versus hashprice, the delivered-hashrate number, and the DRY-RUN / LIVE /
-PAUSED switch on the left; the Next Action panel on the right explaining what the autopilot is about to
-do and when. The window-averaged effective rate (derived per-tick from the delta of Braiins's
-`amount_consumed_sat` counter divided by delivered hashrate × elapsed time) lives on the stats bar below
-as **avg cost / PH delivered**, where the post-hoc range-averaged framing makes more sense. Below the
-hero sit range-selectable hashrate and price charts overlayed with bid events, block markers,
-difficulty-retarget pickaxe icons, on-chain payout gem markers, and public-IP-change router markers (so a
-rejection-rate spike can be lined up against an ISP IP rotation). The price chart draws your bid (amber), the fillable ask the
-controller tracks (cyan), hashprice (violet), and the safety ceiling (pink); the per-tick effective rate is a separate emerald line, off by default
-behind a config toggle because it's dramatically more volatile than the tracking lines and hijacks the
-Y-axis when enabled. Then a stats strip (uptime, avg hashrate per source - Braiins / Datum / Ocean
-side-by-side, cost per PH delivered, effective rate vs hashprice), service panels for Braiins / Datum
-Gateway / Ocean, the active bids table, and per-day and lifetime P&L measured from actual account-ledger
-spend and on-chain receipts. Every block on this page is draggable: hit **Rearrange** in the top bar, drag the
-cards into the order you want (e.g. P&L up top, or the hashrate and price charts reordered independently), and
-the layout is saved per-device in the browser so your phone and desktop each keep their own arrangement.
+All install paths start in **DRY-RUN** mode. The daemon does not trade real funds until an operator enables
+LIVE mode from the dashboard.
+
+## StartOS package scope
+
+The StartOS package declares dependencies for Bitcoin Knots or Core through StartOS package id `bitcoind`,
+Electrs, and Datum Gateway. It exposes the dashboard as a StartOS web interface, stores persistent application
+state in the `main` volume at `/app/data`, includes backup/restore hooks, and uses `start-cli s9pk pack` through
+the repository Make targets.
+
+The packaged dashboard shows live bid state, delivered hashrate, controller decisions, Braiins / Datum / Ocean
+service health, active bids, historical charts, payout observations, and measured P&L. Dashboard layout changes
+are stored per device in the browser.
 
 ## Why this exists
 
@@ -436,17 +440,17 @@ packages/
 ## Installation
 
 The daemon needs a place to live (somewhere it can stay running 24/7), a Braiins account with an API
-token, and a way for you to reach the dashboard from a browser. Beyond that, four install paths exist.
-Pick whichever matches how the rest of your stack is run.
+token, and a way for you to reach the dashboard from a browser. The StartOS sideload path is maintained
+by this fork; Docker, bare-metal, and SOPS instructions are retained as upstream deployment references.
 
 ### Choose your path
 
 | Path | Best when | Footprint |
 |---|---|---|
-| **A - StartOS sideload** | You run StartOS and want the packaged service with StartOS dependency links, backups, and dashboard interface. | Build or download the `.s9pk`, sideload it into StartOS, then complete the web wizard. |
-| **B - Docker on a Linux box** | You have a small always-on Linux machine (NUC, Mini PC, Raspberry Pi, VPS) and don't want to install a Node.js toolchain on it. | One container, one volume, one port. Recommended for a fresh box. |
-| **C - Bare-metal Node install** | You want to run from source, hack on it, or already have Node 22 + pnpm 10 around. | A git checkout + `pnpm install` + `./scripts/start.sh`. Same wizard as Path B. |
-| **D - Power-user CLI with SOPS** | You want secrets at rest in a `sops`-encrypted file (because that's how the rest of your ops is structured), not in `state.db`. | Adds `sops` + `age` to the bare-metal install; runs `pnpm run setup` instead of the web wizard. |
+| **A - StartOS sideload** | You run StartOS and want the packaged service with StartOS dependency links, backups, and dashboard interface. | Build the `.s9pk`, sideload it into StartOS, then complete the web wizard. |
+| **B - Upstream Docker reference** | You are comparing the upstream Docker deployment path. | One container, one volume, one port. Use upstream releases for production Docker installs. |
+| **C - Upstream bare-metal reference** | You are comparing the upstream source checkout path. | A git checkout + `pnpm install` + `./scripts/start.sh`. Same wizard as Path B. |
+| **D - Upstream SOPS reference** | You are comparing the upstream encrypted-secret CLI path. | Adds `sops` + `age` to the bare-metal install; runs `pnpm run setup` instead of the web wizard. |
 
 All four end up at the same dashboard. StartOS exposes it through the service interface; Docker and bare-metal
 installs expose it on port **3010** by default. All four boot the daemon in **DRY-RUN** - nothing trades real
@@ -459,7 +463,7 @@ money until you flip the switch from the dashboard's Status page.
 
 ### Path A - StartOS sideload
 
-Build the StartOS package from this repository, or use a prebuilt `.s9pk` from the release artifacts:
+Build the StartOS package from this repository:
 
 ```bash
 # x86_64 StartOS server
@@ -476,9 +480,12 @@ hashrate-autopilot-9_x86_64.s9pk
 hashrate-autopilot-9_aarch64.s9pk
 ```
 
-The package declares StartOS dependencies for Bitcoin (`bitcoind`, covering Bitcoin Knots and Bitcoin Core),
-Electrs, and Datum Gateway. StartOS surfaces those links during install and warns if a dependency is missing or
-stopped. After the service starts, open the web interface from the StartOS service page and complete the wizard:
+When this fork publishes GitHub releases, prebuilt `.s9pk` files will be attached on the
+[releases page](https://github.com/mdubore/hashrate9/releases). Until then, build the package locally.
+
+The package declares Bitcoin (`bitcoind`, covering Bitcoin Knots and Bitcoin Core), Electrs, and Datum Gateway as
+required StartOS dependencies. StartOS surfaces those requirements during install and setup. After the service
+starts, open the web interface from the StartOS service page and complete the wizard:
 
 1. Add Braiins Hashpower API credentials.
 2. Set the public Datum Gateway stratum endpoint Braiins will mine to.
@@ -500,11 +507,14 @@ Autopilot instead of the external StartOS proxy/interface URLs:
 Override the fields from the setup wizard or Config page only if your local services use different ports or
 credentials.
 
-### Path B - Docker on a Linux box
+### Path B - Upstream Docker reference
 
 Recommended for the typical "I have a Mini PC / Raspberry Pi / VPS that just needs to run this thing"
 case. Docker handles the Node + pnpm + native-binding-build dance for you, and updating to a new
 version is a single `docker pull`.
+
+The Docker commands below use the upstream application image from `rdouma/hashrate-autopilot`. Use Path A for
+the StartOS package build from this repository.
 
 #### B.1. Install Docker (Ubuntu)
 
@@ -559,7 +569,7 @@ What that does:
   operator-relevant file (config, secrets, tick history, owned-bid ledger). Surviving container
   recreation is the whole point.
 - `--restart unless-stopped` - if the host reboots or the container crashes, Docker brings it back.
-- `ghcr.io/rdouma/hashrate-autopilot:latest` - pulls the image from the GitHub Container Registry.
+- `ghcr.io/rdouma/hashrate-autopilot:latest` - pulls the upstream image from the GitHub Container Registry.
   Multi-arch (`linux/amd64` + `linux/arm64`) so the same line works on a Pi.
 
 #### B.3. Open the wizard
@@ -623,9 +633,9 @@ docker stop hashrate-autopilot && docker rm hashrate-autopilot
 ```
 
 To pin to a specific version (recommended for production), replace `:latest` with `:vX.Y.Z`. See
-the [releases page](https://github.com/rdouma/hashrate-autopilot/releases).
+the [upstream releases page](https://github.com/rdouma/hashrate-autopilot/releases).
 
-### Path C - Bare-metal Node install
+### Path C - Upstream bare-metal Node reference
 
 For source hackers, anyone already running Node 22 + pnpm 10, and operators who want
 `scripts/deploy.sh`-style git-pull updates rather than container pulls.
@@ -753,7 +763,7 @@ Reboot once to confirm auto-start works. After a fresh reboot the dashboard shou
 
 If you do NOT want the daemon to auto-start at boot, skip this section entirely and stick with `./scripts/start.sh`. The two paths don't conflict, but don't run both at the same time - they'd both bind port 3010.
 
-### Path D - Power-user CLI with SOPS
+### Path D - Upstream power-user CLI with SOPS reference
 
 The default Path B/C flow (web wizard → secrets in `state.db`) is appliance-friendly and what most
 users should pick. If you'd rather store secrets in a `sops`-encrypted file at rest - typical reasons:
