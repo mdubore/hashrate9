@@ -34,7 +34,6 @@ import {
   type FinanceRangeResponse,
   type NextActionView,
   type ProposalView,
-  type StatsResponse,
   type TickNowResponse,
   type StatusResponse,
 } from '../lib/api';
@@ -695,7 +694,6 @@ export function Status() {
           viewportSince={effectiveViewportSince}
           viewportUntil={chartViewport.viewport.until_ms}
           chartColorOverrides={configQuery.data?.config?.chart_color_overrides}
-          ipChangeEvents={ipChangesQuery.data?.events ?? EMPTY_IP_CHANGES}
           crosshair={chartCrosshair}
         />
       </div>
@@ -1844,163 +1842,6 @@ function FilterBar({
         ))}
       </div>
     </section>
-  );
-}
-
-/**
- * Four KPIs from the server-side `/api/stats` endpoint. The server
- * computes duration-weighted averages from the raw tick_metrics table
- * using SQL LEAD() window function, so each tick is weighted by its
- * actual duration - not an equal-weight approximation that distorts
- * on pre-aggregated chart buckets (1w/1m).
- *
- * Responds to the chart range filter (same query param) so the
- * operator can compare stats across 6h/24h/1w etc.
- */
-function StatsBar({ statsData }: { statsData: StatsResponse | undefined }) {
-  const { intlLocale } = useLocale();
-  const denomination = useDenomination();
-  const { i18n } = useLingui();
-  void i18n;
-
-  if (!statsData) {
-    const placeholderCards = [
-      t`uptime`,
-      t`avg braiins`,
-      t`avg datum`,
-      t`avg ocean`,
-      t`avg cost delivered`,
-      t`avg cost vs hashprice`,
-    ];
-    return (
-      <section className="grid grid-cols-2 lg:grid-cols-6 gap-3">
-        {placeholderCards.map((label) => (
-          <StatCard key={label} label={label} value="-" tooltip={t`Loading or daemon restart required.`} />
-        ))}
-      </section>
-    );
-  }
-
-  if (statsData.tick_count < 2) return null;
-
-  const {
-    uptime_pct,
-    uptime_bid_coverage_pct,
-    uptime_delivery_when_bid_active_pct,
-    avg_hashrate_ph,
-    avg_datum_hashrate_ph,
-    avg_ocean_hashrate_ph,
-    avg_cost_per_ph_sat_per_ph_day,
-    avg_overpay_vs_hashprice_sat_per_ph_day,
-  } = statsData;
-  // total_ph_hours + mutation_count remain on the server-side
-  // StatsResponse even though no card consumes them - keeping the
-  // shape stable so we can re-surface either later without a backend
-  // round-trip.
-  void statsData.total_ph_hours;
-  void statsData.mutation_count;
-
-  return (
-    <section className="grid grid-cols-2 lg:grid-cols-6 gap-3">
-      <StatCard
-        label={t`uptime`}
-        value={uptime_pct !== null ? `${formatNumber(uptime_pct, { minimumFractionDigits: 1, maximumFractionDigits: 1 }, intlLocale)}%` : '\u2014'}
-        tooltip={
-          // #254: surface the orderbook-coverage vs delivery-quality
-          // breakdown so the operator can tell "expected" downtime
-          // (no order met our criteria) from "unexpected" downtime
-          // (hardware / connection / Datum-side failure while a bid
-          // was active). uptime_pct = bid_coverage \u00d7 delivery_when_bid_active.
-          uptime_bid_coverage_pct !== null && uptime_delivery_when_bid_active_pct !== null
-            ? t`Duration-weighted % of time with delivered hashrate > 0, computed over the selected chart range. Decomposes as bid coverage \u00d7 delivery rate while bidding: ${formatNumber(
-                uptime_bid_coverage_pct,
-                { minimumFractionDigits: 1, maximumFractionDigits: 1 },
-                intlLocale,
-              )}% of the window had an active Braiins bid (orderbook availability \u2014 low value here = "nothing matched my criteria", which is expected idle); of that bid-active time, ${formatNumber(
-                uptime_delivery_when_bid_active_pct,
-                { minimumFractionDigits: 1, maximumFractionDigits: 1 },
-                intlLocale,
-              )}% was actually delivering hashrate (hardware / connection / Datum-side quality \u2014 low value here = unexpected downtime). Each tick is weighted by its actual duration (time until the next tick) so gaps after restarts count proportionally. Updates with the range selector above.`
-            : t`Duration-weighted % of time with delivered hashrate > 0, computed over the selected chart range. Each tick is weighted by its actual duration (time until the next tick) so gaps after restarts count proportionally. Updates with the range selector above.`
-        }
-        color={
-          uptime_pct === null
-            ? 'text-slate-400'
-            : uptime_pct >= 90
-              ? 'text-emerald-300'
-              : uptime_pct >= 50
-                ? 'text-amber-300'
-                : 'text-red-300'
-        }
-      />
-      <StatCard
-        label={t`avg braiins`}
-        value={denomination.formatHashrate(avg_hashrate_ph, intlLocale)}
-        tooltip={t`Duration-weighted average of the hashrate Braiins reports delivering, computed over the selected chart range. Includes downtime (where delivered = 0) so a bad stretch shows up in the average, not just the live card. Updates with the range selector above.`}
-      />
-      <StatCard
-        label={t`avg datum`}
-        value={denomination.formatHashrate(avg_datum_hashrate_ph, intlLocale)}
-        tooltip={t`Duration-weighted average of the hashrate Datum measures at the gateway, computed over the selected chart range. A sustained gap below Avg Braiins means Braiins is billing for hashrate Datum never saw arrive. Updates with the range selector above.`}
-      />
-      <StatCard
-        label={t`avg ocean`}
-        value={denomination.formatHashrate(avg_ocean_hashrate_ph, intlLocale)}
-        tooltip={t`Duration-weighted average of the hashrate Ocean credits to our payout address, computed over the selected chart range. Each tick (every 60 s) the daemon calls Ocean's /v1/user_hashrate endpoint and reads the \`hashrate_300s\` field - Ocean's own 5-minute sliding-window estimate for this wallet. So: sampled every minute, each sample is a 5-minute smoothed value. A sustained gap below Avg Braiins / Avg Datum means the pool isn't crediting work we think we delivered. Updates with the range selector above.`}
-      />
-      <StatCard
-        label={t`avg cost delivered`}
-        value={avg_cost_per_ph_sat_per_ph_day !== null ? denomination.formatSatPerPhDay(Math.round(avg_cost_per_ph_sat_per_ph_day), intlLocale) : '\u2014'}
-        tooltip={t`Average effective rate over the selected chart range - what Braiins actually charged per PH/day delivered. Computed as the delta-weighted harmonic mean of the bid: SUM(Δconsumed_sat) ÷ SUM(Δconsumed_sat ÷ bid). Under pay-your-bid the bid IS the price, so when the bid is constant across the window this equals the bid exactly; when the bid varies (mid-window edits) it's the spend-weighted average. Periods of zero delivery contribute zero to both sides and don't skew the result. For the current bid price see the NEXT ACTION panel.`}
-      />
-      <StatCard
-        label={t`avg cost vs hashprice`}
-        value={avg_overpay_vs_hashprice_sat_per_ph_day !== null ? denomination.formatSatPerPhDay(Math.round(avg_overpay_vs_hashprice_sat_per_ph_day), intlLocale) : '\u2014'}
-        tooltip={t`(avg cost delivered) minus the delta-weighted average hashprice during periods we were actually billed, computed over the selected chart range. Negative means we paid below break-even (good - cheaper than mining at current difficulty), positive means above. Same delta weighting as the avg cost card so the two stay consistent. Updates with the range selector above.`}
-        color={
-          avg_overpay_vs_hashprice_sat_per_ph_day === null
-            ? 'text-slate-100'
-            : avg_overpay_vs_hashprice_sat_per_ph_day < 0
-              ? 'text-emerald-300'
-              : avg_overpay_vs_hashprice_sat_per_ph_day > 0
-                ? 'text-red-300'
-                : 'text-slate-100'
-        }
-      />
-    </section>
-  );
-}
-
-function StatCard({
-  label,
-  value,
-  tooltip,
-  color = 'text-slate-100',
-}: {
-  label: string;
-  value: string;
-  tooltip: string;
-  color?: string;
-}) {
-  const split = splitUnit(value);
-  return (
-    <Tooltip text={tooltip}>
-      <div className="bg-slate-900 border border-slate-800 rounded-lg p-4 cursor-help text-center">
-        {/* Reserve two lines for the label so single-line cards
-            ("uptime") line up with two-line cards ("avg cost / PH
-            delivered") - otherwise the big numbers underneath
-            don't share a baseline. */}
-        <div className="text-xs uppercase tracking-wider text-slate-100 mb-2 min-h-8 leading-4 flex items-start justify-center">
-          <span>{label}</span>
-        </div>
-        <div className={`text-2xl font-mono tabular-nums ${color}`}>
-          {split ? split.num : value}
-        </div>
-        {split && (
-          <div className="text-xs text-slate-500 mt-0.5"><SatUnit unit={split.unit} /></div>
-        )}
-      </div>
-    </Tooltip>
   );
 }
 

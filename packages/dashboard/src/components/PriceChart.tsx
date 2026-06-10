@@ -40,7 +40,6 @@ import {
   inferRetargetBlockHeight,
   projectSoloSeries,
 } from './HashrateChart';
-import { type IpChangeMarkerEvent } from './IpChangeMarkers';
 import { applyExplorerTemplate } from '../lib/blockExplorer';
 import {
   clientXToTickAt,
@@ -244,7 +243,6 @@ export const PriceChart = memo(function PriceChart({
   rewardEvents = [],
   deposits = [],
   ourBlocks = [],
-  ipChangeEvents = [],
   blockExplorerTemplate,
   txExplorerTemplate,
   shareLogPct = null,
@@ -338,8 +336,6 @@ export const PriceChart = memo(function PriceChart({
    * chart they hovered.
    */
   ourBlocks?: readonly OurBlockMarker[];
-  /** #250: public-IP change events, drawn as router-icon markers. */
-  ipChangeEvents?: ReadonlyArray<IpChangeMarkerEvent>;
   /** Block-explorer URL template for pool-block markers (`{hash}` / `{height}` placeholders). */
   blockExplorerTemplate?: string;
   /** Transaction-explorer URL template for reward-event markers (`{txid}` / `{hash}` placeholders). */

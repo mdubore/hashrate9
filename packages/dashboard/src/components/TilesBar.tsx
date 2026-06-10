@@ -55,7 +55,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Tooltip } from './Tooltip';
-import type { FinanceRangeResponse, SoloMinersResponse, StatusResponse as StatusResp } from '../lib/api';
+import type { FinanceRangeResponse, SoloMinersResponse } from '../lib/api';
 
 import {
   DEFAULT_DASHBOARD_TILES,
