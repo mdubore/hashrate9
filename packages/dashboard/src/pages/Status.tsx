@@ -608,6 +608,48 @@ export function Status() {
     return intervals;
   }, [bidEventsQuery.data?.events]);
 
+  // #287 follow-up v3: run-mode idle bands (DRY_RUN / PAUSED),
+  // computed here once for both charts. The per-tick run_mode column
+  // gives retroactive coverage but only 1-tick resolution, so an
+  // edge derived from ticks alone visibly misses the mode-change
+  // marker (which carries the exact press time). For each edge we
+  // therefore look for a MODE_CHANGE event inside the bracketing
+  // tick gap and snap the edge to it; midpoint of the two ticks is
+  // the fallback for history without events.
+  const idleModeIntervals = useMemo(() => {
+    const points = metricsQuery.data?.points ?? EMPTY_METRIC_POINTS;
+    const modeChanges = (bidEventsQuery.data?.events ?? EMPTY_BID_EVENTS)
+      .filter((e) => e.kind === 'MODE_CHANGE')
+      .map((e) => e.occurred_at)
+      .sort((a, b) => a - b);
+    // Exact event time if one bracketing-gap event exists, else midpoint.
+    const edgeBetween = (prevT: number | null, currT: number): number => {
+      if (prevT === null) return currT;
+      const snapped = modeChanges.find((t) => t >= prevT && t <= currT);
+      return snapped ?? (prevT + currT) / 2;
+    };
+    const intervals: Array<{ x0: number; x1: number; mode: 'DRY_RUN' | 'PAUSED' }> = [];
+    let idleStart: number | null = null;
+    let idleMode: 'DRY_RUN' | 'PAUSED' | null = null;
+    let prevT: number | null = null;
+    for (const p of points) {
+      const m = p.run_mode === 'DRY_RUN' || p.run_mode === 'PAUSED' ? p.run_mode : null;
+      if (m !== idleMode) {
+        const edge = edgeBetween(prevT, p.tick_at);
+        if (idleStart !== null && idleMode !== null) {
+          intervals.push({ x0: idleStart, x1: edge, mode: idleMode });
+        }
+        idleStart = m !== null ? edge : null;
+        idleMode = m;
+      }
+      prevT = p.tick_at;
+    }
+    if (idleStart !== null && idleMode !== null) {
+      intervals.push({ x0: idleStart, x1: prevT ?? idleStart, mode: idleMode });
+    }
+    return intervals;
+  }, [metricsQuery.data?.points, bidEventsQuery.data?.events]);
+
   if (query.isError && query.error instanceof UnauthorizedError) {
     navigate('/login');
     return null;
@@ -733,6 +775,7 @@ export function Status() {
           speedEditEvents={speedEditEvents}
           markersHiddenCount={markersHiddenCount}
           bidPauseIntervals={bidPauseIntervals}
+          idleModeIntervals={idleModeIntervals}
           viewportHandlers={chartViewport.handlers}
           wheelRef={chartViewport.wheelRef}
           isDragging={chartViewport.isDragging}
@@ -801,6 +844,7 @@ export function Status() {
           txExplorerTemplate={configQuery.data?.config?.block_explorer_tx_url_template}
           shareLogPct={oceanQuery.data?.user?.share_log_pct ?? null}
           bidPauseIntervals={bidPauseIntervals}
+          idleModeIntervals={idleModeIntervals}
           viewportHandlers={chartViewport.handlers}
           wheelRef={chartViewport.wheelRef}
           isDragging={chartViewport.isDragging}

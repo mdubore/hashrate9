@@ -368,6 +368,7 @@ export const HashrateChart = memo(function HashrateChart({
   speedEditEvents = [],
   markersHiddenCount = 0,
   bidPauseIntervals = [],
+  idleModeIntervals = [],
   viewportHandlers,
   wheelRef,
   isDragging = false,
@@ -427,6 +428,13 @@ export const HashrateChart = memo(function HashrateChart({
    * ±Infinity and get clamped to the data range here.
    */
   bidPauseIntervals?: ReadonlyArray<{ x0: number; x1: number }>;
+  /**
+   * #287 follow-up v3: run-mode idle spans (DRY_RUN / PAUSED),
+   * computed by the caller from per-tick run_mode with edges snapped
+   * to MODE_CHANGE event timestamps where available - so the band
+   * edges line up with the power markers instead of tick boundaries.
+   */
+  idleModeIntervals?: ReadonlyArray<{ x0: number; x1: number; mode: 'DRY_RUN' | 'PAUSED' }>;
   viewportHandlers?: {
     onPointerDown: React.PointerEventHandler<SVGSVGElement>;
     onPointerMove: React.PointerEventHandler<SVGSVGElement>;
@@ -1298,33 +1306,7 @@ export const HashrateChart = memo(function HashrateChart({
           }
         }
 
-        // #287 follow-up: contiguous non-LIVE run_mode spans →
-        // "autopilot idle" background bands, mirroring the price
-        // chart's computation so both charts band identically. Band
-        // edges sit at the midpoint between the bracketing ticks so
-        // the band doesn't lag the transition by a full tick.
-        const idleModeIntervals: Array<{ x0: number; x1: number; mode: 'DRY_RUN' | 'PAUSED' }> = [];
-        {
-          let idleStart: number | null = null;
-          let idleMode: 'DRY_RUN' | 'PAUSED' | null = null;
-          let prevT: number | null = null;
-          for (const p of points) {
-            const m = p.run_mode === 'DRY_RUN' || p.run_mode === 'PAUSED' ? p.run_mode : null;
-            if (m !== idleMode) {
-              const edge = prevT !== null ? (prevT + p.tick_at) / 2 : p.tick_at;
-              if (idleStart !== null && idleMode !== null) {
-                idleModeIntervals.push({ x0: idleStart, x1: edge, mode: idleMode });
-              }
-              idleStart = m !== null ? edge : null;
-              idleMode = m;
-            }
-            prevT = p.tick_at;
-          }
-          if (idleStart !== null && idleMode !== null) {
-            idleModeIntervals.push({ x0: idleStart, x1: prevT ?? idleStart, mode: idleMode });
-          }
-        }
-        return { marketplaceEmptyIntervals, braiinsUnreachableIntervals, daemonOfflineIntervals, idleModeIntervals };
+        return { marketplaceEmptyIntervals, braiinsUnreachableIntervals, daemonOfflineIntervals };
       })(),
     };
   }, [
@@ -1626,7 +1608,7 @@ export const HashrateChart = memo(function HashrateChart({
     );
   }
 
-  const { minX, maxX, dataMinX, dataMaxX, xScale, yScale, deliveredPath, datumPath, hasDatum, oceanPath, hasOcean, targetPath, floorPath, yTicks, xTickInterval, xTicks, hasShareLog, shareLogPath, shareLogYTicks, shareLogYScale, padRight, rightAxis, marketplaceEmptyIntervals, braiinsUnreachableIntervals, daemonOfflineIntervals, idleModeIntervals } = chartData;
+  const { minX, maxX, dataMinX, dataMaxX, xScale, yScale, deliveredPath, datumPath, hasDatum, oceanPath, hasOcean, targetPath, floorPath, yTicks, xTickInterval, xTicks, hasShareLog, shareLogPath, shareLogYTicks, shareLogYScale, padRight, rightAxis, marketplaceEmptyIntervals, braiinsUnreachableIntervals, daemonOfflineIntervals } = chartData;
 
   return (
     <div className="bg-slate-900 border rounded-lg p-4 border-slate-800" data-chart-crosshair>

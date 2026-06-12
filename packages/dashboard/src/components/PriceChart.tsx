@@ -267,6 +267,7 @@ export const PriceChart = memo(function PriceChart({
   markersHiddenCount = 0,
   soloSeries = [],
   bidPauseIntervals = [],
+  idleModeIntervals = [],
   viewportHandlers,
   wheelRef,
   isDragging = false,
@@ -384,6 +385,13 @@ export const PriceChart = memo(function PriceChart({
    * ±Infinity and get clamped to the data range here.
    */
   bidPauseIntervals?: ReadonlyArray<{ x0: number; x1: number }>;
+  /**
+   * #287 follow-up v3: run-mode idle spans (DRY_RUN / PAUSED),
+   * computed by the caller from per-tick run_mode with edges snapped
+   * to MODE_CHANGE event timestamps where available - so the band
+   * edges line up with the power markers instead of tick boundaries.
+   */
+  idleModeIntervals?: ReadonlyArray<{ x0: number; x1: number; mode: 'DRY_RUN' | 'PAUSED' }>;
   viewportHandlers?: {
     onPointerDown: React.PointerEventHandler<SVGSVGElement>;
     onPointerMove: React.PointerEventHandler<SVGSVGElement>;
@@ -1322,38 +1330,10 @@ export const PriceChart = memo(function PriceChart({
       }
     }
 
-    // #287 follow-up: contiguous non-LIVE run_mode spans → "autopilot
-    // idle" background bands. Derived from the per-tick run_mode
-    // column, so the bands are retroactive over all stored history.
-    // Band edges sit at the midpoint between the two ticks that
-    // bracket the transition - snapping to the first tick *after* it
-    // made the band visibly lag the mode-change marker by a full tick.
-    const idleModeIntervals: Array<{ x0: number; x1: number; mode: 'DRY_RUN' | 'PAUSED' }> = [];
-    {
-      let idleStart: number | null = null;
-      let idleMode: 'DRY_RUN' | 'PAUSED' | null = null;
-      let prevT: number | null = null;
-      for (const p of points) {
-        const m = p.run_mode === 'DRY_RUN' || p.run_mode === 'PAUSED' ? p.run_mode : null;
-        if (m !== idleMode) {
-          const edge = prevT !== null ? (prevT + p.tick_at) / 2 : p.tick_at;
-          if (idleStart !== null && idleMode !== null) {
-            idleModeIntervals.push({ x0: idleStart, x1: edge, mode: idleMode });
-          }
-          idleStart = m !== null ? edge : null;
-          idleMode = m;
-        }
-        prevT = p.tick_at;
-      }
-      if (idleStart !== null && idleMode !== null) {
-        idleModeIntervals.push({ x0: idleStart, x1: prevT ?? idleStart, mode: idleMode });
-      }
-    }
-
     // xs / smoothedPriceByTick / capByTick exposed for the #257
     // crosshair readout - the bid row mirrors the smoothed line the
     // chart draws, the cap row mirrors the per-tick effective cap.
-    return { pricePoints, xs, smoothedPriceByTick, capByTick, minX, maxX, dataMinX, dataMaxX, hasPrice, priceMin, priceMax, xScale, yScale, pricePath, priceAreaPath, hashpricePath, fillablePath, fillableHasData: fillablePoints.length > 0, effectivePath, effectiveHasData: effectivePoints.length > 0, capPath, capExclusionPolygon, yTicks, xTickInterval, xTicks, visibleEvents, rightAxis, hasRightAxis, rightAxisPath, rightYTicks, rightYScale, padRight, marketplaceEmptyIntervals, braiinsUnreachableIntervals, daemonOfflineIntervals, idleModeIntervals };
+    return { pricePoints, xs, smoothedPriceByTick, capByTick, minX, maxX, dataMinX, dataMaxX, hasPrice, priceMin, priceMax, xScale, yScale, pricePath, priceAreaPath, hashpricePath, fillablePath, fillableHasData: fillablePoints.length > 0, effectivePath, effectiveHasData: effectivePoints.length > 0, capPath, capExclusionPolygon, yTicks, xTickInterval, xTicks, visibleEvents, rightAxis, hasRightAxis, rightAxisPath, rightYTicks, rightYScale, padRight, marketplaceEmptyIntervals, braiinsUnreachableIntervals, daemonOfflineIntervals };
   }, [points, events, showEventKinds, priceSmoothingMinutes, historicalPayoutsOffsetSat, maxOverpayVsHashpriceSatPerPhDay, chartHeight, rightAxisSeries, soloSeries, denomination, intlLocale, viewportSince, viewportUntil, hidden]);
 
   const eventPriceAt = useCallback((e: BidEventView): number | null => {
@@ -1981,7 +1961,7 @@ export const PriceChart = memo(function PriceChart({
     );
   }
 
-  const { pricePoints, minX, maxX, dataMinX, dataMaxX, hasPrice, priceMin, priceMax, xScale, yScale, pricePath, priceAreaPath, hashpricePath, fillablePath, fillableHasData, effectivePath, effectiveHasData, capPath, capExclusionPolygon, yTicks, xTickInterval, xTicks, visibleEvents, rightAxis, hasRightAxis, rightAxisPath, rightYTicks, rightYScale, padRight, marketplaceEmptyIntervals, braiinsUnreachableIntervals, daemonOfflineIntervals, idleModeIntervals } = chartData;
+  const { pricePoints, minX, maxX, dataMinX, dataMaxX, hasPrice, priceMin, priceMax, xScale, yScale, pricePath, priceAreaPath, hashpricePath, fillablePath, fillableHasData, effectivePath, effectiveHasData, capPath, capExclusionPolygon, yTicks, xTickInterval, xTicks, visibleEvents, rightAxis, hasRightAxis, rightAxisPath, rightYTicks, rightYScale, padRight, marketplaceEmptyIntervals, braiinsUnreachableIntervals, daemonOfflineIntervals } = chartData;
 
   // Format Y-axis tick values via the denomination context so the
   // numbers track the currency + hashrate-unit toggle. The full

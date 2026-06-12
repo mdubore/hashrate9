@@ -2,6 +2,10 @@
 
 ## 2026-06-11
 
+### `[UI]` Run-mode band edges snap to the mode-change markers (#287 follow-up)
+
+The bid-pause band's edges are the pause/resume event timestamps, so its icons sit exactly on the band edges - but the run-mode band was derived from the per-tick `run_mode` samples (1-minute resolution), so its edges landed on tick boundaries and visibly missed the power markers. The band edges now snap to the MODE_CHANGE event timestamps (the exact moment the button was pressed) whenever one exists in the bracketing tick gap, falling back to the tick midpoint for history without events. Both charts share one computation now.
+
 ### `[UI]` Inclusive "Electrum server" labeling - Fulcrum and ElectrumX work too (#273)
 
 The payout-tracking backend was labeled "Electrs" throughout the UI, suggesting only electrs works. The daemon speaks the standard Electrum protocol, and Fulcrum has been confirmed working in the field (it's what prompted #273). Config, the setup wizard, Status tooltips, and the docs now say "Electrum server" with electrs / Fulcrum / ElectrumX named as known-good options; the Config search also finds the section via "fulcrum". Config keys (`electrs_host` / `electrs_port` / `payout_source=electrs`) are unchanged, so existing setups are unaffected.
