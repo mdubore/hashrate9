@@ -2,7 +2,7 @@ import { Trans } from '@lingui/react/macro';
 import { t } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import {
@@ -293,7 +293,6 @@ export function Status() {
       window.clearInterval(scrollTimer);
     };
     // location-driven effect; depend only on the URL string.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search]);
 
   const effectiveViewportSince = useMemo(() => {

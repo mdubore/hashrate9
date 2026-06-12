@@ -79,11 +79,6 @@ const HEIGHT = 200;
 // padding only needs to keep the last X-axis timestamp from clipping.
 const PADDING = { top: 16, right: 16, bottom: 24, left: 80 };
 
-const COLOR_CREATE = '#34d399';
-const COLOR_EDIT = '#fbbf24';
-const COLOR_EDIT_SPEED = '#60a5fa';
-const COLOR_CANCEL = '#f87171';
-
 interface TooltipState {
   event: BidEventView;
   x: number;
@@ -430,7 +425,6 @@ export const PriceChart = memo(function PriceChart({
   const COLOR_BID_PAUSED = getChartColor('events.bid_paused', _colorOverrides);
   const COLOR_BID_RESUMED = getChartColor('events.bid_resumed', _colorOverrides);
   const COLOR_RIGHT_AXIS = getChartColor('price.right_axis', _colorOverrides);
-  /* eslint-enable @typescript-eslint/no-shadow */
   // #280: clickable-legend series visibility, persisted per device
   // under this chart's own key. `hidden` feeds the Y-axis autoscale
   // inside chartData and the per-series render gates below.
@@ -3573,9 +3567,6 @@ function EventTooltip({
       /* copy fell back to execCommand and still failed; no-op */
     }
   };
-
-  const detailLoading =
-    tip.pinned && matchedDecisionId !== null && decisionDetailQuery.isLoading;
 
   return (
     <div

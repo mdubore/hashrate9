@@ -178,9 +178,8 @@ export function History() {
       // will re-run when the new events land and we'll retry.
       void query.fetchNextPage();
     }
-    // intentionally not depending on `events`/`query.hasNextPage`
-    // values to avoid extra firings; we read the latest snapshot.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // intentionally not depending on full event/query objects to avoid
+    // extra firings; these scalar dependencies are enough to retry.
   }, [location.search, events.length, query.hasNextPage]);
 
   return (
