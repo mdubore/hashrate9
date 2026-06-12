@@ -8,9 +8,12 @@
  * lands on the same pixel column in both.
  *
  * Interaction model (operator-interviewed, see issue #257):
- *  - Mouse hover shows a transient crosshair; click pins it at that
- *    tick (re-click re-pins). Esc or a click outside the charts
- *    dismisses a pinned crosshair.
+ *  - Mouse hover shows a transient crosshair. Clicking an already-
+ *    focused chart pins it at that tick (re-click re-pins). The first
+ *    click on an *unfocused* chart only focuses it (to enable wheel-
+ *    zoom) and does NOT pin, so the operator isn't forced to dismiss
+ *    the readout before panning/zooming (#282). Esc or a click outside
+ *    the charts dismisses a pinned crosshair.
  *  - Touch: a quick drag still pans (unchanged viewport gesture); a
  *    ~300 ms long-press engages scrub mode where the finger drives
  *    the crosshair instead of the pan, and lifting the finger pins.
@@ -152,14 +155,25 @@ export function useCrosshairPointer(opts: {
   /** clientX -> snapped tick, with the chart's current geometry.
    *  Null when the pointer is outside the data region. */
   clientToTick: (svg: SVGSVGElement, clientX: number) => number | null;
+  /** #282: whether the chart is currently focused (zoom-active). A
+   *  click on an *unfocused* chart only activates it - it must not
+   *  also pin the crosshair tooltip, or the operator has to dismiss
+   *  the readout before they can drag/zoom. Pinning happens on the
+   *  next click, once the chart is already focused. */
+  isFocused?: boolean;
 }): CrosshairSvgHandlers {
-  const { chartId, crosshair, viewportHandlers, clientToTick } = opts;
+  const { chartId, crosshair, viewportHandlers, clientToTick, isFocused } = opts;
 
   const downRef = useRef<{ x: number; y: number; pointerType: string } | null>(null);
   const movedRef = useRef(false);
   const scrubRef = useRef(false);
   const suppressClickRef = useRef(false);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // #282: focus state at the moment the gesture began. The viewport's
+  // onPointerUp flips focus on before onClick fires, so we can't read
+  // the live value in onClick to tell "this click just focused us"
+  // apart from "we were already focused" - snapshot it at pointer-down.
+  const wasFocusedAtDownRef = useRef(false);
 
   // Keep the latest callbacks in refs so the returned handlers stay
   // referentially stable across renders (the charts are memo'd).
@@ -169,6 +183,8 @@ export function useCrosshairPointer(opts: {
   viewportRef.current = viewportHandlers;
   const clientToTickRef = useRef(clientToTick);
   clientToTickRef.current = clientToTick;
+  const isFocusedRef = useRef(isFocused);
+  isFocusedRef.current = isFocused;
 
   useEffect(() => () => {
     if (longPressTimer.current) clearTimeout(longPressTimer.current);
@@ -183,6 +199,7 @@ export function useCrosshairPointer(opts: {
 
   const onPointerDown = useCallback<React.PointerEventHandler<SVGSVGElement>>((e) => {
     viewportRef.current?.onPointerDown(e);
+    wasFocusedAtDownRef.current = isFocusedRef.current === true;
     downRef.current = { x: e.clientX, y: e.clientY, pointerType: e.pointerType };
     movedRef.current = false;
     scrubRef.current = false;
@@ -263,6 +280,11 @@ export function useCrosshairPointer(opts: {
     }
     // A drag that ended on this chart still fires a click; don't pin.
     if (movedRef.current) return;
+    // #282: the click that focuses an unfocused chart (to enable
+    // wheel-zoom) must not also pin the crosshair - otherwise the
+    // operator has to close the readout before they can pan/zoom.
+    // Pinning is available on the next click, once focused.
+    if (!wasFocusedAtDownRef.current) return;
     const tick = clientToTickRef.current(e.currentTarget, e.clientX);
     if (tick === null) return;
     crosshairRef.current?.pin(chartId, tick, e.clientX, e.clientY);
@@ -354,18 +376,80 @@ export function CrosshairReadout({
     const maxRight = chartRect
       ? Math.min(window.innerWidth - margin, chartRect.right - margin)
       : window.innerWidth - margin;
-    let left = anchorX + 12;
-    let top = anchorY + 12;
-    if (left + rect.width > maxRight) left = anchorX - rect.width - 12;
-    if (top + rect.height > maxBottom) top = anchorY - rect.height - 12;
-    if (left < minLeft) left = minLeft;
-    if (top < minTop) top = minTop;
-    // Last-resort: if the tooltip is still taller / wider than the
-    // chart it'll spill. Clamp the right/bottom edge so spill is at
-    // most into the chart's own padding area, never the next chart's.
-    if (top + rect.height > maxBottom) top = Math.max(minTop, maxBottom - rect.height);
-    if (left + rect.width > maxRight) left = Math.max(minLeft, maxRight - rect.width);
-    setPos({ left, top, ready: true });
+    const clampBox = (l: number, t: number): { left: number; top: number } => {
+      let left = l;
+      let top = t;
+      if (left + rect.width > maxRight) left = Math.max(minLeft, maxRight - rect.width);
+      if (top + rect.height > maxBottom) top = Math.max(minTop, maxBottom - rect.height);
+      if (left < minLeft) left = minLeft;
+      if (top < minTop) top = minTop;
+      return { left, top };
+    };
+
+    // Legacy single-candidate path (right-below the cursor, flip on
+    // chart-bounds overflow). Used verbatim when no pinned marker
+    // tooltip is on screen so behaviour is unchanged in the common
+    // case.
+    const legacyPosition = (): { left: number; top: number } => {
+      let left = anchorX + 12;
+      let top = anchorY + 12;
+      if (left + rect.width > maxRight) left = anchorX - rect.width - 12;
+      if (top + rect.height > maxBottom) top = anchorY - rect.height - 12;
+      return clampBox(left, top);
+    };
+
+    // Collision avoidance against pinned marker tooltips (operator
+    // report 2026-06-10): while a pinned panel (e.g. a BIP 110 block
+    // tooltip) is open, the cursor-trailing readout used to slide
+    // underneath it - same z-index, later DOM order wins - leaving
+    // the readout unreadable until the cursor moved on. Every pinned
+    // chart tooltip carries an `id` containing "-pinned-" (the
+    // click-outside handlers depend on that convention), so we can
+    // collect their rects without coupling to each component. When
+    // the default placement would overlap one, try the other three
+    // quadrants around the cursor and take the first collision-free
+    // spot; the moment the cursor moves far enough away, the default
+    // placement stops colliding and the box snaps back beside the
+    // cursor ("rejoins the dot").
+    const pinnedRects = Array.from(
+      document.querySelectorAll('[id*="-pinned-"]'),
+    ).map((n) => n.getBoundingClientRect());
+
+    if (pinnedRects.length === 0) {
+      const p = legacyPosition();
+      setPos({ left: p.left, top: p.top, ready: true });
+      return;
+    }
+
+    const overlapsPinned = (l: number, t: number): boolean =>
+      pinnedRects.some(
+        (r) =>
+          l < r.right &&
+          l + rect.width > r.left &&
+          t < r.bottom &&
+          t + rect.height > r.top,
+      );
+
+    // Candidate quadrants around the anchor, in preference order:
+    // right-below (default), left-below, right-above, left-above.
+    const candidates: Array<{ left: number; top: number }> = [
+      { left: anchorX + 12, top: anchorY + 12 },
+      { left: anchorX - rect.width - 12, top: anchorY + 12 },
+      { left: anchorX + 12, top: anchorY - rect.height - 12 },
+      { left: anchorX - rect.width - 12, top: anchorY - rect.height - 12 },
+    ];
+    for (const c of candidates) {
+      const p = clampBox(c.left, c.top);
+      if (!overlapsPinned(p.left, p.top)) {
+        setPos({ left: p.left, top: p.top, ready: true });
+        return;
+      }
+    }
+    // Every quadrant collides (pinned panel covers most of the chart).
+    // Fall back to the legacy spot - the pinned panel wins visually,
+    // which matches the previous behaviour.
+    const p = legacyPosition();
+    setPos({ left: p.left, top: p.top, ready: true });
   }, [state.clientX, state.clientY, state.tickAt, isSource, svgEl, lineXFrac, rows.length]);
 
   if (rows.length === 0) return null;

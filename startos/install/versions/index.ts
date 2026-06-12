@@ -27,3 +27,10 @@ export const v1_13_0_0 = VersionInfo.of({
     'Updates Hashrate Autopilot to upstream v1.13.0. Includes configurable stats tiles, the dedicated History page, synced chart crosshair, dashboard card handle reordering, BTC oracle and mobile polish, and the pending-cancel race fix. No new upstream migrations.',
   migrations: {},
 })
+
+export const v1_14_0_0 = VersionInfo.of({
+  version: '1.14.0:0',
+  releaseNotes:
+    'Updates Hashrate Autopilot to upstream v1.14.0. Includes run-mode and bid-pause history events, idle-state chart bands, History detail drawer with reason links, legend visibility toggles, speed-edit markers, and migration 0111.',
+  migrations: {},
+})

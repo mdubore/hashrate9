@@ -14,6 +14,7 @@ import { t } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { memo, useCallback, useEffect, useMemo, useState, useRef, useLayoutEffect } from 'react';
 import { sideTooltipPosition } from '../lib/tooltipPosition';
+import { pickLuckStepDot } from '../lib/luckStepDot';
 import type React from 'react';
 
 import {
@@ -38,7 +39,14 @@ import {
   type IpChangeMarkerEvent,
   type IpChangeTooltipState,
 } from './IpChangeMarkers';
-import { getChartColor, parseOverrides } from '../lib/chartColors';
+import {
+  SpeedEditMarkers,
+  SpeedEditTooltip,
+  type SpeedEditMarkerEvent,
+  type SpeedEditTooltipState,
+} from './SpeedEditMarkers';
+import { darkenHex, getChartColor, parseOverrides } from '../lib/chartColors';
+import { useSeriesVisibility } from '../lib/seriesVisibility';
 import {
   formatAgeMinutes,
   formatCompactNumber,
@@ -51,6 +59,9 @@ import { applyExplorerTemplate } from '../lib/blockExplorer';
 
 const WIDTH = 880;
 const HEIGHT = 200;
+// #280: stable empty array so a hidden speed-marker series doesn't
+// allocate a new array each render and thrash SpeedEditMarkers' memo.
+const EMPTY_SPEED_EVENTS: ReadonlyArray<SpeedEditMarkerEvent> = [];
 // Padding kept identical to PriceChart so the two charts can be stacked
 // and the X-axis lines up tick-for-tick. Right padding is small now that
 // the price-side Y-axis moved to the left - just enough to keep the
@@ -317,7 +328,10 @@ export const HashrateChart = memo(function HashrateChart({
   soloSeries = [],
   bestDiffEvents = [],
   ipChangeEvents = [],
+  speedEditEvents = [],
   markersHiddenCount = 0,
+  bidPauseIntervals = [],
+  idleModeIntervals = [],
   viewportHandlers,
   wheelRef,
   isDragging = false,
@@ -359,8 +373,29 @@ export const HashrateChart = memo(function HashrateChart({
   bestDiffEvents?: ReadonlyArray<{ recorded_at: number; difficulty: number }>;
   /** #250: public-IP change events, drawn as router-icon markers. */
   ipChangeEvents?: ReadonlyArray<IpChangeMarkerEvent>;
+  /** #281: EDIT_SPEED bid events, drawn as gauge-icon markers. A
+   *  speed-limit change moves the delivered-hashrate curve, so these
+   *  mirror the price chart's speed markers onto the hashrate chart.
+   *  Already filtered (kind + range gating + marker cap) by the
+   *  caller; this component just draws what it's given. */
+  speedEditEvents?: ReadonlyArray<SpeedEditMarkerEvent>;
   /** #172: number of markers hidden by the global marker cap. */
   markersHiddenCount?: number;
+  /**
+   * #287 follow-up: Braiins-side bid-pause spans (BID_PAUSED →
+   * BID_RESUMED pairs, computed by the caller from the bid-event
+   * stream). Rendered as hatched background bands tinted with the
+   * `events.bid_paused` color slot. Open-ended intervals use
+   * ±Infinity and get clamped to the data range here.
+   */
+  bidPauseIntervals?: ReadonlyArray<{ x0: number; x1: number }>;
+  /**
+   * #287 follow-up v3: run-mode idle spans (DRY_RUN / PAUSED),
+   * computed by the caller from per-tick run_mode with edges snapped
+   * to MODE_CHANGE event timestamps where available - so the band
+   * edges line up with the power markers instead of tick boundaries.
+   */
+  idleModeIntervals?: ReadonlyArray<{ x0: number; x1: number; mode: 'DRY_RUN' | 'PAUSED' }>;
   viewportHandlers?: {
     onPointerDown: React.PointerEventHandler<SVGSVGElement>;
     onPointerMove: React.PointerEventHandler<SVGSVGElement>;
@@ -403,6 +438,20 @@ export const HashrateChart = memo(function HashrateChart({
   const COLOR_BIP110 = getChartColor('hashrate.pool_block_bip110', _colorOverrides);
   const COLOR_RETARGET = getChartColor('hashrate.marker_retarget', _colorOverrides);
   const COLOR_IP_CHANGE = getChartColor('hashrate.marker_ip_change', _colorOverrides);
+  // #281: same color key the price chart resolves for its EDIT_SPEED
+  // glyph, so the speed markers read identically on both charts and
+  // honor the operator's Chart-colors override.
+  const COLOR_EDIT_SPEED = getChartColor('events.edit_speed', _colorOverrides);
+  // #287 follow-up: idle-band tints, same slots the price chart uses
+  // for its mode-change / bid-paused markers.
+  const COLOR_MODE_CHANGE = getChartColor('events.mode_change', _colorOverrides);
+  const COLOR_BID_PAUSED = getChartColor('events.bid_paused', _colorOverrides);
+
+  // #280: clickable-legend series visibility. `hidden` feeds both the
+  // render gates below and the Y-axis autoscale (inside chartData), so
+  // hiding a series rescales the axis to what's left. Persisted per
+  // device under this chart's own key.
+  const { hidden, isHidden, toggle } = useSeriesVisibility('hashrateHiddenSeries');
   const COLOR_RIGHT_AXIS = getChartColor('hashrate.right_axis', _colorOverrides);
 
   const dateTimeLocale = useDateTimeLocale();
@@ -420,6 +469,8 @@ export const HashrateChart = memo(function HashrateChart({
   const [stepTip, setStepTip] = useState<PoolLuckStepTooltipState | null>(null);
   // #250: public-IP-change marker tooltip (router-icon hover).
   const [ipChangeTip, setIpChangeTip] = useState<IpChangeTooltipState | null>(null);
+  // #281: speed-edit marker tooltip (gauge-icon hover).
+  const [speedEditTip, setSpeedEditTip] = useState<SpeedEditTooltipState | null>(null);
   // #105: parity with PriceChart - operator can double chart height
   // for closer inspection of floor breaches / BIP 110 marker positions.
   // State is local; PriceChart's expand toggle is independent.
@@ -488,6 +539,27 @@ export const HashrateChart = memo(function HashrateChart({
     [],
   );
   const closeIpChangeTip = useCallback(() => setIpChangeTip(null), []);
+
+  const onSpeedEditEnter = useCallback(
+    (event: SpeedEditMarkerEvent, e: React.MouseEvent) => {
+      setSpeedEditTip((prev) => {
+        if (prev?.pinned) return prev;
+        return { event, x: e.clientX, y: e.clientY, pinned: false };
+      });
+    },
+    [],
+  );
+  const onSpeedEditLeave = useCallback(() => {
+    setSpeedEditTip((prev) => (prev?.pinned ? prev : null));
+  }, []);
+  const onSpeedEditClick = useCallback(
+    (event: SpeedEditMarkerEvent, e: React.MouseEvent) => {
+      e.stopPropagation();
+      setSpeedEditTip({ event, x: e.clientX, y: e.clientY, pinned: true });
+    },
+    [],
+  );
+  const closeSpeedEditTip = useCallback(() => setSpeedEditTip(null), []);
 
   const onStepEnter = useCallback(
     (group: PoolLuckStepGroup) => (e: React.MouseEvent) => {
@@ -910,15 +982,26 @@ export const HashrateChart = memo(function HashrateChart({
     const minX = viewportSince ?? dataMinX;
     const maxX = viewportUntil ?? dataMaxX;
 
+    // #280: the Y-axis autoscales to only the *visible* line series, so
+    // hiding a tall series (e.g. a spiky delivered line) lets the rest
+    // fill the chart. Each series is skipped here when its legend chip
+    // is toggled off.
     let yMaxData = 0;
     for (let i = 0; i < xs.length; i++) {
       if (xs[i]! < minX || xs[i]! > maxX) continue;
-      const v = Math.max(ys[i]!, targets[i]!, floors[i]!);
+      let v = 0;
+      if (!hidden.has('delivered')) v = Math.max(v, ys[i]!);
+      if (!hidden.has('target')) v = Math.max(v, targets[i]!);
+      if (!hidden.has('floor')) v = Math.max(v, floors[i]!);
       if (v > yMaxData) yMaxData = v;
-      const d = datumYs[i] ?? null;
-      if (d !== null && d > yMaxData) yMaxData = d;
-      const o = oceanYs[i] ?? null;
-      if (o !== null && o > yMaxData) yMaxData = o;
+      if (!hidden.has('datum')) {
+        const d = datumYs[i] ?? null;
+        if (d !== null && d > yMaxData) yMaxData = d;
+      }
+      if (!hidden.has('ocean')) {
+        const o = oceanYs[i] ?? null;
+        if (o !== null && o > yMaxData) yMaxData = o;
+      }
     }
 
     const yTicks = niceYTicks(0, yMaxData > 0 ? yMaxData * 1.1 : 1, 5);
@@ -1175,6 +1258,7 @@ export const HashrateChart = memo(function HashrateChart({
             }
           }
         }
+
         return { marketplaceEmptyIntervals, braiinsUnreachableIntervals, daemonOfflineIntervals };
       })(),
     };
@@ -1189,6 +1273,7 @@ export const HashrateChart = memo(function HashrateChart({
     chartHeight,
     viewportSince,
     viewportUntil,
+    hidden,
   ]);
 
   // Pre-computed retarget marker positions. Filtered to the visible
@@ -1298,62 +1383,73 @@ export const HashrateChart = memo(function HashrateChart({
       arr.push(ev);
       byTick.set(ev.afterIdx, arr);
     }
-    // #264: Ocean's pool-block observations surface on the
-    // ~5-min /v1/statsnap refresh cadence, not on the block's on-chain
-    // timestamp. The tick chronologically at-or-after the block can
-    // still carry the pre-step luck value if Ocean hasn't re-polled
-    // yet, so anchoring the dot's cy at points[afterIdx][luckKey]
-    // drops it on the pre-step horizontal segment of the line. Scan
-    // forward from afterIdx (bounded to MAX_LAG_TICKS ≈ 15 min) for
-    // the first tick whose luck value differs from the pre-event
-    // baseline - that's where the line visibly steps and where the
-    // dot belongs. Same structural fix as PriceChart's
-    // visiblePoolBlockMarkers (#163).
-    const MAX_LAG_TICKS = 15;
+    // #264 / #266 follow-up / 4th-time-of-asking: Ocean's pool-block
+    // observations surface on its /v1/statsnap snapshot cadence
+    // (~5 min nominal, occasionally minutes more). The tick at-or-
+    // immediately-after the block's on-chain timestamp can carry the
+    // pre-step luck value for an indeterminate span while Ocean is
+    // still publishing the post-step value. Earlier passes scanned
+    // forward MAX_LAG_TICKS ≈ 15 min for "first tick whose value
+    // differs from luckBefore" - which silently fell back to the
+    // pre-step value whenever Ocean took longer than 15 min, leaving
+    // the FOUND dot stuck on the lower segment as the line stepped
+    // up just to its right.
+    //
+    // Operator's invariant (stated four ways now): FOUND ⇒ dot at the
+    // highest the line reaches post-event; AGED OUT ⇒ dot at the
+    // lowest. Encode that directly. For each event group:
+    //
+    //   1. Bound the scan by the NEXT group's afterIdx (so a later
+    //      block's step doesn't get misattributed to this one) and
+    //      by SCAN_WINDOW_TICKS as a sanity ceiling.
+    //   2. Walk the window picking the directional extremum:
+    //        - 'in' only          ⇒ first tick reaching the MAX
+    //        - 'out' only         ⇒ first tick reaching the MIN
+    //        - mixed in/out       ⇒ first tick that differs from
+    //                                luckBefore (legacy semantic;
+    //                                neither direction is unambiguous)
+    //   3. If the window contains no usable luck values at all,
+    //      fall back to luckBefore at afterIdx — meaning "we know the
+    //      event landed but haven't observed its effect yet." That's
+    //      an honest signal, not a marker error.
+    //
+    // The scan window is generous (1 h at 60s ticks) but bounded by
+    // the next event so adjacent events don't pollute each other.
+    const SCAN_WINDOW_TICKS = 60;
+    const groupAfterIdxs = [...byTick.keys()].sort((a, b) => a - b);
     const out: typeof empty = [];
     for (const [afterIdx, events] of byTick) {
+      const groupPos = groupAfterIdxs.indexOf(afterIdx);
+      const nextGroupAfterIdx =
+        groupPos < groupAfterIdxs.length - 1
+          ? groupAfterIdxs[groupPos + 1]!
+          : points.length;
+      const scanEnd = Math.min(
+        points.length,
+        nextGroupAfterIdx,
+        afterIdx + SCAN_WINDOW_TICKS,
+      );
+
       const before = afterIdx > 0 ? points[afterIdx - 1]! : null;
       const luckBefore = before === null ? null : before[luckKey];
-      // Scan forward for the first tick where the persisted luck
-      // value actually steps off the pre-event baseline.
-      let steppedIdx = afterIdx;
-      if (luckBefore !== null) {
-        const scanEnd = Math.min(points.length, afterIdx + MAX_LAG_TICKS);
-        for (let i = afterIdx; i < scanEnd; i += 1) {
-          const v = points[i]![luckKey];
-          if (v === null) continue;
-          if (v !== luckBefore) {
-            steppedIdx = i;
-            break;
-          }
-        }
+
+      // Collect window values, then delegate the directional pick to
+      // pickLuckStepDot (covered by lib/luckStepDot.test.ts). Keeping
+      // the dot-positioning rule in a pure helper is what stops this
+      // logic from regressing each time we tweak the marker layer.
+      const windowValues: (number | null)[] = [];
+      for (let i = afterIdx; i < scanEnd; i += 1) {
+        windowValues.push(points[i]![luckKey]);
       }
-      const stepped = points[steppedIdx]!;
-      const luckAfter = stepped[luckKey];
-      if (luckAfter === null) continue;
-      // #266 follow-up: dot Y reflects the event KIND, not the
-      // post-step luck value. The operator's mental model is "FOUND
-      // makes luck go UP, AGED OUT makes it go DOWN" - so the FOUND
-      // dot anchors to the higher of the two flanking line segments,
-      // the AGED OUT dot to the lower. This is robust against
-      // mismatches between the tooltip's luckBefore→luckAfter pair
-      // and the line's visible step, which happens because Ocean's
-      // pool_luck is a snapshot of the whole 30d window (not just
-      // our block) and other simultaneous events can mute or invert
-      // the per-block direction.
-      const hasIn = events.some((e) => e.kind === 'in');
-      const hasOut = events.some((e) => e.kind === 'out');
-      const dotLuckY =
-        luckBefore === null
-          ? luckAfter
-          : hasIn && !hasOut
-            ? Math.max(luckBefore, luckAfter)
-            : hasOut && !hasIn
-              ? Math.min(luckBefore, luckAfter)
-              : luckAfter;
+      const pick = pickLuckStepDot(events, luckBefore, windowValues);
+      if (pick === null) continue;
+      const dotIdx = afterIdx + pick.offset;
+      const dotLuck = pick.luck;
+
+      const stepped = points[dotIdx]!;
       // Connector anchor: use the earliest contributing event's
-      // timestamp so the dashed line covers the whole group when the
-      // block icons sit before the resolved tick.
+      // timestamp so the dashed line covers the whole region the
+      // group covers.
       const earliestT = events.reduce(
         (m, e) => (e.t < m ? e.t : m),
         events[0]!.t,
@@ -1362,11 +1458,11 @@ export const HashrateChart = memo(function HashrateChart({
         group: {
           events: events.map(({ kind, t, block }) => ({ kind, t, block })),
           luckBefore,
-          luckAfter,
+          luckAfter: dotLuck,
           windowMs,
         },
         cx: xScale(stepped.tick_at),
-        cy: shareLogYScale(dotLuckY),
+        cy: shareLogYScale(dotLuck),
         blockCx: xScale(earliestT),
       });
     }
@@ -1399,6 +1495,7 @@ export const HashrateChart = memo(function HashrateChart({
     crosshair,
     viewportHandlers,
     clientToTick,
+    isFocused,
   });
 
   // Marker line position + readout rows at the snapped tick. Values
@@ -1483,30 +1580,40 @@ export const HashrateChart = memo(function HashrateChart({
           </button>
         </div>
         <div className="flex items-center gap-3 text-xs flex-wrap">
-          <Legend color={COLOR_DELIVERED} label={t`delivered (Braiins)`} />
+          {/* #280: every series chip toggles its own visibility. */}
+          <Legend color={COLOR_DELIVERED} label={t`delivered (Braiins)`} hidden={isHidden('delivered')} onToggle={() => toggle('delivered')} />
           {hasDatum && (
-            <Legend color={COLOR_DATUM} label={t`received (Datum)`} />
+            <Legend color={COLOR_DATUM} label={t`received (Datum)`} hidden={isHidden('datum')} onToggle={() => toggle('datum')} />
           )}
           {hasOcean && (
-            <Legend color={COLOR_OCEAN} label={t`received (Ocean)`} />
+            <Legend color={COLOR_OCEAN} label={t`received (Ocean)`} hidden={isHidden('ocean')} onToggle={() => toggle('ocean')} />
           )}
           {hasShareLog && rightAxis && (
-            <Legend color={rightAxis.stroke} label={rightAxis.axisLabel} />
+            <Legend color={rightAxis.stroke} label={rightAxis.axisLabel} hidden={isHidden('rightAxis')} onToggle={() => toggle('rightAxis')} />
           )}
-          <Legend color={COLOR_TARGET} label={t`target`} dashed />
-          <Legend color={COLOR_FLOOR} label={t`floor`} dashed />
+          <Legend color={COLOR_TARGET} label={t`target`} dashed hidden={isHidden('target')} onToggle={() => toggle('target')} />
+          <Legend color={COLOR_FLOOR} label={t`floor`} dashed hidden={isHidden('floor')} onToggle={() => toggle('floor')} />
           {ourBlocks.some(
               (b) =>
                 b.timestamp_ms >= chartData.minX &&
                 b.timestamp_ms <= chartData.maxX &&
                 !b.found_by_us,
-            ) && <Legend color={COLOR_POOL_BLOCK} label={t`pool block`} dashed />}
+            ) && <Legend color={COLOR_POOL_BLOCK} label={t`pool block`} dashed hidden={isHidden('poolBlock')} onToggle={() => toggle('poolBlock')} />}
           {ourBlocks.some(
               (b) =>
                 b.timestamp_ms >= chartData.minX &&
                 b.timestamp_ms <= chartData.maxX &&
                 b.found_by_us,
-            ) && <Legend color={COLOR_OUR_BLOCK} label={t`found by us`} dashed />}
+            ) && <Legend color={COLOR_OUR_BLOCK} label={t`found by us`} dashed hidden={isHidden('ourBlock')} onToggle={() => toggle('ourBlock')} />}
+          {/* #281: only advertise the speed-edit marker in the legend
+              when one is actually on screen, so the chip doesn't sit
+              there permanently on the (common) ranges with no recent
+              speed change. */}
+          {speedEditEvents.some(
+              (e) =>
+                e.occurred_at >= chartData.minX &&
+                e.occurred_at <= chartData.maxX,
+            ) && <Legend color={COLOR_EDIT_SPEED} label={t`edit speed`} dashed hidden={isHidden('editSpeed')} onToggle={() => toggle('editSpeed')} />}
           {markersHiddenCount > 0 && (
             <span
               className="text-[10px] text-slate-500 italic"
@@ -1693,17 +1800,99 @@ export const HashrateChart = memo(function HashrateChart({
             </rect>
           );
         })}
-        <path d={targetPath} stroke={COLOR_TARGET} strokeWidth="1.2" strokeDasharray="4 3" fill="none" opacity="0.6" />
-        <path d={floorPath} stroke={COLOR_FLOOR} strokeWidth="1" strokeDasharray="2 3" fill="none" opacity="0.5" />
+        {/* #287 follow-up: idle-state bands, mirroring the price chart.
+            Run-mode bands tint with the mode-change marker color;
+            Braiins bid-pause bands tint with the bid-paused color. */}
+        {idleModeIntervals.length > 0 && (
+          <defs>
+            <pattern
+              id="idleModeHatchHr"
+              patternUnits="userSpaceOnUse"
+              width="10"
+              height="10"
+              patternTransform="rotate(45)"
+            >
+              {/* Dark base + saturated lines, matching the unreachable
+                  band's visual language - the slot color itself at low
+                  opacity reads as a milky veil on the dark chart. */}
+              <rect width="10" height="10" fill={darkenHex(COLOR_MODE_CHANGE, 0.45)} fillOpacity="0.2" />
+              <line x1="0" y1="0" x2="0" y2="10" stroke={COLOR_MODE_CHANGE} strokeWidth="1.5" strokeOpacity="0.45" />
+            </pattern>
+          </defs>
+        )}
+        {idleModeIntervals.map((iv, i) => {
+          const x0 = xScale(Math.max(dataMinX, iv.x0));
+          const x1 = xScale(Math.min(dataMaxX, iv.x1));
+          if (!Number.isFinite(x0) || !Number.isFinite(x1) || x1 <= x0) return null;
+          return (
+            <rect
+              key={`idle-mode-${i}`}
+              x={x0}
+              y={PADDING.top}
+              width={x1 - x0}
+              height={chartHeight - PADDING.top - PADDING.bottom}
+              fill="url(#idleModeHatchHr)"
+            >
+              <title>
+                {`Autopilot in ${iv.mode} (${formatDuration(iv.x1 - iv.x0)})`}
+              </title>
+            </rect>
+          );
+        })}
+        {bidPauseIntervals.length > 0 && (
+          <defs>
+            <pattern
+              id="bidPauseHatchHr"
+              patternUnits="userSpaceOnUse"
+              width="10"
+              height="10"
+              patternTransform="rotate(-45)"
+            >
+              <rect width="10" height="10" fill={darkenHex(COLOR_BID_PAUSED, 0.45)} fillOpacity="0.2" />
+              <line x1="0" y1="0" x2="0" y2="10" stroke={COLOR_BID_PAUSED} strokeWidth="1.5" strokeOpacity="0.45" />
+            </pattern>
+          </defs>
+        )}
+        {bidPauseIntervals.map((iv, i) => {
+          const x0 = xScale(Math.max(dataMinX, iv.x0));
+          const x1 = xScale(Math.min(dataMaxX, iv.x1));
+          if (!Number.isFinite(x0) || !Number.isFinite(x1) || x1 <= x0) return null;
+          const clampedSpan = Math.min(dataMaxX, iv.x1) - Math.max(dataMinX, iv.x0);
+          return (
+            <rect
+              key={`bid-pause-${i}`}
+              x={x0}
+              y={PADDING.top}
+              width={x1 - x0}
+              height={chartHeight - PADDING.top - PADDING.bottom}
+              fill="url(#bidPauseHatchHr)"
+            >
+              <title>
+                {`Bid paused by Braiins (${formatDuration(clampedSpan)})`}
+              </title>
+            </rect>
+          );
+        })}
+        {/* #280: each series render is gated on its legend toggle. */}
+        {!isHidden('target') && (
+          <path d={targetPath} stroke={COLOR_TARGET} strokeWidth="1.2" strokeDasharray="4 3" fill="none" opacity="0.6" />
+        )}
+        {!isHidden('floor') && (
+          <path d={floorPath} stroke={COLOR_FLOOR} strokeWidth="1" strokeDasharray="2 3" fill="none" opacity="0.5" />
+        )}
 
-        <path
-          d={`${deliveredPath} L${xScale(dataMaxX).toFixed(1)},${yScale(0)} L${xScale(dataMinX).toFixed(1)},${yScale(0)} Z`}
-          fill="url(#deliveredFill)"
-          opacity="0.5"
-          pointerEvents="none"
-        />
-        <path d={deliveredPath} stroke={COLOR_DELIVERED} strokeWidth="1.8" fill="none" />
-        {hasDatum && (
+        {!isHidden('delivered') && (
+          <>
+            <path
+              d={`${deliveredPath} L${xScale(dataMaxX).toFixed(1)},${yScale(0)} L${xScale(dataMinX).toFixed(1)},${yScale(0)} Z`}
+              fill="url(#deliveredFill)"
+              opacity="0.5"
+              pointerEvents="none"
+            />
+            <path d={deliveredPath} stroke={COLOR_DELIVERED} strokeWidth="1.8" fill="none" />
+          </>
+        )}
+        {hasDatum && !isHidden('datum') && (
           <path
             d={datumPath}
             stroke={COLOR_DATUM}
@@ -1713,7 +1902,7 @@ export const HashrateChart = memo(function HashrateChart({
             strokeLinejoin="round"
           />
         )}
-        {hasOcean && (
+        {hasOcean && !isHidden('ocean') && (
           <path
             d={oceanPath}
             stroke={COLOR_OCEAN}
@@ -1723,7 +1912,7 @@ export const HashrateChart = memo(function HashrateChart({
             strokeLinejoin="round"
           />
         )}
-        {hasShareLog && rightAxis && (
+        {hasShareLog && rightAxis && !isHidden('rightAxis') && (
           <path
             d={shareLogPath}
             stroke={rightAxis.stroke}
@@ -1795,6 +1984,11 @@ export const HashrateChart = memo(function HashrateChart({
 
         {ourBlocks
             .filter((b) => b.timestamp_ms >= dataMinX && b.timestamp_ms <= dataMaxX)
+            // #280: "found by us" (gold) and "pool block" (blue/yellow)
+            // are separate legend toggles; drop whichever is hidden.
+            .filter((b) =>
+              b.found_by_us ? !isHidden('ourBlock') : !isHidden('poolBlock'),
+            )
             .map((b) => {
               const x = xScale(b.timestamp_ms);
               // #115: marker semantics, in precedence order.
@@ -1942,6 +2136,23 @@ export const HashrateChart = memo(function HashrateChart({
           onMarkerEnter={onIpChangeEnter}
           onMarkerLeave={onIpChangeLeave}
           onMarkerClick={onIpChangeClick}
+        />
+
+        {/* #281: speed-edit markers (gauge icon). A speed-limit change
+            moves the delivered-hashrate curve, so these mirror the
+            price chart's EDIT_SPEED markers here. Caller pre-filters
+            by kind, range gating, and the marker cap. */}
+        <SpeedEditMarkers
+          events={isHidden('editSpeed') ? EMPTY_SPEED_EVENTS : speedEditEvents}
+          xScale={xScale}
+          dataMinX={dataMinX}
+          dataMaxX={dataMaxX}
+          topY={PADDING.top}
+          bottomY={chartHeight - PADDING.bottom}
+          color={COLOR_EDIT_SPEED}
+          onMarkerEnter={onSpeedEditEnter}
+          onMarkerLeave={onSpeedEditLeave}
+          onMarkerClick={onSpeedEditClick}
         />
 
         <defs>
@@ -2131,6 +2342,13 @@ export const HashrateChart = memo(function HashrateChart({
           tip={ipChangeTip}
           onClose={closeIpChangeTip}
           pinnedDomId="hashrate-chart-pinned-ipchange-tooltip"
+        />
+      )}
+      {speedEditTip && (
+        <SpeedEditTooltip
+          tip={speedEditTip}
+          onClose={closeSpeedEditTip}
+          pinnedDomId="hashrate-chart-pinned-speededit-tooltip"
         />
       )}
     </div>
@@ -2510,22 +2728,57 @@ function BtcRow({
   );
 }
 
-function Legend({ color, label, dashed }: { color: string; label: string; dashed?: boolean }) {
+function Legend({
+  color,
+  label,
+  dashed,
+  onToggle,
+  hidden,
+}: {
+  color: string;
+  label: string;
+  dashed?: boolean;
+  /** #280: when provided, the chip is a button that toggles the
+   *  series' visibility. Without it the chip is a plain static label. */
+  onToggle?: () => void;
+  /** #280: true when the series is currently hidden - dims the chip
+   *  and greys the swatch. */
+  hidden?: boolean;
+}) {
+  const swatch = (
+    <svg width="14" height="6">
+      <line
+        x1="0"
+        y1="3"
+        x2="14"
+        y2="3"
+        stroke={hidden ? '#475569' : color}
+        strokeWidth="2"
+        strokeDasharray={dashed ? '3 2' : undefined}
+      />
+    </svg>
+  );
+  if (!onToggle) {
+    return (
+      <span className="flex items-center gap-1 text-slate-400 whitespace-nowrap">
+        {swatch}
+        {label}
+      </span>
+    );
+  }
   return (
-    <span className="flex items-center gap-1 text-slate-400 whitespace-nowrap">
-      <svg width="14" height="6">
-        <line
-          x1="0"
-          y1="3"
-          x2="14"
-          y2="3"
-          stroke={color}
-          strokeWidth="2"
-          strokeDasharray={dashed ? '3 2' : undefined}
-        />
-      </svg>
+    <button
+      type="button"
+      onClick={onToggle}
+      title={hidden ? t`Click to show` : t`Click to hide`}
+      aria-pressed={!hidden}
+      className={`flex items-center gap-1 whitespace-nowrap cursor-pointer hover:text-slate-200 transition-colors ${
+        hidden ? 'text-slate-600 line-through' : 'text-slate-400'
+      }`}
+    >
+      {swatch}
       {label}
-    </span>
+    </button>
   );
 }
 

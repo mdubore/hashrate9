@@ -1,5 +1,99 @@
 # Changelog
 
+## 2026-06-11
+
+### `[Release]` v1.14.0
+
+Run-mode and bid-pause history (#287): History events, always-visible price-chart markers, and retroactive idle-state background bands on both charts with three new configurable color slots. History detail drawer with Reason column and bidirectional chart links (#285), sticky filters. Legend click-to-hide (#280), speed-edit markers on the hashrate chart (#281), crosshair tooltip dodging, test-locked pool-luck marker placement, and inclusive "Electrum server" labeling (#273). Migration 0111.
+
+### `[Infra]` StartOS package tracks upstream v1.14.0
+
+The StartOS package metadata now points at app version `1.14.0` and the StartOS version graph has a `1.14.0:0` entry with the upstream v1.14.0 release notes. The README package note now names v1.14.0 as the synced upstream baseline for `.s9pk` builds.
+
+### `[UI]` Bid-paused marker defaults to rose (#287 follow-up)
+
+The `bid paused` marker and its background band now default to rose `#f43f5e` instead of amber - a Braiins-side pause is bad news, so it should read as a warning. Existing color overrides are untouched.
+
+### `[UI]` Run-mode band edges snap to the mode-change markers (#287 follow-up)
+
+The bid-pause band's edges are the pause/resume event timestamps, so its icons sit exactly on the band edges - but the run-mode band was derived from the per-tick `run_mode` samples (1-minute resolution), so its edges landed on tick boundaries and visibly missed the power markers. The band edges now snap to the MODE_CHANGE event timestamps (the exact moment the button was pressed) whenever one exists in the bracketing tick gap, falling back to the tick midpoint for history without events. Both charts share one computation now.
+
+### `[UI]` Inclusive "Electrum server" labeling - Fulcrum and ElectrumX work too (#273)
+
+The payout-tracking backend was labeled "Electrs" throughout the UI, suggesting only electrs works. The daemon speaks the standard Electrum protocol, and Fulcrum has been confirmed working in the field (it's what prompted #273). Config, the setup wizard, Status tooltips, and the docs now say "Electrum server" with electrs / Fulcrum / ElectrumX named as known-good options; the Config search also finds the section via "fulcrum". Config keys (`electrs_host` / `electrs_port` / `payout_source=electrs`) are unchanged, so existing setups are unaffected.
+
+### `[UI]` Idle-band hatching: crisper styling, edges aligned to the transition (#287 follow-up)
+
+Operator feedback on the first build: the light tint at low opacity read as a milky frosted-glass block instead of hatching. Bands now use a darkened variant of the slot color as the base with more saturated diagonal lines - the same visual language as the existing red "Braiins unreachable" band. Band edges also moved from "first tick after the transition" to the midpoint between the bracketing ticks, so the band no longer lags the mode-change markers by a full tick. Legend chips now follow the operator's color overrides too, instead of always showing the default colors.
+
+### `[Feature]` Idle-state background bands + configurable marker colors (#287 follow-up)
+
+Both charts now shade the spans where the autopilot wasn't actively trading: a violet diagonal hatch while the run mode was DRY RUN or PAUSED (derived from the per-tick `run_mode` column, so the bands are retroactive over all stored history), and an amber counter-diagonal hatch while Braiins had the bid paused (from the `bid paused` → `bid resumed` event pairs). Hovering a band names the state and its duration. The three new marker colors - mode change, bid paused, bid resumed - join Config → chart colors under "Bid-event markers" with their own glyph previews; the mode-change and bid-paused colors also tint the matching bands.
+
+### `[UI]` History → chart jump scrolls to the chart and rings top-edge markers (#285 follow-up)
+
+"View on chart" from the History drawer now scrolls the page to the price chart when it sits below the fold, and the focus pulse anchors on the top-edge glyph for mode-change / pause / resume markers instead of ringing an empty spot on the price line.
+
+### `[Feature]` Mode-change and pause/resume markers on the price chart (#287 follow-up)
+
+The three new History kinds now also render as markers on the **price chart**: violet power glyph for `mode change` (one shared icon regardless of direction), amber pause and emerald play for the Braiins-side bid transitions. They use the pool-block idiom — top-edge glyph plus a full-height dashed guide line, since these events have no price anchor — and they're **always visible at every zoom level**, unlike the bid-event markers whose per-range fading exists to tame EDIT_PRICE noise; a mode change that explains a week-long gap stays visible at the 1m zoom where you'd actually notice the gap. Hover/click opens the standard pinned event tooltip; for `bid paused`, Braiins' own `last_pause_reason` rides along as the reason line. Legend chips for the three kinds appear only when at least one such marker is in view, so the legend stays uncluttered in the common case.
+
+### `[Feature]` Run-mode switches and Braiins pause/resume in History (#287)
+
+Three new event kinds on the History page, prompted by @regenerous in #256. (1) **`mode change`** (violet power glyph): the dashboard's DRY-RUN / LIVE / PAUSED toggle now writes a row (`LIVE → PAUSED`, source `manual`) whenever it actually changes the mode, and boot-time transitions are logged too (`boot: LIVE → DRY_RUN (boot_mode=ALWAYS_DRY_RUN)`, source `automatic`) — the classic silent gap-explainer where an overnight restart drops the controller out of LIVE. No-change boots stay quiet. (2) **`bid paused`** (amber pause glyph) and **`bid resumed`** (emerald play glyph): Braiins-side bid status transitions, observed per tick on the primary bid, with Braiins' own `last_pause_reason` in the Reason column. These complement the existing `sustained_paused` alert (which keeps its 10-minute paging threshold) with an instant, unthresholded audit row. All three kinds are filterable chips on the History toolbar and open the detail drawer like any other row. Carve-outs: mode changes never inherit a bid id from the orphan-CREATE coalesce, none of the three count toward the `mutation_count` stat, and none render as chart markers. Migration 0111 rebuilds `bid_events` to widen the kind CHECK constraint.
+
+### `[Fix]` Pool-luck AGED OUT dots no longer drift to the bottom of the decay (marker fix v2)
+
+Operator screenshot at build 653 showed AGED OUT dots sitting well below their steps. Build 652's "directional extremum over the window" rule was wrong for AGED OUT: the luck line decays continuously between events, so the window minimum is almost always the far END of the decay, not the step - the dot drifted right and down, disconnected from the step it belonged to. (FOUND looked correct only because a step up against decay genuinely is the local maximum.) v2 finds the step itself: the largest single-tick delta in the event's direction, with the `luckBefore → window[0]` transition as a candidate and a lower-median noise floor so uniform decay never reads as a step. Falls back to `luckBefore` at the event tick when Ocean hasn't published the post-event value yet. The dot now always sits on a value the line actually passes through at that tick. Test suite grown to 21 cases including a regression test built from the screenshot's exact shape (step then long decay).
+
+## 2026-06-10
+
+### `[UI]` Crosshair readout dodges pinned marker tooltips
+
+While a pinned panel was open (e.g. a clicked BIP 110 block tooltip), the cursor-trailing crosshair readout slid underneath it - same z-index, later DOM order wins - leaving the readout unreadable until the cursor moved past. The readout now tests its candidate position against every pinned chart tooltip on screen (they all carry the `*-pinned-*` id convention) and, on overlap, tries the other three quadrants around the cursor, taking the first collision-free spot. Once the cursor is far enough from the pinned panel the default placement stops colliding and the box snaps back beside the cursor. When no pinned panel is open the positioning is byte-for-byte the previous behaviour.
+
+### `[Fix]` Pool-luck step marker placement, locked in with a vitest
+
+The dot on the pool-luck overlay still landed on the pre-step segment when Ocean's snapshot took more than ~15 min to publish the post-step value (operator has flagged this four-plus times across #264, #266 follow-ups, and the screenshots after that). Root cause was a 15-tick scan window that fell through to `luckBefore` when Ocean's lag exceeded it, while the directional Math.max/Math.min logic on top of that lost its grip because `luckAfter` had silently collapsed to `luckBefore`. Real fix: the dot-positioning rule is now a pure function (`packages/dashboard/src/lib/luckStepDot.ts`) that takes the events, `luckBefore`, and a window of post-event luck values, and returns the directional extremum offset+value: FOUND dot goes to the highest value the line reaches in window, AGED OUT to the lowest, mixed to first-different (legacy). Window is bounded by the next event group's `afterIdx` so adjacent events can't pollute each other, and by a generous 60-tick (~1 h) ceiling. Falls back to `luckBefore` at `afterIdx` when the window has no usable samples (honest "we know the event landed, haven't observed its effect yet" rather than a wrong placement). Hard clamp: FOUND dot is never below `luckBefore`, AGED OUT never above — so when Ocean's window-aggregate snapshot briefly moves against the per-event direction (a co-occurring AGED OUT cancelling a FOUND, etc.) the dot doesn't flip sides. Seventeen vitest cases cover Ocean updating fast, Ocean lagging beyond the legacy fence, intermediate noise, no update at all, anti-direction data, null-laced windows, mixed kinds, and edge cases (null `luckBefore`, empty window). HashrateChart.tsx now delegates to the helper instead of duplicating the rule.
+
+## 2026-06-08
+
+### `[UI]` History → chart jump now pulses the marker; History filters sticky (#285 follow-up)
+
+(1) When "View on chart →" pans the chart to a jumped-from event, the matching marker now pulses an expanding amber ring + a steadier glow for ~5 s so the operator can spot it immediately instead of hunting along the time axis. Pure visual cue; clicks still pass through to the marker's own hit-rect underneath. (2) History filter chips, bid-id substring, date range, and `|Δ price| ≥ N` threshold are now persisted to localStorage on every change, so a Chart-and-back round-trip preserves the operator's filter set — and the saved set carries across page reloads and sessions. Clearing all filters (or hitting Reset) wipes the storage slot so the next read returns the empty default.
+
+### `[Feature]` History page: reason column + click-row detail drawer + bidirectional chart links (#285)
+
+Per discussion #284, where a user looked at an unexpected CANCEL→CREATE pair in History, was confused, then resolved it themselves by zooming into the chart and hovering the marker (the bid-event tooltip carries the reason; History didn't). Three changes:
+
+1. **`Reason` column** in History. Reads `bid_events.reason`, which `decide.ts` already populates for every autopilot-emitted event (e.g. `Datum stratum down: 3 consecutive failures — cancelling to stop spend`, `track fillable: X → Y sat/PH/day`, `create at <price> · cheap mode N PH/s`). Truncate-with-title in the cell; full text in the drawer.
+
+2. **Click-row → slide-over drawer** with the chart-tooltip's content. Reason in full, kind-specific rows (price/speed/delta), bid id, market snapshot at the event tick (fillable, hashprice, overpay, max bid, effective cap — fetched on drawer open via a tight ±60 s `/api/metrics` window so the table-load path stays cheap), and a `copy JSON` button. Esc / X / backdrop click dismisses. Full-screen takeover on mobile, right-aligned drawer on desktop.
+
+3. **Bidirectional chart ↔ History cross-links** without embedding a chart on /history. The drawer carries `View on chart →` (navigates to `/?focus_event=<id>&at=<ms>` — Status pans the price chart to the event's timestamp, preserves the current zoom width when reasonable, falls back to a 1 h centred window if the chart was at a > 24 h preset). The chart's pinned `BidEventTooltip` carries `Show in history →` (navigates to `/history?focus_event=<id>` — History scrolls the row into view and pulses it amber for 1.5 s). URL params are stripped after the first effect-firing via `replaceState` so navigating away and back doesn't relaunch the highlight.
+
+Embedded chart on /history was explicitly out of scope — multi-day work, real perf cost, mobile layout problems; the cross-page links cover the same need at a fraction of the cost. Revisit only if a specific need emerges after living with the above.
+
+### `[Fix]` BIP 110 mobile block card no longer overflows the viewport (#278 follow-up)
+
+The previous #278 fix swapped the miner badge's fixed `max-w-[180px]` for `max-w-full`, but the card is a CSS grid item with the default `min-width: auto`, so a long miner tag (e.g. `ckpool$/Block Mined by …`) grew the card past the viewport edge - pushing the right-aligned reward / fees / txs values off-screen instead of truncating. The card now carries `min-w-0` and the grid uses an explicit shrinkable `grid-cols-1` track, so the tag truncates with an ellipsis and the card fits its column with all values visible. Verified at iPhone width: a 594px-wide overflowing card now renders at 358px.
+
+### `[Fix]` Price chart: phantom pool-block dot + click-to-zoom no longer pins the crosshair (#282)
+
+Two interaction fixes. (1) **Phantom pool-block dot:** at a wide zoom the Price chart could draw two blue dots a few pixels apart on the unpaid-earnings line next to a single visible block, with the extra one vanishing as you zoomed in. The pool-block markers process every block in the data extent (which includes the off-screen prefetch buffer), and a block whose own unpaid step wasn't found would inherit the previous block's step with no distance bound - so a block hours away in the buffer painted a phantom dot beside an unrelated one. The inheritance is now bounded to a 30-minute window (the genuine Ocean-batched-credit case it exists for). (2) **Click-to-focus no longer pins:** clicking a chart to focus it for wheel-zoom also pinned the synced crosshair readout, which then sat over the chart and had to be dismissed before you could pan or zoom. The focusing click no longer pins; pinning is still available on the next click once the chart is focused.
+
+### `[Feature]` Click a legend entry to show/hide that series (#280)
+
+Both charts were getting crowded with overlapping lines. Now every legend chip on the Hashrate and Price charts is a toggle - click "received (Datum)" or "hashprice" (etc.) to hide that series, click again to bring it back, exactly like the Bitaxe UI. Hidden chips dim and strike through. Hiding a series also rescales the Y-axis to what's left, so isolating one line lets it fill the chart instead of being squashed by a taller neighbour. The choice is saved per device (each chart independently), so a muted noisy line stays muted across reloads on that phone or desktop. Line series, reference lines (target / floor), the right-axis line, and the marker classes that carry a legend chip (pool block, found by us, edit speed, on-chain payout) are all toggleable; the grouped bid-event glyph legend is unchanged.
+
+### `[Feature]` Speed-edit markers now appear on the hashrate chart (#281)
+
+A speed-limit (EDIT_SPEED) change resizes the bid's PH/s cap, which directly moves the delivered-hashrate curve - but until now those events only showed on the price chart, leaving the hashrate chart unannotated for the one bid event most relevant to it. The hashrate chart now draws the same gauge glyph at the moment of each speed edit (full-height dashed line, matching its existing retarget / IP-change markers), with a hover/click tooltip showing the new speed limit and the change reason. It reuses the price chart's `events.edit_speed` color and respects the same range gating (visible through 1w, hidden at 1m+) and the global marker cap. The price chart is unchanged.
+
+### `[Fix]` BIP 110 mobile card header no longer pushed out of band by long miner tags (#278)
+
+On a narrow iPhone viewport, signaling-block cards whose template was built by a non-Ocean miner with a long tag (e.g. `ckpool$/Block Mined by …`) rendered the badge column out of band — the block-height number on the left and the badge column on the right stopped lining up cleanly, and the long tag dragged the row's baseline. The badge was using `inline-flex` + a fixed `max-w-[180px]`, which didn't cooperate with the parent column's width. v2 switches the badge to `flex` + `max-w-full min-w-0` so it sizes to the column, the column itself gets `min-w-0` so the `truncate` inside actually fires, and the card header moves from `items-baseline` to `items-start` so a tall or wrapping badge doesn't drag the height number's baseline. Ocean's tidy short-tag cards above are unaffected.
+
 ## 2026-06-07
 
 ### `[Release]` v1.13.0

@@ -836,7 +836,7 @@ function ConfigTabsAndContent({
       title: t`Payout source`,
       labels: [
         t`Bitcoin Knots RPC`,
-        t`Electrs`,
+        t`Electrum server (electrs / Fulcrum / ElectrumX)`,
         t`Disabled (no payout tracking)`,
         t`Include historical Ocean payouts in lifetime earnings`,
         t`Backfill now`,
@@ -2123,6 +2123,9 @@ function ChartColorsSection({
             { key: 'events.edit_price', label: t`edit price` },
             { key: 'events.edit_speed', label: t`edit speed` },
             { key: 'events.cancel', label: t`cancel` },
+            { key: 'events.mode_change', label: t`mode change` },
+            { key: 'events.bid_paused', label: t`bid paused` },
+            { key: 'events.bid_resumed', label: t`bid resumed` },
           ],
         },
       ],
@@ -2367,6 +2370,47 @@ function ChartColorRowIcon({
       >
         <circle cx="12" cy="12" r="10" />
         <path d="m4.9 4.9 14.2 14.2" />
+      </svg>
+    );
+  }
+  // #287 follow-up: run-mode change (Lucide power) and Braiins
+  // pause/resume (Lucide circle-pause / circle-play), copied verbatim
+  // from the marker rendering in PriceChart.tsx. The mode-change and
+  // bid-paused colors also tint the idle background bands.
+  if (keyId === 'events.mode_change') {
+    return (
+      <svg
+        width="14" height="14" viewBox="0 0 24 24" className="shrink-0"
+        fill="none" stroke={color} strokeWidth="2"
+        strokeLinecap="round" strokeLinejoin="round"
+      >
+        <path d="M12 2v10" />
+        <path d="M18.4 6.6a9 9 0 1 1-12.77.04" />
+      </svg>
+    );
+  }
+  if (keyId === 'events.bid_paused') {
+    return (
+      <svg
+        width="14" height="14" viewBox="0 0 24 24" className="shrink-0"
+        fill="none" stroke={color} strokeWidth="2"
+        strokeLinecap="round" strokeLinejoin="round"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <line x1="10" x2="10" y1="15" y2="9" />
+        <line x1="14" x2="14" y1="15" y2="9" />
+      </svg>
+    );
+  }
+  if (keyId === 'events.bid_resumed') {
+    return (
+      <svg
+        width="14" height="14" viewBox="0 0 24 24" className="shrink-0"
+        fill="none" stroke={color} strokeWidth="2"
+        strokeLinecap="round" strokeLinejoin="round"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <polygon points="10 8 16 12 10 16 10 8" />
       </svg>
     );
   }
@@ -3634,7 +3678,7 @@ function EventClassSubscriptions({
     {
       id: 'payout_confirmed',
       label: t`Ocean payout confirmed on-chain`,
-      help: t`Informational. Off by default. Fires when the on-chain payout scanner observes a coinbase output crediting your payout address - i.e. the transaction Ocean committed has now confirmed. Includes block height, payout amount, and a truncated tx id. Source: reward_events ledger (populated by Electrs or bitcoind scantxoutset, whichever the operator has wired).`,
+      help: t`Informational. Off by default. Fires when the on-chain payout scanner observes a coinbase output crediting your payout address - i.e. the transaction Ocean committed has now confirmed. Includes block height, payout amount, and a truncated tx id. Source: reward_events ledger (populated by your Electrum server or bitcoind scantxoutset, whichever the operator has wired).`,
       enabled: draft.notify_on_payout_confirmed,
       setEnabled: (n) => onChange('notify_on_payout_confirmed', n as never),
       severity: 'INFO',
@@ -3919,13 +3963,13 @@ function PayoutSourceSection({
     },
     {
       value: 'electrs',
-      label: t`Electrs (recommended)`,
-      help: t`Fast and lightweight. Polled every minute. Instant balance lookups via your Electrum server.`,
+      label: t`Electrum server (recommended)`,
+      help: t`Fast and lightweight. Polled every minute. Instant balance lookups. Works with any Electrum-protocol server: electrs, Fulcrum, ElectrumX.`,
     },
     {
       value: 'bitcoind',
       label: t`Bitcoin Knots RPC`,
-      help: t`Uses scantxoutset -- CPU-heavy, 30+ seconds per scan. Polled hourly. Use only if you don't have Electrs.`,
+      help: t`Uses scantxoutset -- CPU-heavy, 30+ seconds per scan. Polled hourly. Use only if you don't have an Electrum server.`,
     },
   ];
 
@@ -4103,9 +4147,9 @@ function HistoricalPayoutsControls({
               </Trans>
               <span className="block mt-2">
                 <Trans>
-                  The "Backfill now" button walks the full address history via Electrs
-                  and adds any historical Ocean coinbase payouts that aren't already
-                  recorded. Safe to run repeatedly.
+                  The "Backfill now" button walks the full address history via your
+                  Electrum server and adds any historical Ocean coinbase payouts that
+                  aren't already recorded. Safe to run repeatedly.
                 </Trans>
               </span>
             </InlineInfoPopover>
@@ -4258,7 +4302,7 @@ function ElectrsFields({
     <div className="grid grid-cols-[1fr_auto] sm:grid-cols-[1fr_120px_auto] gap-x-3 gap-y-2 pt-1 items-start">
       <label className="block">
         <span className="block text-sm text-slate-300 mb-1">
-          <Trans>Electrs host</Trans>
+          <Trans>Electrum server host</Trans>
         </span>
         <input
           type="text"

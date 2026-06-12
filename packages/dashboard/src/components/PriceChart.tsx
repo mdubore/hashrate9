@@ -15,6 +15,7 @@ import { useLingui } from '@lingui/react';
 import { useQuery } from '@tanstack/react-query';
 import type React from 'react';
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { sideTooltipPosition } from '../lib/tooltipPosition';
 
 import {
@@ -49,7 +50,8 @@ import {
   type CrosshairReadoutRow,
   type SharedCrosshair,
 } from '../lib/chartCrosshair';
-import { getChartColor, parseOverrides } from '../lib/chartColors';
+import { darkenHex, getChartColor, parseOverrides } from '../lib/chartColors';
+import { useSeriesVisibility } from '../lib/seriesVisibility';
 import { copyToClipboard } from '../lib/clipboard';
 import { useDenomination } from '../lib/denomination';
 import {
@@ -249,6 +251,8 @@ export const PriceChart = memo(function PriceChart({
   markersHiddenKind = null,
   markersHiddenCount = 0,
   soloSeries = [],
+  bidPauseIntervals = [],
+  idleModeIntervals = [],
   viewportHandlers,
   wheelRef,
   isDragging = false,
@@ -257,6 +261,7 @@ export const PriceChart = memo(function PriceChart({
   viewportUntil,
   chartColorOverrides,
   crosshair,
+  focusEventId = null,
 }: {
   points: readonly MetricPoint[];
   events?: readonly BidEventView[];
@@ -355,6 +360,21 @@ export const PriceChart = memo(function PriceChart({
   markersHiddenCount?: number;
   /** #149: per-tick aggregated solo-mining fleet series; used when rightAxisSeries == 'solo_power_watts'. */
   soloSeries?: ReadonlyArray<SoloSeriesRow>;
+  /**
+   * #287 follow-up: Braiins-side bid-pause spans (BID_PAUSED →
+   * BID_RESUMED pairs, computed by the caller from the bid-event
+   * stream). Rendered as hatched background bands tinted with the
+   * `events.bid_paused` color slot. Open-ended intervals use
+   * ±Infinity and get clamped to the data range here.
+   */
+  bidPauseIntervals?: ReadonlyArray<{ x0: number; x1: number }>;
+  /**
+   * #287 follow-up v3: run-mode idle spans (DRY_RUN / PAUSED),
+   * computed by the caller from per-tick run_mode with edges snapped
+   * to MODE_CHANGE event timestamps where available - so the band
+   * edges line up with the power markers instead of tick boundaries.
+   */
+  idleModeIntervals?: ReadonlyArray<{ x0: number; x1: number; mode: 'DRY_RUN' | 'PAUSED' }>;
   viewportHandlers?: {
     onPointerDown: React.PointerEventHandler<SVGSVGElement>;
     onPointerMove: React.PointerEventHandler<SVGSVGElement>;
@@ -372,6 +392,13 @@ export const PriceChart = memo(function PriceChart({
   /** #257: shared crosshair state (synced with HashrateChart). When
    *  undefined the crosshair is disabled entirely. */
   crosshair?: SharedCrosshair;
+  /** #285 follow-up: bid_events.id from the URL `focus_event` handoff.
+   *  The matching marker renders a pulsing amber ring on top of its
+   *  glyph so the operator can spot which event they jumped to. The
+   *  ring is purely visual; clicking it still routes through the
+   *  normal onMarkerClick path. Status clears this back to null after
+   *  ~5 s so the highlight doesn't linger. */
+  focusEventId?: number | null;
 }) {
   const { i18n } = useLingui();
   void i18n;
@@ -397,8 +424,17 @@ export const PriceChart = memo(function PriceChart({
   const COLOR_EDIT = getChartColor('events.edit_price', _colorOverrides);
   const COLOR_EDIT_SPEED = getChartColor('events.edit_speed', _colorOverrides);
   const COLOR_CANCEL = getChartColor('events.cancel', _colorOverrides);
+  // #287 follow-up: mode-change + pause/resume marker colours, also
+  // tinting the idle-state background bands.
+  const COLOR_MODE_CHANGE = getChartColor('events.mode_change', _colorOverrides);
+  const COLOR_BID_PAUSED = getChartColor('events.bid_paused', _colorOverrides);
+  const COLOR_BID_RESUMED = getChartColor('events.bid_resumed', _colorOverrides);
   const COLOR_RIGHT_AXIS = getChartColor('price.right_axis', _colorOverrides);
-
+  /* eslint-enable @typescript-eslint/no-shadow */
+  // #280: clickable-legend series visibility, persisted per device
+  // under this chart's own key. `hidden` feeds the Y-axis autoscale
+  // inside chartData and the per-series render gates below.
+  const { hidden, isHidden, toggle } = useSeriesVisibility('priceHiddenSeries');
   const containerRef = useRef<HTMLDivElement>(null);
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
   // Per-marker tooltip state for the new on-line dots: pool-block
@@ -703,20 +739,24 @@ export const PriceChart = memo(function PriceChart({
     // excluded - the whole point of the toggle is that the flatter
     // bid/fillable/hashprice detail is crushed when the volatile
     // effective line drags the Y-axis range down.
+    // #280: the Y-axis autoscales to only the *visible* line series, so
+    // hiding e.g. hashprice lets the bid/fillable band fill the chart.
+    // A series toggled off in the legend is dropped from the sample.
     let priceSample = [
-      ...pricePoints.filter((p) => inView(p.t)).map((p) => p.v),
-      ...hashpricePoints.filter((p) => inView(p.t)).map((p) => p.v),
-      ...fillablePoints.filter((p) => inView(p.t)).map((p) => p.v),
-      ...eventPrices,
+      ...(hidden.has('bid') ? [] : pricePoints.filter((p) => inView(p.t)).map((p) => p.v)),
+      ...(hidden.has('hashprice') ? [] : hashpricePoints.filter((p) => inView(p.t)).map((p) => p.v)),
+      ...(hidden.has('fillable') ? [] : fillablePoints.filter((p) => inView(p.t)).map((p) => p.v)),
+      ...(hidden.has('bid') ? [] : eventPrices),
     ];
     if (priceSample.length === 0) {
       // Degenerate viewport with no points in view (panned past the
-      // data, or mid-fetch). Fall back to the full fetched sample so
-      // the axis holds a sane scale instead of snapping to 0..1.
+      // data, or mid-fetch), or every series hidden. Fall back to the
+      // full fetched sample of the still-visible series so the axis
+      // holds a sane scale instead of snapping to 0..1.
       priceSample = [
-        ...pricePoints.map((p) => p.v),
-        ...hashpricePoints.map((p) => p.v),
-        ...fillablePoints.map((p) => p.v),
+        ...(hidden.has('bid') ? [] : pricePoints.map((p) => p.v)),
+        ...(hidden.has('hashprice') ? [] : hashpricePoints.map((p) => p.v)),
+        ...(hidden.has('fillable') ? [] : fillablePoints.map((p) => p.v)),
       ];
     }
     const hasPrice = priceSample.length > 0;
@@ -1216,12 +1256,20 @@ export const PriceChart = memo(function PriceChart({
     const xTickInterval = pickTimeTickInterval(maxX - minX);
     const xTicks = localAlignedTimeTicks(minX, maxX, xTickInterval);
 
-    const allowedKinds = new Set(showEventKinds);
-    const visibleEvents = allowedKinds.size === 0
-      ? []
-      : events.filter(
-          (e) => allowedKinds.has(e.kind) && e.occurred_at >= dataMinX && e.occurred_at <= dataMaxX,
-        );
+    // #287 follow-up: mode-change and pause/resume markers bypass the
+    // per-range kind fading ("always visible like pool blocks") - the
+    // fading exists to tame EDIT_PRICE noise, and these three are
+    // rare, high-signal events that often explain a gap you only
+    // notice when zoomed out.
+    const allowedKinds = new Set([
+      ...showEventKinds,
+      'MODE_CHANGE',
+      'BID_PAUSED',
+      'BID_RESUMED',
+    ]);
+    const visibleEvents = events.filter(
+      (e) => allowedKinds.has(e.kind) && e.occurred_at >= dataMinX && e.occurred_at <= dataMaxX,
+    );
 
     // #167/#173: contiguous spans where fillable_ask is null. Split into
     // "marketplace empty" (reachable but no supply) vs "Braiins API
@@ -1269,7 +1317,7 @@ export const PriceChart = memo(function PriceChart({
     // crosshair readout - the bid row mirrors the smoothed line the
     // chart draws, the cap row mirrors the per-tick effective cap.
     return { pricePoints, xs, smoothedPriceByTick, capByTick, minX, maxX, dataMinX, dataMaxX, hasPrice, priceMin, priceMax, xScale, yScale, pricePath, priceAreaPath, hashpricePath, fillablePath, fillableHasData: fillablePoints.length > 0, effectivePath, effectiveHasData: effectivePoints.length > 0, capPath, capExclusionPolygon, yTicks, xTickInterval, xTicks, visibleEvents, rightAxis, hasRightAxis, rightAxisPath, rightYTicks, rightYScale, padRight, marketplaceEmptyIntervals, braiinsUnreachableIntervals, daemonOfflineIntervals };
-  }, [points, events, showEventKinds, priceSmoothingMinutes, historicalPayoutsOffsetSat, maxOverpayVsHashpriceSatPerPhDay, chartHeight, rightAxisSeries, soloSeries, denomination, intlLocale, viewportSince, viewportUntil]);
+  }, [points, events, showEventKinds, priceSmoothingMinutes, historicalPayoutsOffsetSat, maxOverpayVsHashpriceSatPerPhDay, chartHeight, rightAxisSeries, soloSeries, denomination, intlLocale, viewportSince, viewportUntil, hidden]);
 
   const eventPriceAt = useCallback((e: BidEventView): number | null => {
     const pricePoints = chartData?.pricePoints ?? [];
@@ -1628,6 +1676,12 @@ export const PriceChart = memo(function PriceChart({
     // inherits block 1's anchor and the stagger pass below visually
     // separates the two dots.
     const MAX_LAG_TICKS = 15;
+    // #282: a block may only inherit a *previous* block's unpaid step
+    // (the Ocean-batched-credit case) when the two are within this
+    // window. Ocean's unpaid column refreshes on a ~5-min cadence, so
+    // genuinely-batched blocks land within a refresh or two; 30 min is
+    // a generous bound that still rejects the hours-apart false match.
+    const BATCH_PROXIMITY_MS = 30 * 60 * 1000;
     let cursor = 0;
     let scanFromIdx = 0;
     let lastClaimedSteppedIdx = -1;
@@ -1668,7 +1722,24 @@ export const PriceChart = memo(function PriceChart({
           scanFromIdx = steppedIdx + 1;
           lastClaimedSteppedIdx = steppedIdx;
           lastClaimedValue = stepped;
-        } else if (lastClaimedSteppedIdx >= 0 && lastClaimedValue !== null) {
+        } else if (
+          lastClaimedSteppedIdx >= 0 &&
+          lastClaimedValue !== null &&
+          // #282: only inherit the previous block's step when this
+          // block is genuinely *near* it in time - the batched-credit
+          // case is two blocks minutes apart that Ocean combined into
+          // one unpaid refresh. Time-based (not tick-count) so the
+          // bound holds at any bucket size. Without it, a block whose
+          // own step isn't found within the scan window (e.g. one in
+          // the prefetch buffer hours past the viewport, where the
+          // unpaid series is flat or null) would inherit a step hours
+          // away and paint a phantom second dot staggered next to an
+          // unrelated block. Empirical: block 952867 (13:19) attaching
+          // to 952842 (08:29) gave two dots for one visible block; the
+          // phantom vanished on zoom-in as 952867 left the data
+          // extent (#282).
+          b.timestamp_ms - points[lastClaimedSteppedIdx]!.tick_at <= BATCH_PROXIMITY_MS
+        ) {
           // No further step found - Ocean batched this block's credit
           // into the previous step. Share the previous anchor; stagger
           // pass below pulls the dots apart visually.
@@ -1811,6 +1882,7 @@ export const PriceChart = memo(function PriceChart({
     crosshair,
     viewportHandlers,
     clientToTick,
+    isFocused,
   });
 
   // Marker line position + readout rows at the snapped tick. Bid uses
@@ -1936,23 +2008,49 @@ export const PriceChart = memo(function PriceChart({
           </button>
         </div>
         <div className="flex items-center gap-3 text-xs flex-wrap">
-          <Legend color={COLOR_PRICE} label={t`our bid`} />
-          {fillableHasData && <Legend color={COLOR_FILLABLE} label={t`fillable`} />}
+          {/* #280: every series chip toggles its own visibility. The
+              "effective" chip and the right-axis chip both control the
+              right-axis line, so both map to the same 'rightAxis' key. */}
+          <Legend color={COLOR_PRICE} label={t`our bid`} hidden={isHidden('bid')} onToggle={() => toggle('bid')} />
+          {fillableHasData && <Legend color={COLOR_FILLABLE} label={t`fillable`} hidden={isHidden('fillable')} onToggle={() => toggle('fillable')} />}
           {rightAxisSeries === 'effective_rate' && effectiveHasData && (
-            <Legend color={COLOR_EFFECTIVE} label={t`effective`} />
+            <Legend color={COLOR_EFFECTIVE} label={t`effective`} hidden={isHidden('rightAxis')} onToggle={() => toggle('rightAxis')} />
           )}
-          <Legend color={COLOR_HASHPRICE} label={t`hashprice`} dashed />
-          <Legend color={COLOR_MAXBID} label={t`max bid`} />
+          <Legend color={COLOR_HASHPRICE} label={t`hashprice`} dashed hidden={isHidden('hashprice')} onToggle={() => toggle('hashprice')} />
+          <Legend color={COLOR_MAXBID} label={t`max bid`} hidden={isHidden('maxBid')} onToggle={() => toggle('maxBid')} />
           {hasRightAxis && rightAxis && (
-            <Legend color={rightAxis.stroke} label={rightAxis.axisLabel} />
+            <Legend color={rightAxis.stroke} label={rightAxis.axisLabel} hidden={isHidden('rightAxis')} onToggle={() => toggle('rightAxis')} />
           )}
           {rewardEvents.some(
               (r) =>
                 !r.reorged &&
                 r.detected_at >= chartData.minX &&
                 r.detected_at <= chartData.maxX,
-            ) && <Legend color={COLOR_PAYOUT} label={t`on-chain payout`} dashed />}
-          {showEventKinds.length > 0 && <EventLegend kinds={showEventKinds} />}
+            ) && <Legend color={COLOR_PAYOUT} label={t`on-chain payout`} dashed hidden={isHidden('payout')} onToggle={() => toggle('payout')} />}
+          {/* #287 follow-up: the three always-visible kinds join the
+              legend only when at least one such marker is actually in
+              view - they're rare, so the legend stays uncluttered in
+              the common case. */}
+          {(() => {
+            const present = new Set(visibleEvents.map((ev) => ev.kind));
+            const extraKinds = (['MODE_CHANGE', 'BID_PAUSED', 'BID_RESUMED'] as const).filter(
+              (k) => present.has(k),
+            );
+            const legendKinds = [...showEventKinds, ...extraKinds];
+            // Pass the override-resolved colors so a recolored marker
+            // matches its legend chip (the legend previously used the
+            // hardcoded defaults).
+            const legendColors = {
+              CREATE_BID: COLOR_CREATE,
+              EDIT_PRICE: COLOR_EDIT,
+              EDIT_SPEED: COLOR_EDIT_SPEED,
+              CANCEL_BID: COLOR_CANCEL,
+              MODE_CHANGE: COLOR_MODE_CHANGE,
+              BID_PAUSED: COLOR_BID_PAUSED,
+              BID_RESUMED: COLOR_BID_RESUMED,
+            } as const;
+            return legendKinds.length > 0 ? <EventLegend kinds={legendKinds} colors={legendColors} /> : null;
+          })()}
           {markersHiddenKind != null && markersHiddenCount > 0 && (
             <span
               className="text-[10px] text-slate-500 italic"
@@ -2030,7 +2128,7 @@ export const PriceChart = memo(function PriceChart({
             the amber bid line so the vertical gap between them is the
             overpay cushion at a glance; any edit the controller
             makes is explained by this line moving. */}
-        {fillablePath && (
+        {fillablePath && !isHidden('fillable') && (
           <path
             d={fillablePath}
             stroke={COLOR_FILLABLE}
@@ -2043,7 +2141,7 @@ export const PriceChart = memo(function PriceChart({
         {/* Hashprice break-even line - now a time series, not a static
             horizontal line. Moves with difficulty adjustments + block
             reward fluctuations. Below = profitable, above = unprofitable. */}
-        {hashpricePath && (
+        {hashpricePath && !isHidden('hashprice') && (
           // Hashprice is a high-variance per-tick signal, so a sparse
           // long-dash pattern reads as jagged. Use tightly-spaced round
           // dots (0.1 dash + round linecap renders the cap itself as a
@@ -2170,7 +2268,80 @@ export const PriceChart = memo(function PriceChart({
             </rect>
           );
         })}
-        {capExclusionPolygon && (
+        {/* #287 follow-up: idle-state bands. Run-mode bands (DRY_RUN /
+            PAUSED) tint with the mode-change marker color; Braiins
+            bid-pause bands tint with the bid-paused marker color. */}
+        {idleModeIntervals.length > 0 && (
+          <defs>
+            <pattern
+              id="idleModeHatchPx"
+              patternUnits="userSpaceOnUse"
+              width="10"
+              height="10"
+              patternTransform="rotate(45)"
+            >
+              {/* Dark base + saturated lines, matching the unreachable
+                  band's visual language - the slot color itself at low
+                  opacity reads as a milky veil on the dark chart. */}
+              <rect width="10" height="10" fill={darkenHex(COLOR_MODE_CHANGE, 0.45)} fillOpacity="0.2" />
+              <line x1="0" y1="0" x2="0" y2="10" stroke={COLOR_MODE_CHANGE} strokeWidth="1.5" strokeOpacity="0.45" />
+            </pattern>
+          </defs>
+        )}
+        {idleModeIntervals.map((iv, i) => {
+          const x0 = xScale(Math.max(dataMinX, iv.x0));
+          const x1 = xScale(Math.min(dataMaxX, iv.x1));
+          if (!Number.isFinite(x0) || !Number.isFinite(x1) || x1 <= x0) return null;
+          return (
+            <rect
+              key={`idle-mode-${i}`}
+              x={x0}
+              y={PADDING.top}
+              width={x1 - x0}
+              height={chartHeight - PADDING.top - PADDING.bottom}
+              fill="url(#idleModeHatchPx)"
+            >
+              <title>
+                {`Autopilot in ${iv.mode} (${formatDuration(iv.x1 - iv.x0)})`}
+              </title>
+            </rect>
+          );
+        })}
+        {bidPauseIntervals.length > 0 && (
+          <defs>
+            <pattern
+              id="bidPauseHatchPx"
+              patternUnits="userSpaceOnUse"
+              width="10"
+              height="10"
+              patternTransform="rotate(-45)"
+            >
+              <rect width="10" height="10" fill={darkenHex(COLOR_BID_PAUSED, 0.45)} fillOpacity="0.2" />
+              <line x1="0" y1="0" x2="0" y2="10" stroke={COLOR_BID_PAUSED} strokeWidth="1.5" strokeOpacity="0.45" />
+            </pattern>
+          </defs>
+        )}
+        {bidPauseIntervals.map((iv, i) => {
+          const x0 = xScale(Math.max(dataMinX, iv.x0));
+          const x1 = xScale(Math.min(dataMaxX, iv.x1));
+          if (!Number.isFinite(x0) || !Number.isFinite(x1) || x1 <= x0) return null;
+          const clampedSpan = Math.min(dataMaxX, iv.x1) - Math.max(dataMinX, iv.x0);
+          return (
+            <rect
+              key={`bid-pause-${i}`}
+              x={x0}
+              y={PADDING.top}
+              width={x1 - x0}
+              height={chartHeight - PADDING.top - PADDING.bottom}
+              fill="url(#bidPauseHatchPx)"
+            >
+              <title>
+                {`Bid paused by Braiins (${formatDuration(clampedSpan)})`}
+              </title>
+            </rect>
+          );
+        })}
+        {capExclusionPolygon && !isHidden('maxBid') && (
           <>
             <defs>
               <linearGradient id="capExclusion" x1="0" y1="0" x2="0" y2="1">
@@ -2181,7 +2352,7 @@ export const PriceChart = memo(function PriceChart({
             <path d={capExclusionPolygon} fill="url(#capExclusion)" stroke="none" pointerEvents="none" />
           </>
         )}
-        {capPath && (
+        {capPath && !isHidden('maxBid') && (
           <path
             d={capPath}
             stroke={COLOR_MAXBID}
@@ -2190,7 +2361,7 @@ export const PriceChart = memo(function PriceChart({
             opacity="0.85"
           />
         )}
-        {priceAreaPath && (
+        {priceAreaPath && !isHidden('bid') && (
           /* Soft gradient fill below the price line - mirrors the
              delivered-hashrate fill on the chart above. Each null-gap
              sub-run is its own closed polygon down to the baseline
@@ -2198,7 +2369,7 @@ export const PriceChart = memo(function PriceChart({
              wedges across gaps after #44 split the line into subpaths). */
           <path d={priceAreaPath} fill="url(#priceFill)" opacity="0.5" pointerEvents="none" />
         )}
-        {pricePath && (
+        {pricePath && !isHidden('bid') && (
           <path d={pricePath} stroke={COLOR_PRICE} strokeWidth="1.8" fill="none" opacity="0.95" />
         )}
         {/* Effective rate is now plotted via the right-axis machinery
@@ -2242,6 +2413,59 @@ export const PriceChart = memo(function PriceChart({
           const lineBottomY = cy - bubbleR;
           const hitTopY = GLYPH_Y - 1;
           const hitH = Math.max(GLYPH_W + 2, cy - hitTopY + bubbleR + 2);
+          // #287 follow-up: mode-change and pause/resume markers have
+          // no price anchor (no bid price on the row), so they render
+          // like pool blocks: top-edge glyph + full-height dashed
+          // guide line down to the plot baseline. One shared power
+          // icon for every mode change regardless of direction
+          // (operator: "let's not overdo it"); the tooltip's reason
+          // line carries the transition / Braiins pause reason.
+          if (e.kind === 'MODE_CHANGE' || e.kind === 'BID_PAUSED' || e.kind === 'BID_RESUMED') {
+            const stroke =
+              e.kind === 'MODE_CHANGE'
+                ? COLOR_MODE_CHANGE
+                : e.kind === 'BID_PAUSED'
+                  ? COLOR_BID_PAUSED
+                  : COLOR_BID_RESUMED;
+            const baselineY = chartHeight - PADDING.bottom;
+            return (
+              <g key={e.id} {...common}>
+                <svg
+                  x={GLYPH_X} y={GLYPH_Y}
+                  width={GLYPH_W} height={GLYPH_W} viewBox="0 0 24 24"
+                  fill="none" stroke={stroke} strokeWidth="2"
+                  strokeLinecap="round" strokeLinejoin="round"
+                >
+                  {e.kind === 'MODE_CHANGE' ? (
+                    <>
+                      {/* Lucide `power`. */}
+                      <path d="M12 2v10" />
+                      <path d="M18.4 6.6a9 9 0 1 1-12.77.04" />
+                    </>
+                  ) : e.kind === 'BID_PAUSED' ? (
+                    <>
+                      {/* Lucide `circle-pause`. */}
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="10" x2="10" y1="15" y2="9" />
+                      <line x1="14" x2="14" y1="15" y2="9" />
+                    </>
+                  ) : (
+                    <>
+                      {/* Lucide `circle-play`. */}
+                      <circle cx="12" cy="12" r="10" />
+                      <polygon points="10 8 16 12 10 16 10 8" />
+                    </>
+                  )}
+                </svg>
+                <line
+                  x1={cx} x2={cx} y1={lineTopY} y2={baselineY}
+                  stroke={stroke} strokeWidth="1"
+                  strokeDasharray="2 4" opacity="0.55" pointerEvents="none"
+                />
+                <rect x={cx - 8} y={hitTopY} width="16" height={GLYPH_W + 4} fill="transparent" />
+              </g>
+            );
+          }
           if (e.kind === 'CREATE_BID') {
             return (
               <g key={e.id} {...common}>
@@ -2328,6 +2552,55 @@ export const PriceChart = memo(function PriceChart({
           }
           return null;
         })}
+        {/* #285 follow-up: focus pulse for the marker the operator
+            jumped to from /history. Draws an expanding amber ring
+            anchored on the price-line bubble. Pure visual cue; no
+            pointer events so the underlying marker's hit-rect still
+            receives the click. Status clears focusEventId after ~5 s
+            so the ring doesn't linger. */}
+        {focusEventId !== null && (() => {
+          const focus = visibleEvents.find((e) => e.id === focusEventId);
+          if (!focus) return null;
+          const cx = xScale(focus.occurred_at);
+          const priceAtEvent = eventPriceAt(focus);
+          // Mode-change / pause / resume markers have no price-line
+          // bubble - they render as top-edge glyphs - so the ring
+          // anchors on the glyph (its center sits at PADDING.top - 4)
+          // instead of the price line.
+          const isTopMarker =
+            focus.kind === 'MODE_CHANGE' || focus.kind === 'BID_PAUSED' || focus.kind === 'BID_RESUMED';
+          const cy = isTopMarker
+            ? PADDING.top - 4
+            : priceAtEvent !== null ? yScale(priceAtEvent) : PADDING.top - 2;
+          return (
+            <g pointerEvents="none">
+              <style>{`
+                @keyframes priceChartFocusPulse {
+                  0%   { r: 5;  opacity: 0.95; }
+                  100% { r: 22; opacity: 0;    }
+                }
+                @keyframes priceChartFocusGlow {
+                  0%, 100% { r: 7; opacity: 0.85; }
+                  50%      { r: 9; opacity: 1;    }
+                }
+                .price-chart-focus-pulse {
+                  animation: priceChartFocusPulse 1.5s ease-out infinite;
+                  fill: none;
+                  stroke: #fbbf24;
+                  stroke-width: 2;
+                }
+                .price-chart-focus-glow {
+                  animation: priceChartFocusGlow 1.5s ease-in-out infinite;
+                  fill: none;
+                  stroke: #fde68a;
+                  stroke-width: 1.5;
+                }
+              `}</style>
+              <circle cx={cx} cy={cy} className="price-chart-focus-pulse" />
+              <circle cx={cx} cy={cy} className="price-chart-focus-glow" />
+            </g>
+          );
+        })()}
         </g>
 
         {/* #262: bottom x-axis line stops at the data-area edge
@@ -2386,7 +2659,7 @@ export const PriceChart = memo(function PriceChart({
         )}
 
         <g clipPath="url(#px-data-clip)">
-        {hasRightAxis && rightAxis && (
+        {hasRightAxis && rightAxis && !isHidden('rightAxis') && (
           <path
             d={rightAxisPath}
             stroke={rightAxis.stroke}
@@ -2400,8 +2673,9 @@ export const PriceChart = memo(function PriceChart({
         {/* Reward-event dots on the right-axis line. Operator click
             opens a pinned tooltip with payout date, sat amount, and
             block-explorer link. Only rendered when the right-axis
-            series actually plots paid earnings. */}
-        {visibleRewardMarkers.map(({ reward, cx, cy }) => (
+            series actually plots paid earnings. #280: hidden via the
+            "on-chain payout" legend toggle. */}
+        {!isHidden('payout') && visibleRewardMarkers.map(({ reward, cx, cy }) => (
           <g
             key={`reward-${reward.id}`}
             onMouseEnter={onRewardEnter(reward)}
@@ -3126,6 +3400,7 @@ function EventTooltip({
   const { i18n } = useLingui();
   void i18n;
   const fmt = useFormatters();
+  const navigate = useNavigate();
   const ref = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
 
@@ -3245,7 +3520,13 @@ function EventTooltip({
         ? t`EDIT PRICE`
         : e.kind === 'EDIT_SPEED'
           ? t`EDIT SPEED`
-          : t`CANCEL`;
+          : e.kind === 'MODE_CHANGE'
+            ? t`MODE CHANGE`
+            : e.kind === 'BID_PAUSED'
+              ? t`BID PAUSED`
+              : e.kind === 'BID_RESUMED'
+                ? t`BID RESUMED`
+                : t`CANCEL`;
   const headerColor =
     e.kind === 'CREATE_BID'
       ? 'text-emerald-300'
@@ -3253,7 +3534,13 @@ function EventTooltip({
         ? 'text-amber-300'
         : e.kind === 'EDIT_SPEED'
           ? 'text-sky-300'
-          : 'text-red-300';
+          : e.kind === 'MODE_CHANGE'
+            ? 'text-violet-300'
+            : e.kind === 'BID_PAUSED'
+              ? 'text-amber-300'
+              : e.kind === 'BID_RESUMED'
+                ? 'text-emerald-300'
+                : 'text-red-300';
 
   const copyJson = async () => {
     const detail: DecisionDetail | null = decisionDetailQuery.data ?? null;
@@ -3460,9 +3747,18 @@ function EventTooltip({
       )}
       {tip.pinned && (
         <div className="mt-3 pt-2 border-t border-slate-800 flex items-center justify-between gap-3">
-          <span className="text-[10px] text-slate-500">
-            {detailLoading ? t`loading decision…` : t`click outside to close`}
-          </span>
+          {/* #285: jump from chart marker into the History page row.
+              Pairs with the drawer's "View on chart" link for
+              bidirectional context without embedding a chart on
+              /history. */}
+          <button
+            type="button"
+            onClick={() => navigate(`/history?focus_event=${e.id}`)}
+            className="text-[10px] text-amber-300 hover:underline"
+            title={t`Open the History row for this event`}
+          >
+            <Trans>Show in history</Trans>{' →'}
+          </button>
           <button
             type="button"
             onClick={copyJson}
@@ -3531,30 +3827,62 @@ function SatUnit({ unit }: { unit: string }) {
   return <>{localized}</>;
 }
 
-function Legend({ color, label, dashed }: { color: string; label: string; dashed?: boolean }) {
+function Legend({
+  color,
+  label,
+  dashed,
+  onToggle,
+  hidden,
+}: {
+  color: string;
+  label: string;
+  dashed?: boolean;
+  /** #280: when provided, the chip toggles the series' visibility. */
+  onToggle?: () => void;
+  hidden?: boolean;
+}) {
   // `dashed` is a misnomer kept for stable callsites; it now renders
   // tightly-spaced round dots to match the hashprice line style on
   // the chart (#hashprice-dots-2026-05-12).
+  const swatch = (
+    <svg width="14" height="6">
+      <line
+        x1="0"
+        y1="3"
+        x2="14"
+        y2="3"
+        stroke={hidden ? '#475569' : color}
+        strokeWidth="2"
+        strokeDasharray={dashed ? '0.1 3' : undefined}
+        strokeLinecap={dashed ? 'round' : undefined}
+      />
+    </svg>
+  );
+  if (!onToggle) {
+    return (
+      <span className="flex items-center gap-1 text-slate-400 whitespace-nowrap">
+        {swatch}
+        {label}
+      </span>
+    );
+  }
   return (
-    <span className="flex items-center gap-1 text-slate-400 whitespace-nowrap">
-      <svg width="14" height="6">
-        <line
-          x1="0"
-          y1="3"
-          x2="14"
-          y2="3"
-          stroke={color}
-          strokeWidth="2"
-          strokeDasharray={dashed ? '0.1 3' : undefined}
-          strokeLinecap={dashed ? 'round' : undefined}
-        />
-      </svg>
+    <button
+      type="button"
+      onClick={onToggle}
+      title={hidden ? t`Click to show` : t`Click to hide`}
+      aria-pressed={!hidden}
+      className={`flex items-center gap-1 whitespace-nowrap cursor-pointer hover:text-slate-200 transition-colors ${
+        hidden ? 'text-slate-600 line-through' : 'text-slate-400'
+      }`}
+    >
+      {swatch}
       {label}
-    </span>
+    </button>
   );
 }
 
-function EventLegend({ kinds }: { kinds: readonly BidEventKind[] }) {
+function EventLegend({ kinds, colors }: { kinds: readonly BidEventKind[]; colors: Record<BidEventKind, string> }) {
   const has = (k: BidEventKind) => kinds.includes(k);
   // #265 v4: legend icons mirror the chart-top glyphs so the
   // operator's mental "+ create" / "gauge edit speed" / "ban cancel"
@@ -3574,7 +3902,7 @@ function EventLegend({ kinds }: { kinds: readonly BidEventKind[] }) {
     <span className="flex items-center gap-2 text-slate-400 pl-2 border-l border-slate-700 flex-wrap">
       {has('CREATE_BID') && (
         <span className="flex items-center gap-1 whitespace-nowrap">
-          <svg {...iconProps} stroke={COLOR_CREATE}>
+          <svg {...iconProps} stroke={colors.CREATE_BID}>
             <circle cx="12" cy="12" r="10" />
             <path d="M8 12h8" />
             <path d="M12 8v8" />
@@ -3585,14 +3913,14 @@ function EventLegend({ kinds }: { kinds: readonly BidEventKind[] }) {
       {has('EDIT_PRICE') && (
         <span className="flex items-center gap-1 whitespace-nowrap">
           <svg width="10" height="10">
-            <circle cx="5" cy="5" r="3.5" fill={COLOR_EDIT} />
+            <circle cx="5" cy="5" r="3.5" fill={colors.EDIT_PRICE} />
           </svg>
           <Trans>edit price</Trans>
         </span>
       )}
       {has('EDIT_SPEED') && (
         <span className="flex items-center gap-1 whitespace-nowrap">
-          <svg {...iconProps} stroke={COLOR_EDIT_SPEED}>
+          <svg {...iconProps} stroke={colors.EDIT_SPEED}>
             <path d="m12 14 4-4" />
             <path d="M3.34 19a10 10 0 1 1 17.32 0" />
           </svg>
@@ -3601,11 +3929,39 @@ function EventLegend({ kinds }: { kinds: readonly BidEventKind[] }) {
       )}
       {has('CANCEL_BID') && (
         <span className="flex items-center gap-1 whitespace-nowrap">
-          <svg {...iconProps} stroke={COLOR_CANCEL}>
+          <svg {...iconProps} stroke={colors.CANCEL_BID}>
             <circle cx="12" cy="12" r="10" />
             <path d="m4.9 4.9 14.2 14.2" />
           </svg>
           <Trans>cancel</Trans>
+        </span>
+      )}
+      {has('MODE_CHANGE') && (
+        <span className="flex items-center gap-1 whitespace-nowrap">
+          <svg {...iconProps} stroke={colors.MODE_CHANGE}>
+            <path d="M12 2v10" />
+            <path d="M18.4 6.6a9 9 0 1 1-12.77.04" />
+          </svg>
+          <Trans>mode change</Trans>
+        </span>
+      )}
+      {has('BID_PAUSED') && (
+        <span className="flex items-center gap-1 whitespace-nowrap">
+          <svg {...iconProps} stroke={colors.BID_PAUSED}>
+            <circle cx="12" cy="12" r="10" />
+            <line x1="10" x2="10" y1="15" y2="9" />
+            <line x1="14" x2="14" y1="15" y2="9" />
+          </svg>
+          <Trans>bid paused</Trans>
+        </span>
+      )}
+      {has('BID_RESUMED') && (
+        <span className="flex items-center gap-1 whitespace-nowrap">
+          <svg {...iconProps} stroke={colors.BID_RESUMED}>
+            <circle cx="12" cy="12" r="10" />
+            <polygon points="10 8 16 12 10 16 10 8" />
+          </svg>
+          <Trans>bid resumed</Trans>
         </span>
       )}
     </span>

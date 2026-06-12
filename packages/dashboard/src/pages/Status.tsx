@@ -2,8 +2,8 @@ import { Trans } from '@lingui/react/macro';
 import { t } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 import {
   CHART_RANGES,
@@ -132,6 +132,7 @@ function readStoredPriceRightAxis(fallback: PriceRightAxis): PriceRightAxis {
 
 export function Status() {
   const navigate = useNavigate();
+  const location = useLocation();
   const qc = useQueryClient();
   const { intlLocale } = useLocale();
   const fmt = useFormatters();
@@ -231,6 +232,69 @@ export function Status() {
       chartViewport.setDataStart(firstPointAt);
     }
   }, [firstPointAt, chartViewport.setDataStart]);
+
+  // #285 follow-up: id of the bid event being focused after a
+  // History → chart jump. PriceChart pulses an amber ring around the
+  // matching marker for ~5 s, then this clears back to null.
+  const [focusedEventId, setFocusedEventId] = useState<number | null>(null);
+
+  // #285: ?focus_event=<id>&at=<ms> handoff from History → chart. We
+  // pass the timestamp directly so Status doesn't need a round-trip
+  // to look the event up; the id drives the marker pulse. Pan the
+  // price chart to the event's timestamp, then strip the params
+  // (replaceState so the back button doesn't re-trigger the jump).
+  // The viewport jump preserves the operator's current zoom width
+  // when possible; if the chart was in a >24 h preset we fall back
+  // to a 1 h centred window so a marker doesn't get lost in a year-
+  // wide axis.
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const atRaw = params.get('at');
+    if (!atRaw) return;
+    const at = Number.parseInt(atRaw, 10);
+    if (!Number.isFinite(at)) return;
+    const currentWidth =
+      chartViewport.viewport.until_ms - chartViewport.viewport.since_ms;
+    const HOUR_MS = 60 * 60_000;
+    const DAY_MS = 24 * HOUR_MS;
+    const width = currentWidth > DAY_MS ? HOUR_MS : currentWidth;
+    chartViewport.jumpToWindow(at, width);
+    const idRaw = params.get('focus_event');
+    let timer: number | null = null;
+    if (idRaw) {
+      const id = Number.parseInt(idRaw, 10);
+      if (Number.isFinite(id)) {
+        setFocusedEventId(id);
+        timer = window.setTimeout(() => setFocusedEventId(null), 5_000);
+      }
+    }
+    // #287 follow-up (operator): the price chart can sit below the
+    // fold (hero cards above it, or a custom card order), so the jump
+    // also scrolls the chart block into view. Poll briefly - the
+    // block only mounts once the status query resolves, which on a
+    // cold navigation from /history lands a beat after this effect.
+    let scrollTries = 0;
+    const scrollTimer = window.setInterval(() => {
+      const el = document.getElementById('price-chart-block');
+      scrollTries += 1;
+      if (el !== null) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        window.clearInterval(scrollTimer);
+      } else if (scrollTries >= 30) {
+        window.clearInterval(scrollTimer);
+      }
+    }, 100);
+    params.delete('focus_event');
+    params.delete('at');
+    const next = params.toString();
+    navigate(`/${next ? `?${next}` : ''}`, { replace: true });
+    return () => {
+      if (timer !== null) window.clearTimeout(timer);
+      window.clearInterval(scrollTimer);
+    };
+    // location-driven effect; depend only on the URL string.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search]);
 
   const effectiveViewportSince = useMemo(() => {
     if (dataStartMs != null && chartViewport.viewport.since_ms < dataStartMs) {
@@ -500,6 +564,87 @@ export function Status() {
     };
   }, [bidEventsQuery.data?.events, configQuery.data?.config?.chart_max_markers, allOurBlocks, allRewardEvents, vp.since_ms, vp.until_ms]);
 
+  // #281: EDIT_SPEED events for the hashrate chart - a speed-limit
+  // change moves the delivered-hashrate curve, so those markers
+  // mirror onto the hashrate chart. Derived from the same cap-filtered
+  // visibleBidEvents the price chart uses, gated by the active range's
+  // showEventKinds (EDIT_SPEED is a rare kind: shown through 1w,
+  // dropped at 1m+) so the two charts agree on what's visible.
+  const speedEditEvents = useMemo(() => {
+    const showKinds = vp.activePreset
+      ? CHART_RANGE_SPECS[vp.activePreset].showEventKinds
+      : showEventKindsForSpan(vp.until_ms - vp.since_ms);
+    if (!showKinds.includes('EDIT_SPEED')) return EMPTY_BID_EVENTS;
+    return visibleBidEvents.filter((e) => e.kind === 'EDIT_SPEED');
+  }, [visibleBidEvents, vp.activePreset, vp.since_ms, vp.until_ms]);
+
+  // #287 follow-up: Braiins-side bid-pause spans for the hatched
+  // background bands on both charts. Built from the raw (un-capped)
+  // event stream - bands are context, not markers, so the marker cap
+  // must not drop them. A RESUMED without a preceding PAUSED in the
+  // fetched window opens at -Infinity; a PAUSED without a RESUMED
+  // runs to +Infinity. The charts clamp to their data range.
+  const bidPauseIntervals = useMemo(() => {
+    const events = bidEventsQuery.data?.events ?? EMPTY_BID_EVENTS;
+    const transitions = events
+      .filter((e) => e.kind === 'BID_PAUSED' || e.kind === 'BID_RESUMED')
+      .sort((a, b) => a.occurred_at - b.occurred_at);
+    const intervals: Array<{ x0: number; x1: number }> = [];
+    let openAt: number | null = null;
+    for (const e of transitions) {
+      if (e.kind === 'BID_PAUSED') {
+        if (openAt === null) openAt = e.occurred_at;
+      } else {
+        intervals.push({ x0: openAt ?? Number.NEGATIVE_INFINITY, x1: e.occurred_at });
+        openAt = null;
+      }
+    }
+    if (openAt !== null) intervals.push({ x0: openAt, x1: Number.POSITIVE_INFINITY });
+    return intervals;
+  }, [bidEventsQuery.data?.events]);
+
+  // #287 follow-up v3: run-mode idle bands (DRY_RUN / PAUSED),
+  // computed here once for both charts. The per-tick run_mode column
+  // gives retroactive coverage but only 1-tick resolution, so an
+  // edge derived from ticks alone visibly misses the mode-change
+  // marker (which carries the exact press time). For each edge we
+  // therefore look for a MODE_CHANGE event inside the bracketing
+  // tick gap and snap the edge to it; midpoint of the two ticks is
+  // the fallback for history without events.
+  const idleModeIntervals = useMemo(() => {
+    const points = metricsQuery.data?.points ?? EMPTY_METRIC_POINTS;
+    const modeChanges = (bidEventsQuery.data?.events ?? EMPTY_BID_EVENTS)
+      .filter((e) => e.kind === 'MODE_CHANGE')
+      .map((e) => e.occurred_at)
+      .sort((a, b) => a - b);
+    // Exact event time if one bracketing-gap event exists, else midpoint.
+    const edgeBetween = (prevT: number | null, currT: number): number => {
+      if (prevT === null) return currT;
+      const snapped = modeChanges.find((t) => t >= prevT && t <= currT);
+      return snapped ?? (prevT + currT) / 2;
+    };
+    const intervals: Array<{ x0: number; x1: number; mode: 'DRY_RUN' | 'PAUSED' }> = [];
+    let idleStart: number | null = null;
+    let idleMode: 'DRY_RUN' | 'PAUSED' | null = null;
+    let prevT: number | null = null;
+    for (const p of points) {
+      const m = p.run_mode === 'DRY_RUN' || p.run_mode === 'PAUSED' ? p.run_mode : null;
+      if (m !== idleMode) {
+        const edge = edgeBetween(prevT, p.tick_at);
+        if (idleStart !== null && idleMode !== null) {
+          intervals.push({ x0: idleStart, x1: edge, mode: idleMode });
+        }
+        idleStart = m !== null ? edge : null;
+        idleMode = m;
+      }
+      prevT = p.tick_at;
+    }
+    if (idleStart !== null && idleMode !== null) {
+      intervals.push({ x0: idleStart, x1: prevT ?? idleStart, mode: idleMode });
+    }
+    return intervals;
+  }, [metricsQuery.data?.points, bidEventsQuery.data?.events]);
+
   if (query.isError && query.error instanceof UnauthorizedError) {
     navigate('/login');
     return null;
@@ -619,7 +764,10 @@ export function Status() {
           rightAxisSeries={hashrateRightAxis}
           soloSeries={soloSeries}
           bestDiffEvents={bestDiffEvents}
+          speedEditEvents={speedEditEvents}
           markersHiddenCount={markersHiddenCount}
+          bidPauseIntervals={bidPauseIntervals}
+          idleModeIntervals={idleModeIntervals}
           viewportHandlers={chartViewport.handlers}
           wheelRef={chartViewport.wheelRef}
           isDragging={chartViewport.isDragging}
@@ -633,7 +781,7 @@ export function Status() {
       </div>
     ),
     price: (
-      <div className="space-y-1">
+      <div className="space-y-1" id="price-chart-block">
         <div className="flex justify-end items-center gap-2 text-[11px] text-slate-400">
           <Trans>right axis</Trans>
           <select
@@ -687,6 +835,8 @@ export function Status() {
           blockExplorerTemplate={configQuery.data?.config?.block_explorer_url_template}
           txExplorerTemplate={configQuery.data?.config?.block_explorer_tx_url_template}
           shareLogPct={oceanQuery.data?.user?.share_log_pct ?? null}
+          bidPauseIntervals={bidPauseIntervals}
+          idleModeIntervals={idleModeIntervals}
           viewportHandlers={chartViewport.handlers}
           wheelRef={chartViewport.wheelRef}
           isDragging={chartViewport.isDragging}
@@ -695,6 +845,7 @@ export function Status() {
           viewportUntil={chartViewport.viewport.until_ms}
           chartColorOverrides={configQuery.data?.config?.chart_color_overrides}
           crosshair={chartCrosshair}
+          focusEventId={focusedEventId}
         />
       </div>
     ),
@@ -2798,10 +2949,10 @@ function FinancePanel({
           status={data.collected_status}
           tooltip={
             data.collected_status === 'computing'
-              ? t`Payout observer is starting up. Waiting for the first balance scan to complete - usually a few seconds with Electrs, up to a minute with bitcoind scantxoutset.`
+              ? t`Payout observer is starting up. Waiting for the first balance scan to complete - usually a few seconds with an Electrum server, up to a minute with bitcoind scantxoutset.`
               : data.collected_sat !== null
-                ? t`UTXOs at the configured payout address. Read via Electrs (preferred, instant) or bitcoind RPC (slower).`
-                : t`Not configured. Go to Config → On-chain payouts and select Electrs or Bitcoin Knots RPC to track your on-chain balance. The net line treats missing collected as 0 so the arithmetic still reads - a blank row here is the hint that a piece of the income side isn't wired up.`
+                ? t`UTXOs at the configured payout address. Read via your Electrum server (preferred, instant) or bitcoind RPC (slower).`
+                : t`Not configured. Go to Config → On-chain payouts and select Electrum server or Bitcoin Knots RPC to track your on-chain balance. The net line treats missing collected as 0 so the arithmetic still reads - a blank row here is the hint that a piece of the income side isn't wired up.`
           }
         />
         {/* #170 follow-up: operator-entered pre-installation /

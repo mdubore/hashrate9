@@ -45,7 +45,12 @@ export type ChartColorKey =
   | 'events.create'
   | 'events.edit_price'
   | 'events.edit_speed'
-  | 'events.cancel';
+  | 'events.cancel'
+  // #287 follow-up: mode-change + Braiins pause/resume markers and
+  // their idle-state background bands.
+  | 'events.mode_change'
+  | 'events.bid_paused'
+  | 'events.bid_resumed';
 
 export const CHART_COLOR_DEFAULTS: Record<ChartColorKey, string> = {
   // Hashrate left
@@ -75,6 +80,10 @@ export const CHART_COLOR_DEFAULTS: Record<ChartColorKey, string> = {
   'events.edit_price': '#facc15',           // yellow-400 — ●
   'events.edit_speed': '#38bdf8',           // sky-400 — ◆
   'events.cancel': '#f87171',               // rose-400 — ×
+  // #287 follow-up
+  'events.mode_change': '#c4b5fd',          // violet-300 — power glyph + DRY_RUN/PAUSED bands
+  'events.bid_paused': '#f43f5e',           // rose-500 — pause glyph + Braiins-pause bands (operator pick: a pause is bad news, so it reads as a warning, not amber info)
+  'events.bid_resumed': '#34d399',          // emerald-400 — play glyph
 };
 
 /** Curated swatches for the picker. Two brightness rows × six hues
@@ -146,6 +155,23 @@ export function parseOverrides(json: string | null | undefined): Partial<Record<
     out[aliased] = v;
   }
   return out;
+}
+
+/**
+ * Darken a `#RRGGBB` color by multiplying each channel by `factor`
+ * (0..1). Used to derive background-band fill bases from the
+ * configurable marker colors: light slot colors at low opacity read
+ * as a milky veil over the dark chart, so band fills use a darkened
+ * variant of the slot color while the hatch lines keep the full one.
+ */
+export function darkenHex(hex: string, factor: number): string {
+  if (!HEX_PATTERN.test(hex)) return hex;
+  const n = Number.parseInt(hex.slice(1), 16);
+  const ch = (v: number) => Math.max(0, Math.min(255, Math.round(v * factor)));
+  const r = ch((n >> 16) & 0xff);
+  const g = ch((n >> 8) & 0xff);
+  const b = ch(n & 0xff);
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
 }
 
 /**

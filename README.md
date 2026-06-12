@@ -5,7 +5,7 @@ daemon and dashboard for the [Braiins Hashpower marketplace](https://hashpower.b
 rented-hashrate bid alive within operator-defined limits and routes delivered hashrate to an Ocean/Datum mining
 setup.
 
-This fork tracks upstream Hashrate Autopilot v1.13.0 and adds the StartOS service wrapper, dependency
+This fork tracks upstream Hashrate Autopilot v1.14.0 and adds the StartOS service wrapper, dependency
 declarations, persistent data volume, backup hooks, web interface wiring, and `.s9pk` build flow. Upstream
 application behavior is intentionally kept close to `rdouma/hashrate-autopilot`; StartOS-specific work lives in
 `startos/`, `instructions.md`, `Makefile`, and `s9pk.mk`.
@@ -18,7 +18,7 @@ application behavior is intentionally kept close to `rdouma/hashrate-autopilot`;
 | --- | --- |
 | Downstream package repo | `mdubore/hashrate9` |
 | Upstream app repo | `rdouma/hashrate-autopilot` |
-| Upstream version tracked | `v1.13.0` |
+| Upstream version tracked | `v1.14.0` |
 | StartOS package id | `hashrate-autopilot-9` |
 | Package architectures | `x86_64`, `aarch64` |
 | Verified sideload target | `x86_64` StartOS server |
@@ -110,9 +110,11 @@ Non-goals: SaaS / multi-user, cloud deployment, hands-free wallet funding, gaple
   hourly per configurable retention windows.
 - Each tick also polls the **Ocean pool API** (hashprice, pool stats, payout estimate, recent blocks) and - when
   a `datum_api_url` is configured - **Datum Gateway stats** for a second hashrate reading measured at the
-  gateway. Both integrations are informational; the control loop never depends on them being reachable.
-- Optionally reads `bitcoind` or Electrs for on-chain payout observation (income tracking, runway calculation). On
-  Electrs, lifetime earnings count **every coinbase tx ever credited to your payout address** - including
+  gateway. The poller first tries Datum's `/umbrel-api` JSON endpoint when that build exposes it, then falls
+  back to the regular Datum dashboard HTML used by the StartOS package. Both integrations are informational;
+  the control loop never depends on them being reachable.
+- Optionally reads `bitcoind` or an Electrum server (electrs, Fulcrum, and ElectrumX all work) for on-chain payout
+  observation (income tracking, runway calculation). On the Electrum path, lifetime earnings count **every coinbase tx ever credited to your payout address** - including
   historical Ocean payouts you've already swept to another wallet - so the P&L stays coherent even if you reuse a
   payout address across before-and-after-installation periods. A `Backfill now` button under Config -> Pool &
   Payout pulls historical receipts on demand. Operators with fresh-address discipline can disable the backfill via
@@ -181,13 +183,15 @@ Full design: [`docs/spec.md`](docs/spec.md) · [`docs/architecture.md`](docs/arc
   default port is 7152. See [`docs/setup-datum-api.md`](docs/setup-datum-api.md) - on Umbrel the API port is not
   exposed by default and needs a one-line compose edit plus a full OS reboot (tested and stable since 2026-04-19).
 - **Measured P&L and runway** - spend is read from Braiins' account transaction ledger (settled cost, not
-  modelled bid × delivered) and income from on-chain payouts observed via Electrs or bitcoind. Runway on the
+  modelled bid × delivered) and income from on-chain payouts observed via your Electrum server or bitcoind. Runway on the
   Braiins service card is days-of-balance at the current measured spend rate.
 - **Dashboard** - hashrate and price charts with drag-to-pan and click-to-focus scroll-wheel zoom
   (TradingView-style; click a chart to activate zoom, click outside or press Escape to deactivate; blue
   outline shows the focused chart), time-range presets (3h / 6h / 12h / 24h / 1w / 1m / 1y / all) that
   stay highlighted while panning and soft-snap during zoom, viewport-scoped Y-axis that only scales to
-  visible data (out-of-view spikes don't compress the chart), a "live" button that appears when panned
+  visible data (out-of-view spikes don't compress the chart), **clickable legend** - tap any legend entry to
+  hide that series and tap again to restore it (Chart.js / Bitaxe style); hiding a series also rescales the
+  Y-axis to what's left, and the choice persists per device per chart, a "live" button that appears when panned
   away from the current edge, bid event
   markers on the price chart (each dot corresponds to a CREATE / EDIT / CANCEL; click to pin a detail panel
   that lists the target-price inputs at that tick - fillable, overpay, hashprice, caps, effective cap, plus
@@ -241,7 +245,7 @@ Full design: [`docs/spec.md`](docs/spec.md) · [`docs/architecture.md`](docs/arc
   address - the lottery-win case) renders as a **gold crown**. **BIP 110-signalling pool block**
   (header version bit 4 set; Reduced Data Temporary Soft Fork) renders as a **yellow box**. **Default pool block**
   renders as a **blue box**. **Difficulty retargets** show a **violet pickaxe**. **Bitaxe miner best difficulty records** show a **gold trophy** with a dashed vertical line. Tooltip header label and colour follow the same precedence (own > BIP 110 >
-  default). Detection happens daemon-side via your bitcoind RPC (`getblockheader`) or Electrs
+  default). Detection happens daemon-side via your bitcoind RPC (`getblockheader`) or Electrum server
   (`blockchain.block.header`) - no third-party API. **Public-IP change markers** (sky router icons) appear at the top of the Hashrate chart whenever the daemon's IP poller (60 s cadence to `api.ipify.org`) observes a different public IP; the marker's styled tooltip shows the old → new IP pair and locale-formatted detection time, and the DDNS card on the Pool & Payout tab carries an "IP last changed" timestamp so rejection-rate spikes can be correlated against ISP rotation events. Each pool-luck step-marker tooltip carries a green `FOUND` or red `AGED OUT` badge per contributing block; multiple events landing in the same daemon tick (e.g. one block ages out while another lands) collapse into a single dot with both blocks' detail panels. A separate **BIP 110 scan card** on the Status page
   lets you scan signaling by difficulty epoch (toggle: `Current epoch` for the live MASF window, or `All` for everything since block 938,903 - the first known BIP 110 signaling block, found 2026-03-01). Per-epoch breakdown rows expand to show their signaling blocks inline (Pool / Miner column split - Ocean blocks surface both the pool wrapper and the inner template-author tag; non-Ocean blocks show the pool tag alone). Each row carries a MASF progress bar against the 55% threshold (`ceil(2016 × 0.55) = 1109` signaling blocks). The deployment-status badge has a lifecycle-aware tooltip naming both paths: miner-activated (MASF, 55% in any epoch locks in early) and user-activated (UASF, block height 965,664 enforced unconditionally regardless of signaling); when LOCKED_IN or ACTIVE the wording adapts. The forecasted UASF date is dynamic - `now + (965,664 − tip) × 600s`, matching every block-time calculator (currently early-September 2026 at typical block rate). Block markers and retarget icons are mirrored onto the price chart, so the operator sees these events in
   context on both charts. **Braiins deposit markers** (purple fuel-pump icons) appear on the Price chart whenever Braiins credits a deposit to your marketplace wallet. The marker is positioned at the Bitcoin transaction timestamp from the Braiins API. When the right-axis series is `total_balance_sat`, a purple dot appears on the balance line at the step-up caused by the deposit, with a dotted connector line back to the fuel icon so the operator can visually trace which deposit caused which balance jump. Hovering either the fuel icon or the dot opens the same tooltip with deposit amount, transaction ID, and timing. **On-chain payout gems** (emerald) appear at the top of the Price chart with a dashed vertical line whenever a payout is detected on-chain; clicking opens a tooltip with block height, date, amount, and a block-explorer deep-link. A purple dot on the unpaid-earnings line marks the earlier moment Ocean debited the balance (payout initiated), bridging the visual gap between the unpaid drop and the on-chain confirmation.
@@ -368,7 +372,7 @@ live).
 **Pool destination** (pool URL, BTC payout address, worker identity auto-derived from the address, Datum
 stats API URL), **Dynamic DNS** (No-IP / DuckDNS / generic dyndns2 - daemon-managed alternative to your
 router's DDNS client; pushes the current public IP every 5 min and immediately on any config save),
-**On-chain payouts** (payout-source backend: bitcoind RPC or Electrs, plus an *Include historical Ocean
+**On-chain payouts** (payout-source backend: bitcoind RPC or an Electrum server such as electrs, Fulcrum, or ElectrumX, plus an *Include historical Ocean
 payouts* toggle with a **Backfill now** button that walks the address history and folds historical
 coinbase payouts into the lifetime-earnings line, and a *Pre-installation earnings* field for off-chain
 or pre-autopilot income the on-chain observer can't see - Lightning payouts, swept Ocean history -
@@ -398,7 +402,7 @@ drop, two metallic clanks, an "Ocean mining found a block" voice clip - or uploa
 
 ![Config → Display & Logging tab](docs/images/config-display-and-logging.png)
 
-**Display** (number format, date layout, and temperature unit (°C / °F) - now daemon-managed config so Telegram render path uses the same formatting as the dashboard; database stays in °C, conversion at the display boundary only), **Chart colors** (per-series and per-marker color overrides for every named element on the Hashrate and Price charts - curated 12-swatch palette + native color picker + reset-to-default. Organised into three groups: **Lines** for each chart's left/right-axis line series, **Markers** for the cross-chart icons (pool block cube, BIP 110-signalling cube, own-pool-block crown, difficulty-retarget pickaxe, public-IP-change router, on-chain payout gem, Braiins deposit fuel pump), and **Bid events** for the per-tick create/edit/cancel glyphs. Each row carries a live preview of its actual chart glyph so the picker shows what the marker will look like; #238), **Block
+**Display** (number format, date layout, and temperature unit (°C / °F) - now daemon-managed config so Telegram render path uses the same formatting as the dashboard; database stays in °C, conversion at the display boundary only), **Chart colors** (per-series and per-marker color overrides for every named element on the Hashrate and Price charts - curated 12-swatch palette + native color picker + reset-to-default. Organised into three groups: **Lines** for each chart's left/right-axis line series, **Markers** for the cross-chart icons (pool block cube, BIP 110-signalling cube, own-pool-block crown, difficulty-retarget pickaxe, public-IP-change router, on-chain payout gem, Braiins deposit fuel pump), and **Bid events** for the per-tick create/edit/cancel glyphs plus the mode-change power, bid-paused circle-pause, and bid-resumed circle-play markers - the mode-change and bid-paused colors also tint the idle-state background bands on both charts. Each row carries a live preview of its actual chart glyph so the picker shows what the marker will look like; #238 + #287), **Block
 explorer** (separate URL templates for blocks and transactions; preset buttons for mempool.space /
 blockstream.info / blockchair / btcscan / btc.com set both at once, custom self-hosted explorers can fill
 in either independently), **Chart smoothing** (rolling-mean window per-source on the hashrate chart plus
@@ -535,7 +539,7 @@ auto-redirects to `/setup`. Three steps:
 2. **Mining** - target + minimum-floor hashrate, your Datum gateway / pool URL, the BTC payout
    address, the worker identity (`<btc-address>.<label>` - auto-derived from the address; the period
    is mandatory or Ocean TIDES won't credit your shares), and an optional payout-tracking backend
-   (Bitcoin Knots RPC or Electrs).
+   (Bitcoin Knots RPC or an Electrum server - electrs, Fulcrum, ElectrumX).
 3. **Review** - sanity-check, submit.
 
 On submit the daemon writes everything to `state.db` and transitions to operational mode in-place

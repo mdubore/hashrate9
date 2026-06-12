@@ -50,21 +50,6 @@ msgstr "\"Solo autopilot\" suma lo consumido en las ofertas que el daemon ha "
 msgid "(already in use)"
 msgstr "(ya en uso)"
 
-#: src/pages/Status.tsx
-msgid "(avg cost delivered) minus the delta-weighted average hashprice during "
-"periods we were actually billed, computed over the selected chart range. "
-"Negative means we paid below break-even (good - cheaper than mining at "
-"current difficulty), positive means above. Same delta weighting as the "
-"avg cost card so the two stay consistent. Updates with the range "
-"selector above."
-msgstr "(coste medio entregado) menos el hashprice promedio ponderado por delta "
-"durante los periodos que realmente nos facturaron, calculado sobre el "
-"rango de gráfico seleccionado. Negativo significa que pagamos por "
-"debajo del break-even (bien - más barato que minar a la dificultad "
-"actual), positivo significa por encima. Misma ponderación delta que la "
-"tarjeta avg cost, así las dos quedan consistentes. Se actualiza con el "
-"selector de rango de arriba."
-
 #: src/components/TilesBar.tsx
 msgid "(avg cost delivered) minus the spend-weighted average hashprice during "
 "periods we were actually billed, computed over the selected range. "
@@ -296,8 +281,8 @@ msgstr "⚠ No se encontró ningún punto. Ocean TIDES requiere \"<dirección "
 "acreditan."
 
 #: src/pages/Config.tsx
-msgid "⚠ This is not Umbrel-specific."
-msgstr "⚠ Esto no es específico de Umbrel."
+msgid "⚠ This is Datum Gateway's HTTP dashboard/API port."
+msgstr ""
 
 #: src/pages/Config.tsx
 msgid "0 = use the full available wallet balance each CREATE (clamped to 1 BTC "
@@ -648,6 +633,7 @@ msgid "Auto-save on. Edits persist about a second after you stop typing."
 msgstr "Guardado automático activado. Los cambios se guardan aproximadamente un "
 "segundo después de que dejes de escribir."
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 msgid "automatic"
 msgstr "automático"
@@ -684,24 +670,6 @@ msgstr "Hashrate entregado promedio en el rango del gráfico seleccionado. "
 "primary_bid_consumed_sat), así que esto no es un factor en el lado del "
 "gasto."
 
-#: src/pages/Status.tsx
-msgid "Average effective rate over the selected chart range - what Braiins "
-"actually charged per PH/day delivered. Computed as the delta-weighted "
-"harmonic mean of the bid: SUM(Δconsumed_sat) ÷ SUM(Δconsumed_sat ÷ bid). "
-"Under pay-your-bid the bid IS the price, so when the bid is constant "
-"across the window this equals the bid exactly; when the bid varies "
-"(mid-window edits) it's the spend-weighted average. Periods of zero "
-"delivery contribute zero to both sides and don't skew the result. For "
-"the current bid price see the NEXT ACTION panel."
-msgstr "Average effective rate over the selected chart range - what Braiins "
-"actually charged per PH/day delivered. Computed as the delta-weighted "
-"harmonic mean of the bid: SUM(Δconsumed_sat) ÷ SUM(Δconsumed_sat ÷ "
-"bid). Under pay-your-bid the bid IS the price, so when the bid is "
-"constant across the window this equals the bid exactly; when the bid "
-"varies (mid-window edits) it's the spend-weighted average. Periods of "
-"zero delivery contribute zero to both sides and don't skew the result. "
-"For the current bid price see the NEXT ACTION panel."
-
 #: src/components/TilesBar.tsx
 msgid "Average effective rate over the selected range - what Braiins actually "
 "charged per PH/day delivered. Spend-weighted; zero-delivery periods "
@@ -732,22 +700,18 @@ msgid "avg block time"
 msgstr "tiempo medio bloque"
 
 #: src/components/TilesBar.tsx
-#: src/pages/Status.tsx
 msgid "avg braiins"
 msgstr "promedio braiins"
 
 #: src/components/TilesBar.tsx
-#: src/pages/Status.tsx
 msgid "avg cost delivered"
 msgstr "coste medio entregado"
 
 #: src/components/TilesBar.tsx
-#: src/pages/Status.tsx
 msgid "avg cost vs hashprice"
 msgstr "costo promedio vs hashprice"
 
 #: src/components/TilesBar.tsx
-#: src/pages/Status.tsx
 msgid "avg datum"
 msgstr "promedio datum"
 
@@ -760,7 +724,6 @@ msgid "avg hashprice ({rangeLabel})"
 msgstr "hashprice promedio ({rangeLabel})"
 
 #: src/components/TilesBar.tsx
-#: src/pages/Status.tsx
 msgid "avg ocean"
 msgstr "promedio ocean"
 
@@ -842,17 +805,51 @@ msgstr "Oferta por encima del objetivo - cooldown de bajada de precio de "
 msgid "bid coverage"
 msgstr "cobertura de oferta"
 
+#: src/components/BidEventDrawer.tsx
+msgid "Bid event detail"
+msgstr "Detalle del evento de oferta"
+
 #: src/pages/Status.tsx
 msgid "Bid filling at {speed}."
 msgstr "Oferta llenando a {speed}."
+
+#: src/components/BidEventDrawer.tsx
+msgid "bid id"
+msgstr "id de oferta"
 
 #: src/pages/History.tsx
 msgid "Bid id contains"
 msgstr "ID de oferta contiene"
 
+#: src/components/PriceChart.tsx
+#: src/pages/Config.tsx
+#: src/pages/History.tsx
+msgid "bid paused"
+msgstr "oferta pausada"
+
+#: src/components/BidEventDrawer.tsx
+#: src/components/PriceChart.tsx
+msgid "BID PAUSED"
+msgstr "OFERTA PAUSADA"
+
+#: src/components/PriceChart.tsx
+#: src/pages/Config.tsx
+#: src/pages/History.tsx
+msgid "bid resumed"
+msgstr "oferta reanudada"
+
+#: src/components/BidEventDrawer.tsx
+#: src/components/PriceChart.tsx
+msgid "BID RESUMED"
+msgstr "OFERTA REANUDADA"
+
 #: src/pages/Config.tsx
 msgid "Bid sustained-paused for"
 msgstr "Oferta sostenidamente Paused durante"
+
+#: src/components/BidEventDrawer.tsx
+msgid "Bid was cancelled. See reason above."
+msgstr "La oferta fue cancelada. Ver motivo arriba."
 
 #: src/pages/Config.tsx
 msgid "Bid-event markers"
@@ -1291,6 +1288,7 @@ msgstr "BTC/USD"
 msgid "BTC/USD: ${priceStr} - select display currency"
 msgstr "BTC/USD: ${priceStr} - elige moneda de visualización"
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 #: src/pages/Status.tsx
 msgid "budget"
@@ -1319,6 +1317,7 @@ msgstr "Cadencia entre reintentos cuando una alerta no se entrega o el estado "
 msgid "calculating…"
 msgstr "calculando…"
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 #: src/pages/Config.tsx
 #: src/pages/History.tsx
@@ -1329,6 +1328,7 @@ msgstr "cancelar"
 msgid "Cancel"
 msgstr "Cancelar"
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 msgid "CANCEL"
 msgstr "CANCELAR"
@@ -1421,7 +1421,6 @@ msgid "Clear"
 msgstr "Borrar"
 
 #: src/components/HashrateChart.tsx
-#: src/components/PriceChart.tsx
 msgid "click outside to close"
 msgstr "haz clic fuera para cerrar"
 
@@ -1434,8 +1433,20 @@ msgid "Click to expand"
 msgstr "Clic para expandir"
 
 #: src/components/HashrateChart.tsx
+#: src/components/PriceChart.tsx
+msgid "Click to hide"
+msgstr "Clic para ocultar"
+
+#: src/components/HashrateChart.tsx
+#: src/components/PriceChart.tsx
+msgid "Click to show"
+msgstr "Clic para mostrar"
+
+#: src/components/BidEventDrawer.tsx
+#: src/components/HashrateChart.tsx
 #: src/components/IpChangeMarkers.tsx
 #: src/components/PriceChart.tsx
+#: src/components/SpeedEditMarkers.tsx
 #: src/lib/chartCrosshair.tsx
 msgid "close"
 msgstr "cerrar"
@@ -1536,6 +1547,10 @@ msgstr "Controla cómo el panel de P&L calcula la cifra \"gastado\" que alimenta
 msgid "Cooldown clears in"
 msgstr "El cooldown se libera en"
 
+#: src/components/BidEventDrawer.tsx
+msgid "copied"
+msgstr "copiado"
+
 #: src/pages/Config.tsx
 msgid "Copied"
 msgstr "Copiado"
@@ -1568,6 +1583,7 @@ msgstr "copiar ID de oferta"
 msgid "Copy hex to clipboard"
 msgstr "Copiar hex al portapapeles"
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 msgid "copy JSON"
 msgstr "copiar JSON"
@@ -1580,12 +1596,14 @@ msgstr "Copiar JSON"
 msgid "copy URL"
 msgstr "copiar URL"
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 #: src/pages/Config.tsx
 #: src/pages/History.tsx
 msgid "create"
 msgstr "crear"
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 msgid "CREATE"
 msgstr "CREATE"
@@ -1725,16 +1743,16 @@ msgid "Datum (received)"
 msgstr "Datum (recibido)"
 
 #: src/pages/Status.tsx
-msgid "Datum /umbrel-api HTTP poll."
-msgstr "Sondeo HTTP a /umbrel-api de Datum."
-
-#: src/pages/Status.tsx
 msgid "datum hashrate"
 msgstr "hashrate datum"
 
 #: src/pages/Config.tsx
 msgid "Datum stats API (optional)"
 msgstr "API de estadísticas de Datum (opcional)"
+
+#: src/pages/Status.tsx
+msgid "Datum stats HTTP poll."
+msgstr ""
 
 #: src/pages/Status.tsx
 msgid "Datum stats not configured - set <0>datum_api_url</0> in Config to "
@@ -1806,12 +1824,6 @@ msgstr "disminuir"
 msgid "Default 50001."
 msgstr "Predeterminado 50001."
 
-#: src/pages/Setup.tsx
-msgid "Default Electrs port is 50001 (TCP). On Umbrel the in-cluster hostname "
-"is typically<0> electrs_electrs_1</0>."
-msgstr "El puerto Electrs predeterminado es 50001 (TCP). En Umbrel el nombre de "
-"host dentro del clúster suele ser<0> electrs_electrs_1</0>."
-
 #: src/pages/Config.tsx
 msgid "Delete this device permanently. To pause without deleting, uncheck the "
 "box at the left of the row."
@@ -1841,6 +1853,7 @@ msgstr "La hashrate entregada lleva al menos este número de minutos por debajo 
 msgid "delivery while bidding"
 msgstr "entrega con oferta activa"
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 msgid "delta"
 msgstr "delta"
@@ -1961,41 +1974,6 @@ msgstr "Dry Run"
 msgid "DRY RUN"
 msgstr "DRY RUN"
 
-#. placeholder {0}: formatNumber( uptime_bid_coverage_pct, { minimumFractionDigits: 1, maximumFractionDigits: 1 }, intlLocale, )
-#. placeholder {1}: formatNumber( uptime_delivery_when_bid_active_pct, { minimumFractionDigits: 1, maximumFractionDigits: 1 }, intlLocale, )
-#: src/pages/Status.tsx
-msgid "Duration-weighted % of time with delivered hashrate > 0, computed over "
-"the selected chart range. Decomposes as bid coverage × delivery rate "
-"while bidding: {0}% of the window had an active Braiins bid (orderbook "
-"availability — low value here = \"nothing matched my criteria\", which "
-"is expected idle); of that bid-active time, {1}% was actually delivering "
-"hashrate (hardware / connection / Datum-side quality — low value here = "
-"unexpected downtime). Each tick is weighted by its actual duration (time "
-"until the next tick) so gaps after restarts count proportionally. "
-"Updates with the range selector above."
-msgstr "% del tiempo (ponderado por duración) con hashrate entregado > 0, "
-"calculado sobre el rango seleccionado. Se descompone como cobertura de "
-"órdenes × tasa de entrega durante la oferta: {0}% del rango tuvo una "
-"orden Braiins activa (disponibilidad del libro de órdenes — un valor "
-"bajo aquí = \"nada coincidió con mis criterios\", inactividad "
-"esperada); de ese tiempo con oferta activa, {1}% entregó realmente "
-"hashrate (calidad del hardware / conexión / lado Datum — un valor bajo "
-"aquí = inactividad inesperada). Cada tick se pondera por su duración "
-"real (tiempo hasta el siguiente tick) para que los huecos tras un "
-"reinicio cuenten proporcionalmente. Se actualiza con el selector de "
-"rango arriba."
-
-#: src/pages/Status.tsx
-msgid "Duration-weighted % of time with delivered hashrate > 0, computed over "
-"the selected chart range. Each tick is weighted by its actual duration "
-"(time until the next tick) so gaps after restarts count proportionally. "
-"Updates with the range selector above."
-msgstr "% de tiempo ponderado por duración con hashrate entregado > 0, "
-"calculado sobre el rango de gráfico seleccionado. Cada tick se pondera "
-"por su duración real (tiempo hasta el siguiente tick) para que los "
-"huecos tras reinicios cuenten proporcionalmente. Se actualiza con el "
-"selector de rango de arriba."
-
 #: src/components/TilesBar.tsx
 msgid "Duration-weighted average of the hashrate Braiins reports delivering "
 "over the selected range. Includes downtime in the denominator so a bad "
@@ -2004,17 +1982,6 @@ msgstr "Promedio ponderado por duración del hashrate que Braiins reporta "
 "entregar sobre el rango seleccionado. Incluye la inactividad en el "
 "denominador para que una mala racha aparezca aquí, no solo en la "
 "tarjeta en vivo."
-
-#: src/pages/Status.tsx
-msgid "Duration-weighted average of the hashrate Braiins reports delivering, "
-"computed over the selected chart range. Includes downtime (where "
-"delivered = 0) so a bad stretch shows up in the average, not just the "
-"live card. Updates with the range selector above."
-msgstr "Promedio ponderado por duración del hashrate que Braiins reporta "
-"entregar, calculado sobre el rango de gráfico seleccionado. Incluye "
-"tiempo caído (donde entregado = 0) para que un mal tramo aparezca en el "
-"promedio, no solo en la tarjeta en vivo. Se actualiza con el selector "
-"de rango de arriba."
 
 #: src/components/TilesBar.tsx
 msgid "Duration-weighted average of the hashrate Datum measures at the gateway "
@@ -2025,17 +1992,6 @@ msgstr "Promedio ponderado por duración del hashrate que Datum mide en la "
 "Avg Braiins significa que Braiins factura hashrate que Datum nunca vio "
 "llegar."
 
-#: src/pages/Status.tsx
-msgid "Duration-weighted average of the hashrate Datum measures at the gateway, "
-"computed over the selected chart range. A sustained gap below Avg "
-"Braiins means Braiins is billing for hashrate Datum never saw arrive. "
-"Updates with the range selector above."
-msgstr "Promedio ponderado por duración del hashrate que Datum mide en el "
-"gateway, calculado sobre el rango de gráfico seleccionado. Una brecha "
-"sostenida por debajo del promedio Braiins significa que Braiins está "
-"cobrando por hashrate que Datum nunca vio llegar. Se actualiza con el "
-"selector de rango de arriba."
-
 #: src/components/TilesBar.tsx
 msgid "Duration-weighted average of the hashrate Ocean credits to our payout "
 "address over the selected range. A sustained gap below Avg Braiins / Avg "
@@ -2045,42 +2001,15 @@ msgstr "Promedio ponderado por duración del hashrate que Ocean acredita a "
 "sostenida bajo Avg Braiins / Avg Datum significa que el pool no está "
 "acreditando el trabajo que creemos haber entregado."
 
-#: src/pages/Status.tsx
-msgid "Duration-weighted average of the hashrate Ocean credits to our payout "
-"address, computed over the selected chart range. Each tick (every 60 s) "
-"the daemon calls Ocean's /v1/user_hashrate endpoint and reads the "
-"`hashrate_300s` field - Ocean's own 5-minute sliding-window estimate for "
-"this wallet. So: sampled every minute, each sample is a 5-minute "
-"smoothed value. A sustained gap below Avg Braiins / Avg Datum means the "
-"pool isn't crediting work we think we delivered. Updates with the range "
-"selector above."
-msgstr "Promedio ponderado por duración del hashrate que Ocean acredita a "
-"nuestra dirección de pago, calculado sobre el rango de gráfico "
-"seleccionado. En cada tick (cada 60 s) el daemon llama al endpoint "
-"/v1/user_hashrate de Ocean y lee el campo `hashrate_300s` - la propia "
-"estimación de Ocean en una ventana móvil de 5 minutos para este wallet. "
-"Es decir: muestreado cada minuto, cada muestra es un valor suavizado de "
-"5 minutos. Una brecha sostenida por debajo de promedio Braiins / "
-"promedio Datum significa que la pool no está acreditando trabajo que "
-"creemos haber entregado. Se actualiza con el selector de rango de "
-"arriba."
-
 #: src/pages/Config.tsx
 msgid "Dynamic DNS"
 msgstr "Dynamic DNS"
-
-#: src/pages/Config.tsx
-msgid "e.g. 192.168.1.121 or electrs_electrs_1 on Umbrel"
-msgstr "p.ej. 192.168.1.121 o electrs_electrs_1 en Umbrel"
-
-#: src/pages/Config.tsx
-msgid "e.g. http://192.168.1.121:8332 - your Bitcoin Knots RPC endpoint."
-msgstr "p.ej. http://192.168.1.121:8332 - tu endpoint RPC de Bitcoin Knots."
 
 #: src/components/ChartColorPicker.tsx
 msgid "Edit color"
 msgstr "Editar color"
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 #: src/pages/Config.tsx
 #: src/pages/History.tsx
@@ -2091,11 +2020,15 @@ msgstr "editar precio"
 msgid "Edit price"
 msgstr "Editar precio"
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 msgid "EDIT PRICE"
 msgstr "EDIT PRICE"
 
+#: src/components/BidEventDrawer.tsx
+#: src/components/HashrateChart.tsx
 #: src/components/PriceChart.tsx
+#: src/components/SpeedEditMarkers.tsx
 #: src/pages/Config.tsx
 #: src/pages/History.tsx
 msgid "edit speed"
@@ -2105,6 +2038,7 @@ msgstr "editar velocidad"
 msgid "Edit speed"
 msgstr "Editar velocidad"
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 msgid "EDIT SPEED"
 msgstr "EDIT SPEED"
@@ -2125,6 +2059,7 @@ msgstr "marcador de edición de velocidad"
 msgid "effective"
 msgstr "efectivo"
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 #: src/pages/Status.tsx
 msgid "effective cap"
@@ -2167,27 +2102,28 @@ msgstr "Prácticamente sin entrega durante al menos este número de minutos."
 msgid "Efficiency"
 msgstr "Eficiencia"
 
-#: src/pages/Config.tsx
-msgid "Electrs"
-msgstr "Electrs"
+#: src/pages/Setup.tsx
+msgid "Electrum server - electrs / Fulcrum / ElectrumX (indexed lookup, faster)"
+msgstr "Servidor Electrum - electrs / Fulcrum / ElectrumX (búsqueda indexada, "
+"más rápido)"
 
 #. placeholder {0}: form.electrs_host
 #. placeholder {1}: form.electrs_port
 #: src/pages/Setup.tsx
-msgid "Electrs ({0}:{1})"
-msgstr "Electrs ({0}:{1})"
-
-#: src/pages/Setup.tsx
-msgid "Electrs (Electrum-style indexed lookup, faster)"
-msgstr "Electrs (búsqueda indexada estilo Electrum, más rápida)"
+msgid "Electrum server ({0}:{1})"
+msgstr "Servidor Electrum ({0}:{1})"
 
 #: src/pages/Config.tsx
-msgid "Electrs (recommended)"
-msgstr "Electrs (recomendado)"
+msgid "Electrum server (electrs / Fulcrum / ElectrumX)"
+msgstr "Servidor Electrum (electrs / Fulcrum / ElectrumX)"
 
 #: src/pages/Config.tsx
-msgid "Electrs host"
-msgstr "Host de Electrs"
+msgid "Electrum server (recommended)"
+msgstr "Servidor Electrum (recomendado)"
+
+#: src/pages/Config.tsx
+msgid "Electrum server host"
+msgstr "Host del servidor Electrum"
 
 #: src/pages/Config.tsx
 msgid "Enable Bitaxe miner monitoring"
@@ -2226,16 +2162,6 @@ msgid "Estimated cap at current settings: ~ {totalStr} (logs only, indexes "
 msgstr "Tope estimado con la configuración actual: ~ {totalStr} (solo logs, sin "
 "índices). Los logs crecen ~ {dailyStr}/día. El archivo de la base de "
 "datos pesa actualmente {dbStr}."
-
-#: src/pages/Config.tsx
-msgid "Even though the endpoint is named <0>/umbrel-api</0>, it lives inside "
-"Datum Gateway itself - compiled in via <1>#ifdef "
-"DATUM_API_FOR_UMBREL</1> and works on any Datum build with that flag "
-"set, regardless of host platform."
-msgstr "Aunque el endpoint se llama <0>/umbrel-api</0>, vive dentro de Datum "
-"Gateway - compilado mediante <1>#ifdef DATUM_API_FOR_UMBREL</1> y "
-"funciona en cualquier build de Datum con ese flag, sin importar la "
-"plataforma anfitriona."
 
 #: src/pages/History.tsx
 msgid "events (end of history)"
@@ -2306,10 +2232,11 @@ msgid "failed to load: {0}"
 msgstr "fallo al cargar: {0}"
 
 #: src/pages/Config.tsx
-msgid "Fast and lightweight. Polled every minute. Instant balance lookups via "
-"your Electrum server."
-msgstr "Rápido y ligero. Consultado cada minuto. Búsqueda instantánea de saldo "
-"vía tu servidor Electrum."
+msgid "Fast and lightweight. Polled every minute. Instant balance lookups. "
+"Works with any Electrum-protocol server: electrs, Fulcrum, ElectrumX."
+msgstr "Rápido y ligero. Consultado cada minuto. Consultas de saldo "
+"instantáneas. Funciona con cualquier servidor de protocolo Electrum: "
+"electrs, Fulcrum, ElectrumX."
 
 #: src/pages/Config.tsx
 msgid "Fee protection"
@@ -2328,6 +2255,7 @@ msgstr "Obtiene el precio spot BTC/USD desde una API pública de exchange. "
 "Habilita un toggle de denominación sats/USD en la cabecera del panel. "
 "No requiere API key - usa endpoints públicos sin autenticación."
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 #: src/pages/Config.tsx
 msgid "fillable"
@@ -2515,6 +2443,7 @@ msgid "Hard ceiling. If fillable + overpay would exceed this, the bid is "
 msgstr "Tope duro. Si rellenable + sobrepago lo superara, la oferta se limita a "
 "este valor (y puede no rellenarse)."
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 #: src/pages/Config.tsx
 msgid "hashprice"
@@ -2541,6 +2470,12 @@ msgstr "hashprice ahora"
 #: src/pages/Config.tsx
 msgid "Hashrate"
 msgstr "Hashrate"
+
+#: src/pages/Config.tsx
+msgid "Hashrate Autopilot first tries Datum's <0>/umbrel-api</0>JSON stats "
+"endpoint. If that endpoint is absent, as on the StartOS Datum package, "
+"it falls back to parsing the Datum dashboard at <1>/</1>."
+msgstr ""
 
 #: src/pages/Config.tsx
 msgid "Hashrate below floor for"
@@ -2747,14 +2682,15 @@ msgid "Informational. Off by default. Fires when the on-chain payout scanner "
 "observes a coinbase output crediting your payout address - i.e. the "
 "transaction Ocean committed has now confirmed. Includes block height, "
 "payout amount, and a truncated tx id. Source: reward_events ledger "
-"(populated by Electrs or bitcoind scantxoutset, whichever the operator "
-"has wired)."
+"(populated by your Electrum server or bitcoind scantxoutset, whichever "
+"the operator has wired)."
 msgstr "Informativo. Desactivado por defecto. Se dispara cuando el escáner de "
-"pagos on-chain observa una salida de coinbase que acredita tu dirección "
-"de pago - es decir, la transacción que Ocean comprometió ya se ha "
-"confirmado. Incluye altura del bloque, importe del pago y un tx id "
-"truncado. Fuente: ledger reward_events (rellenado por Electrs o "
-"bitcoind scantxoutset, lo que el operador haya conectado)."
+"pagos on-chain observa una salida coinbase que acredita tu dirección de "
+"pago - es decir, la transacción que Ocean comprometió ya se ha "
+"confirmado. Incluye altura de bloque, importe del pago y un id de "
+"transacción truncado. Fuente: libro mayor reward_events (poblado por tu "
+"servidor Electrum o bitcoind scantxoutset, según lo que el operador "
+"haya conectado)."
 
 #: src/pages/Config.tsx
 msgid "Informational. Off by default. When on, every block Ocean credits to "
@@ -2935,14 +2871,7 @@ msgstr "Cargar más"
 msgid "load older"
 msgstr "cargar más antiguas"
 
-#: src/components/PriceChart.tsx
-msgid "loading decision…"
-msgstr "cargando decisión…"
-
-#: src/pages/Status.tsx
-msgid "Loading or daemon restart required."
-msgstr "Cargando o se requiere reiniciar el daemon."
-
+#: src/components/BidEventDrawer.tsx
 #: src/pages/Alerts.tsx
 #: src/pages/Config.tsx
 #: src/pages/Status.tsx
@@ -2970,6 +2899,7 @@ msgstr "suerte despues"
 msgid "luck before"
 msgstr "suerte antes"
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 msgid "manual"
 msgstr "manual"
@@ -3006,6 +2936,7 @@ msgstr "Los marcadores se han ocultado porque el recuento combinado ha superado 
 "el tope de marcadores del chart configurado. Ajusta el tope en Config → "
 "Display & Logging."
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 msgid "market at this tick"
 msgstr "mercado en este tick"
@@ -3027,6 +2958,7 @@ msgstr "Coinciden - el nombre de host apunta a esta máquina."
 msgid "Max acceptable fee"
 msgstr "Comisión máxima aceptable"
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 #: src/pages/Config.tsx
 #: src/pages/Status.tsx
@@ -3049,6 +2981,7 @@ msgstr "Máx. de marcadores mostrados"
 msgid "max over hashprice"
 msgstr "máx sobre hashprice"
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 msgid "max overpay vs hashprice"
 msgstr "sobrepago máximo vs hashprice"
@@ -3106,6 +3039,21 @@ msgstr "No coinciden. Si tu daemon y Datum Gateway están en la misma red "
 "ha actualizado desde que el ISP cambió tu IP público - configura DDNS "
 "abajo para arreglarlo."
 
+#: src/pages/History.tsx
+msgid "mode"
+msgstr "modo"
+
+#: src/components/PriceChart.tsx
+#: src/pages/Config.tsx
+#: src/pages/History.tsx
+msgid "mode change"
+msgstr "cambio de modo"
+
+#: src/components/BidEventDrawer.tsx
+#: src/components/PriceChart.tsx
+msgid "MODE CHANGE"
+msgstr "CAMBIO DE MODO"
+
 #: src/pages/Config.tsx
 msgid "Monitor a fleet of home Bitaxe / Nerdaxe / ESP-Miner units alongside the "
 "autopilot's rented Braiins hashrate. The daemon polls each device's "
@@ -3118,16 +3066,16 @@ msgstr "Monitoriza una flota de unidades Bitaxe / Nerdaxe / ESP-Miner junto al "
 "Estado."
 
 #: src/pages/Config.tsx
+msgid "More about Datum stats polling"
+msgstr ""
+
+#: src/pages/Config.tsx
 msgid "More about dynamic IPs and DDNS"
 msgstr "Más sobre IPs dinámicas y DDNS"
 
 #: src/pages/Config.tsx
 msgid "More about historical payouts backfill"
 msgstr "Más sobre el backfill de pagos históricos"
-
-#: src/pages/Config.tsx
-msgid "More about the /umbrel-api naming"
-msgstr "Más sobre el nombre /umbrel-api"
 
 #: src/pages/Config.tsx
 msgid "More about the pre-installation earnings offset"
@@ -3203,7 +3151,9 @@ msgstr "Tasa de equilibrio de la red a la dificultad y recompensa de bloque "
 msgid "new difficulty"
 msgstr "nueva dificultad"
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
+#: src/components/SpeedEditMarkers.tsx
 msgid "new speed"
 msgstr "nueva velocidad"
 
@@ -3290,6 +3240,10 @@ msgid "No on-chain balance tracking. The Profit & Loss panel won't show "
 msgstr "Sin seguimiento de saldo on-chain. El panel de Profit & Loss no "
 "mostrará el BTC cobrado."
 
+#: src/components/BidEventDrawer.tsx
+msgid "no tick recorded near this event"
+msgstr "no hay tick registrado cerca de este evento"
+
 #: src/pages/Status.tsx
 msgid "none"
 msgstr "ninguno"
@@ -3319,15 +3273,15 @@ msgid "Not configured"
 msgstr "No configurado"
 
 #: src/pages/Status.tsx
-msgid "Not configured. Go to Config → On-chain payouts and select Electrs or "
-"Bitcoin Knots RPC to track your on-chain balance. The net line treats "
-"missing collected as 0 so the arithmetic still reads - a blank row here "
-"is the hint that a piece of the income side isn't wired up."
-msgstr "No configurado. Ve a Config → On-chain payouts y selecciona Electrs o "
-"Bitcoin Knots RPC para hacer seguimiento de tu saldo on-chain. La línea "
-"neta trata el cobrado faltante como 0 para que la cuenta siga leyéndose "
-"- una fila en blanco aquí es la pista de que falta cablear una parte "
-"del lado del ingreso."
+msgid "Not configured. Go to Config → On-chain payouts and select Electrum "
+"server or Bitcoin Knots RPC to track your on-chain balance. The net line "
+"treats missing collected as 0 so the arithmetic still reads - a blank "
+"row here is the hint that a piece of the income side isn't wired up."
+msgstr "No configurado. Ve a Config → Pagos on-chain y selecciona Servidor "
+"Electrum o Bitcoin Knots RPC para seguir tu saldo on-chain. La línea "
+"neta trata lo recaudado ausente como 0 para que la aritmética siga "
+"siendo legible - una fila en blanco aquí es la pista de que una parte "
+"del lado de ingresos no está conectada."
 
 #: src/components/HashrateChart.tsx
 #: src/components/PriceChart.tsx
@@ -3534,6 +3488,23 @@ msgstr "Destino antiguo:"
 msgid "On"
 msgstr "Activo"
 
+#: src/pages/Config.tsx
+msgid "On StartOS use <0>http://bitcoind.startos:8332</0> with RPC credentials "
+"generated by Bitcoin Knots/Core. Do not use the external StartOS proxy "
+"URL."
+msgstr ""
+
+#: src/pages/Config.tsx
+msgid "On StartOS use electrs.startos. Enter a host name or IP only, without "
+"http:// or a path."
+msgstr ""
+
+#: src/pages/Setup.tsx
+msgid "On StartOS use host <0>electrs.startos</0> and port <1>50001</1>. Enter "
+"the host only, without <2>http://</2> or a path. Any Electrum-protocol "
+"server works: electrs, Fulcrum, or ElectrumX."
+msgstr ""
+
 #: src/pages/Status.tsx
 msgid "On target - bid at fillable + overpay."
 msgstr "En el objetivo - oferta igual a rellenable + sobrepago."
@@ -3620,6 +3591,14 @@ msgid "Open Telegram and chat with <0>@BotFather</0>, send /newbot, follow the "
 msgstr "Abre Telegram y conversa con <0>@BotFather</0>, envía /newbot y sigue "
 "los pasos; @BotFather responde con el token. Pégalo aquí."
 
+#: src/components/PriceChart.tsx
+msgid "Open the History row for this event"
+msgstr "Abre la fila de History para este evento"
+
+#: src/components/BidEventDrawer.tsx
+msgid "Open the price chart pinned to this event"
+msgstr "Abre la gráfica de precio fijada en este evento"
+
 #: src/pages/Status.tsx
 msgid "Operations & next action"
 msgstr "Operaciones y próxima acción"
@@ -3657,12 +3636,10 @@ msgstr "Tope dinámico opcional. En cada tick el tope efectivo = min(Máximo, "
 "aún lo permitiría. Pon 0 para desactivar."
 
 #: src/pages/Config.tsx
-msgid "Optional. The HTTP API exposed by Datum Gateway - e.g. "
-"http://192.168.1.121:7152. Leave empty to disable; the Datum panel will "
-"show \"not configured\"."
-msgstr "Opcional. La API HTTP expuesta por Datum Gateway - p. ej. "
-"http://192.168.1.121:7152. Déjalo vacío para desactivar; el panel Datum "
-"mostrará \"no configurado\"."
+msgid "Optional. On StartOS use the base URL http://datum.startos:7152; do not "
+"append a path or use the external StartOS proxy URL. Leave empty to "
+"disable; the Datum panel will show \"not configured\"."
+msgstr ""
 
 #: src/pages/Setup.tsx
 msgid "Optional. Useful if you'd like a second token only for read paths."
@@ -3767,6 +3744,7 @@ msgstr "% global del rango seleccionado en el que se estaba entregando "
 msgid "overdue {overdueFormatted}"
 msgstr "atrasado {overdueFormatted}"
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 msgid "overpay"
 msgstr "sobrepago"
@@ -3826,6 +3804,7 @@ msgstr "La paciencia se libera en"
 msgid "Pause"
 msgstr "Pausar"
 
+#: src/pages/History.tsx
 #: src/pages/Status.tsx
 msgid "paused"
 msgstr "pausado"
@@ -3854,11 +3833,11 @@ msgstr "PAGO INICIADO"
 
 #: src/pages/Status.tsx
 msgid "Payout observer is starting up. Waiting for the first balance scan to "
-"complete - usually a few seconds with Electrs, up to a minute with "
-"bitcoind scantxoutset."
-msgstr "El observador de pagos está iniciando. Esperando a que finalice el "
-"primer escaneo de saldo - normalmente unos segundos con Electrs, hasta "
-"un minuto con bitcoind scantxoutset."
+"complete - usually a few seconds with an Electrum server, up to a minute "
+"with bitcoind scantxoutset."
+msgstr "El observador de pagos está arrancando. Esperando a que termine el "
+"primer escaneo de saldo - normalmente unos segundos con un servidor "
+"Electrum, hasta un minuto con bitcoind scantxoutset."
 
 #: src/pages/Config.tsx
 msgid "Payout source"
@@ -4110,6 +4089,7 @@ msgstr "anterior"
 msgid "Previous month"
 msgstr "Mes anterior"
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 #: src/pages/History.tsx
 #: src/pages/Status.tsx
@@ -4242,10 +4222,6 @@ msgstr "Envía alertas de caídas (Datum inaccesible, hashrate por debajo del "
 "entere en minutos, no en horas. Consulta la guía de configuración para "
 "los pasos con @BotFather + @userinfobot."
 
-#: src/components/HashrateChart.tsx
-msgid "range"
-msgstr "rango"
-
 #: src/pages/Setup.tsx
 msgid "Re-setup"
 msgstr "Reconfigurar"
@@ -4261,6 +4237,14 @@ msgstr "Reorganizar"
 #: src/components/Layout.tsx
 msgid "Rearrange cards"
 msgstr "Reorganizar tarjetas"
+
+#: src/components/BidEventDrawer.tsx
+msgid "reason"
+msgstr "motivo"
+
+#: src/pages/History.tsx
+msgid "Reason"
+msgstr "Motivo"
 
 #: src/pages/Status.tsx
 msgid "rebuild"
@@ -4393,6 +4377,10 @@ msgstr "Restaura los valores que había en esta página cuando la abriste."
 #: src/pages/Config.tsx
 msgid "Resume last mode"
 msgstr "Reanudar último modo"
+
+#: src/pages/History.tsx
+msgid "resumed"
+msgstr "reanudada"
 
 #: src/pages/Config.tsx
 msgid "Retry interval"
@@ -4679,6 +4667,10 @@ msgstr "Ventana de rechazo de shares (minutos)"
 msgid "Show"
 msgstr "Mostrar"
 
+#: src/components/PriceChart.tsx
+msgid "Show in history"
+msgstr "Ver en historial"
+
 #: src/pages/Setup.tsx
 msgid "Show value"
 msgstr "Mostrar valor"
@@ -4720,6 +4712,7 @@ msgstr "tamaño"
 msgid "Sound"
 msgstr "Sonido"
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 #: src/pages/History.tsx
 msgid "speed"
@@ -4920,12 +4913,12 @@ msgid "Testing…"
 msgstr "Probando…"
 
 #: src/pages/Config.tsx
-msgid "The \"Backfill now\" button walks the full address history via Electrs "
-"and adds any historical Ocean coinbase payouts that aren't already "
-"recorded. Safe to run repeatedly."
-msgstr "El botón \"Backfill ahora\" recorre todo el historial de la dirección "
-"vía Electrs y añade cualquier pago coinbase histórico de Ocean que aún "
-"no esté registrado. Seguro ejecutarlo varias veces."
+msgid "The \"Backfill now\" button walks the full address history via your "
+"Electrum server and adds any historical Ocean coinbase payouts that "
+"aren't already recorded. Safe to run repeatedly."
+msgstr "El botón \"Rellenar ahora\" recorre todo el historial de la dirección a "
+"través de tu servidor Electrum y añade los pagos coinbase históricos de "
+"Ocean que aún no estén registrados. Seguro de ejecutar repetidamente."
 
 #: src/components/Bip110ScanCard.tsx
 msgid "The 55% miner-activation threshold has been crossed. BIP 110 will "
@@ -5170,11 +5163,6 @@ msgstr "URL de actualización"
 msgid "updated"
 msgstr "actualizado"
 
-#. placeholder {0}: formatAgePrecise(epochMs)
-#: src/pages/Status.tsx
-msgid "updated {0}"
-msgstr "actualizado {0}"
-
 #: src/pages/Config.tsx
 msgid "Uploaded - now active."
 msgstr "Subido - ahora activo."
@@ -5185,7 +5173,6 @@ msgstr "Subiendo…"
 
 #: src/components/TilesBar.tsx
 #: src/pages/Config.tsx
-#: src/pages/Status.tsx
 msgid "uptime"
 msgstr "uptime"
 
@@ -5242,19 +5229,23 @@ msgstr "usa el share_log actual - una aproximación para bloques antiguos, ya "
 
 #: src/pages/Config.tsx
 msgid "Uses scantxoutset -- CPU-heavy, 30+ seconds per scan. Polled hourly. Use "
-"only if you don't have Electrs."
-msgstr "Usa scantxoutset - intensivo en CPU, 30+ segundos por escaneo. "
-"Consultado cada hora. Úsalo solo si no tienes Electrs."
+"only if you don't have an Electrum server."
+msgstr "Usa scantxoutset -- intensivo en CPU, 30+ segundos por escaneo. "
+"Consultado cada hora. Úsalo solo si no tienes un servidor Electrum."
 
 #: src/pages/Status.tsx
-msgid "UTXOs at the configured payout address. Read via Electrs (preferred, "
-"instant) or bitcoind RPC (slower)."
-msgstr "UTXOs en la dirección de pago configurada. Se leen vía Electrs "
-"(preferido, instantáneo) o bitcoind RPC (más lento)."
+msgid "UTXOs at the configured payout address. Read via your Electrum server "
+"(preferred, instant) or bitcoind RPC (slower)."
+msgstr "UTXOs en la dirección de pago configurada. Leído a través de tu "
+"servidor Electrum (preferido, instantáneo) o bitcoind RPC (más lento)."
 
 #: src/pages/Setup.tsx
 msgid "v{__APP_VERSION__} · build {__BUILD_NUMBER__} · {__BUILD_HASH__}"
 msgstr "v{__APP_VERSION__} · build {__BUILD_NUMBER__} · {__BUILD_HASH__}"
+
+#: src/components/BidEventDrawer.tsx
+msgid "View on chart"
+msgstr "Ver en gráfica"
 
 #: src/components/SoloMinersCard.tsx
 msgid "VR temp"

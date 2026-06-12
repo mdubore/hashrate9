@@ -50,21 +50,6 @@ msgstr "\"Alleen autopilot\" telt het verbruik op van biedingen die de daemon "
 msgid "(already in use)"
 msgstr "(al in gebruik)"
 
-#: src/pages/Status.tsx
-msgid "(avg cost delivered) minus the delta-weighted average hashprice during "
-"periods we were actually billed, computed over the selected chart range. "
-"Negative means we paid below break-even (good - cheaper than mining at "
-"current difficulty), positive means above. Same delta weighting as the "
-"avg cost card so the two stay consistent. Updates with the range "
-"selector above."
-msgstr "(avg cost geleverd) minus de delta-gewogen gemiddelde hashprice tijdens "
-"perioden dat we daadwerkelijk gefactureerd werden, berekend over het "
-"geselecteerde grafiekbereik. Negatief betekent dat we onder break-even "
-"betaalden (goed - goedkoper dan minen bij huidige moeilijkheidsgraad), "
-"positief betekent erboven. Dezelfde delta-weging als de avg cost-kaart, "
-"dus die twee blijven consistent. Wijzigt mee met de bereikselector "
-"hierboven."
-
 #: src/components/TilesBar.tsx
 msgid "(avg cost delivered) minus the spend-weighted average hashprice during "
 "periods we were actually billed, computed over the selected range. "
@@ -294,8 +279,8 @@ msgstr "⚠ Geen punt gevonden. Ocean TIDES vereist \"<BTC-adres>.<label>\". "
 "Zonder het adres-voorvoegsel worden shares niet bijgeschreven."
 
 #: src/pages/Config.tsx
-msgid "⚠ This is not Umbrel-specific."
-msgstr "⚠ Dit is niet Umbrel-specifiek."
+msgid "⚠ This is Datum Gateway's HTTP dashboard/API port."
+msgstr ""
 
 #: src/pages/Config.tsx
 msgid "0 = use the full available wallet balance each CREATE (clamped to 1 BTC "
@@ -642,6 +627,7 @@ msgid "Auto-save on. Edits persist about a second after you stop typing."
 msgstr "Automatisch opslaan staat aan. Wijzigingen worden ongeveer een seconde "
 "na je laatste invoer opgeslagen."
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 msgid "automatic"
 msgstr "automatisch"
@@ -678,24 +664,6 @@ msgstr "Gemiddeld geleverde hashrate over het geselecteerde grafiekbereik. "
 "(primary_bid_consumed_sat-deltas), dus dit speelt geen rol aan de "
 "uitgavenkant."
 
-#: src/pages/Status.tsx
-msgid "Average effective rate over the selected chart range - what Braiins "
-"actually charged per PH/day delivered. Computed as the delta-weighted "
-"harmonic mean of the bid: SUM(Δconsumed_sat) ÷ SUM(Δconsumed_sat ÷ bid). "
-"Under pay-your-bid the bid IS the price, so when the bid is constant "
-"across the window this equals the bid exactly; when the bid varies "
-"(mid-window edits) it's the spend-weighted average. Periods of zero "
-"delivery contribute zero to both sides and don't skew the result. For "
-"the current bid price see the NEXT ACTION panel."
-msgstr "Average effective rate over the selected chart range - what Braiins "
-"actually charged per PH/day delivered. Computed as the delta-weighted "
-"harmonic mean of the bid: SUM(Δconsumed_sat) ÷ SUM(Δconsumed_sat ÷ "
-"bid). Under pay-your-bid the bid IS the price, so when the bid is "
-"constant across the window this equals the bid exactly; when the bid "
-"varies (mid-window edits) it's the spend-weighted average. Periods of "
-"zero delivery contribute zero to both sides and don't skew the result. "
-"For the current bid price see the NEXT ACTION panel."
-
 #: src/components/TilesBar.tsx
 msgid "Average effective rate over the selected range - what Braiins actually "
 "charged per PH/day delivered. Spend-weighted; zero-delivery periods "
@@ -725,22 +693,18 @@ msgid "avg block time"
 msgstr "gem. bloktijd"
 
 #: src/components/TilesBar.tsx
-#: src/pages/Status.tsx
 msgid "avg braiins"
 msgstr "gem. Braiins"
 
 #: src/components/TilesBar.tsx
-#: src/pages/Status.tsx
 msgid "avg cost delivered"
 msgstr "gem. kost geleverd"
 
 #: src/components/TilesBar.tsx
-#: src/pages/Status.tsx
 msgid "avg cost vs hashprice"
 msgstr "gem. kost t.o.v. hashprice"
 
 #: src/components/TilesBar.tsx
-#: src/pages/Status.tsx
 msgid "avg datum"
 msgstr "gem. Datum"
 
@@ -753,7 +717,6 @@ msgid "avg hashprice ({rangeLabel})"
 msgstr "gem. hashprice ({rangeLabel})"
 
 #: src/components/TilesBar.tsx
-#: src/pages/Status.tsx
 msgid "avg ocean"
 msgstr "gem. Ocean"
 
@@ -834,17 +797,51 @@ msgstr "Bod boven doel - Braiins-cooldown voor prijsverlaging actief."
 msgid "bid coverage"
 msgstr "order-dekking"
 
+#: src/components/BidEventDrawer.tsx
+msgid "Bid event detail"
+msgstr "Detail bod-event"
+
 #: src/pages/Status.tsx
 msgid "Bid filling at {speed}."
 msgstr "Bod vult op {speed}."
+
+#: src/components/BidEventDrawer.tsx
+msgid "bid id"
+msgstr "bod-id"
 
 #: src/pages/History.tsx
 msgid "Bid id contains"
 msgstr "Bod-id bevat"
 
+#: src/components/PriceChart.tsx
+#: src/pages/Config.tsx
+#: src/pages/History.tsx
+msgid "bid paused"
+msgstr "bod gepauzeerd"
+
+#: src/components/BidEventDrawer.tsx
+#: src/components/PriceChart.tsx
+msgid "BID PAUSED"
+msgstr "BOD GEPAUZEERD"
+
+#: src/components/PriceChart.tsx
+#: src/pages/Config.tsx
+#: src/pages/History.tsx
+msgid "bid resumed"
+msgstr "bod hervat"
+
+#: src/components/BidEventDrawer.tsx
+#: src/components/PriceChart.tsx
+msgid "BID RESUMED"
+msgstr "BOD HERVAT"
+
 #: src/pages/Config.tsx
 msgid "Bid sustained-paused for"
 msgstr "Bid aanhoudend Paused gedurende"
+
+#: src/components/BidEventDrawer.tsx
+msgid "Bid was cancelled. See reason above."
+msgstr "Bod is geannuleerd. Zie reden hierboven."
 
 #: src/pages/Config.tsx
 msgid "Bid-event markers"
@@ -1283,6 +1280,7 @@ msgstr "BTC/USD"
 msgid "BTC/USD: ${priceStr} - select display currency"
 msgstr "BTC/USD: ${priceStr} - kies weergavevaluta"
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 #: src/pages/Status.tsx
 msgid "budget"
@@ -1311,6 +1309,7 @@ msgstr "Tijd tussen herhaalde pogingen wanneer een melding niet aankomt of de "
 msgid "calculating…"
 msgstr "berekenen…"
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 #: src/pages/Config.tsx
 #: src/pages/History.tsx
@@ -1321,6 +1320,7 @@ msgstr "annuleren"
 msgid "Cancel"
 msgstr "Annuleren"
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 msgid "CANCEL"
 msgstr "ANNULEREN"
@@ -1414,7 +1414,6 @@ msgid "Clear"
 msgstr "Wissen"
 
 #: src/components/HashrateChart.tsx
-#: src/components/PriceChart.tsx
 msgid "click outside to close"
 msgstr "klik buiten om te sluiten"
 
@@ -1427,8 +1426,20 @@ msgid "Click to expand"
 msgstr "Klik om uit te klappen"
 
 #: src/components/HashrateChart.tsx
+#: src/components/PriceChart.tsx
+msgid "Click to hide"
+msgstr "Klik om te verbergen"
+
+#: src/components/HashrateChart.tsx
+#: src/components/PriceChart.tsx
+msgid "Click to show"
+msgstr "Klik om te tonen"
+
+#: src/components/BidEventDrawer.tsx
+#: src/components/HashrateChart.tsx
 #: src/components/IpChangeMarkers.tsx
 #: src/components/PriceChart.tsx
+#: src/components/SpeedEditMarkers.tsx
 #: src/lib/chartCrosshair.tsx
 msgid "close"
 msgstr "sluiten"
@@ -1530,6 +1541,10 @@ msgstr "Bepaalt hoe het P&L-paneel het \"uitgegeven\"-bedrag berekent dat het "
 msgid "Cooldown clears in"
 msgstr "Cooldown loopt af over"
 
+#: src/components/BidEventDrawer.tsx
+msgid "copied"
+msgstr "gekopieerd"
+
 #: src/pages/Config.tsx
 msgid "Copied"
 msgstr "Gekopieerd"
@@ -1562,6 +1577,7 @@ msgstr "bod-ID kopiëren"
 msgid "Copy hex to clipboard"
 msgstr "Hex kopiëren naar klembord"
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 msgid "copy JSON"
 msgstr "JSON kopiëren"
@@ -1574,12 +1590,14 @@ msgstr "Kopieer JSON"
 msgid "copy URL"
 msgstr "URL kopiëren"
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 #: src/pages/Config.tsx
 #: src/pages/History.tsx
 msgid "create"
 msgstr "aanmaken"
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 msgid "CREATE"
 msgstr "AANMAKEN"
@@ -1719,16 +1737,16 @@ msgid "Datum (received)"
 msgstr "Datum (ontvangen)"
 
 #: src/pages/Status.tsx
-msgid "Datum /umbrel-api HTTP poll."
-msgstr "Datum /umbrel-api HTTP-poll."
-
-#: src/pages/Status.tsx
 msgid "datum hashrate"
 msgstr "datum hashrate"
 
 #: src/pages/Config.tsx
 msgid "Datum stats API (optional)"
 msgstr "Datum stats-API (optioneel)"
+
+#: src/pages/Status.tsx
+msgid "Datum stats HTTP poll."
+msgstr ""
 
 #: src/pages/Status.tsx
 msgid "Datum stats not configured - set <0>datum_api_url</0> in Config to "
@@ -1800,12 +1818,6 @@ msgstr "verlagen"
 msgid "Default 50001."
 msgstr "Standaard 50001."
 
-#: src/pages/Setup.tsx
-msgid "Default Electrs port is 50001 (TCP). On Umbrel the in-cluster hostname "
-"is typically<0> electrs_electrs_1</0>."
-msgstr "Standaard Electrs-poort is 50001 (TCP). Op Umbrel is de hostnaam binnen "
-"het cluster meestal<0> electrs_electrs_1</0>."
-
 #: src/pages/Config.tsx
 msgid "Delete this device permanently. To pause without deleting, uncheck the "
 "box at the left of the row."
@@ -1835,6 +1847,7 @@ msgstr "Geleverde hashrate ligt al ten minste dit aantal minuten onder je "
 msgid "delivery while bidding"
 msgstr "levering tijdens bod"
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 msgid "delta"
 msgstr "delta"
@@ -1954,39 +1967,6 @@ msgstr "Dry Run"
 msgid "DRY RUN"
 msgstr "DRY RUN"
 
-#. placeholder {0}: formatNumber( uptime_bid_coverage_pct, { minimumFractionDigits: 1, maximumFractionDigits: 1 }, intlLocale, )
-#. placeholder {1}: formatNumber( uptime_delivery_when_bid_active_pct, { minimumFractionDigits: 1, maximumFractionDigits: 1 }, intlLocale, )
-#: src/pages/Status.tsx
-msgid "Duration-weighted % of time with delivered hashrate > 0, computed over "
-"the selected chart range. Decomposes as bid coverage × delivery rate "
-"while bidding: {0}% of the window had an active Braiins bid (orderbook "
-"availability — low value here = \"nothing matched my criteria\", which "
-"is expected idle); of that bid-active time, {1}% was actually delivering "
-"hashrate (hardware / connection / Datum-side quality — low value here = "
-"unexpected downtime). Each tick is weighted by its actual duration (time "
-"until the next tick) so gaps after restarts count proportionally. "
-"Updates with the range selector above."
-msgstr "Tijdgewogen % van de tijd met geleverde hashrate > 0, berekend over het "
-"geselecteerde bereik. Decomposeert als orderdekking × "
-"leveringspercentage tijdens bieden: {0}% van het venster had een "
-"actieve Braiins-order (orderboek-beschikbaarheid — een lage waarde hier "
-"= \"niets voldeed aan mijn criteria\", verwachte stilstand); van die "
-"actieve-bieding-tijd werd {1}% daadwerkelijk geleverd als hashrate "
-"(hardware / verbinding / Datum-kwaliteit — een lage waarde hier = "
-"onverwachte stilstand). Elke tick wordt gewogen op werkelijke duur "
-"(tijd tot de volgende tick) zodat gaten na een herstart evenredig "
-"meetellen. Wijzigt met de bereikselector hierboven."
-
-#: src/pages/Status.tsx
-msgid "Duration-weighted % of time with delivered hashrate > 0, computed over "
-"the selected chart range. Each tick is weighted by its actual duration "
-"(time until the next tick) so gaps after restarts count proportionally. "
-"Updates with the range selector above."
-msgstr "Duur-gewogen % van de tijd waarbij geleverde hashrate > 0, berekend "
-"over het geselecteerde grafiekbereik. Elke tick wordt gewogen op zijn "
-"werkelijke duur (tijd tot de volgende tick) zodat gaten na herstarts "
-"proportioneel meetellen. Wijzigt mee met de bereikselector hierboven."
-
 #: src/components/TilesBar.tsx
 msgid "Duration-weighted average of the hashrate Braiins reports delivering "
 "over the selected range. Includes downtime in the denominator so a bad "
@@ -1994,17 +1974,6 @@ msgid "Duration-weighted average of the hashrate Braiins reports delivering "
 msgstr "Tijdgewogen gemiddelde van de hashrate die Braiins meldt te leveren "
 "over het geselecteerde bereik. Downtime telt mee in de noemer, zodat "
 "een slechte periode hier zichtbaar is en niet alleen op de live-kaart."
-
-#: src/pages/Status.tsx
-msgid "Duration-weighted average of the hashrate Braiins reports delivering, "
-"computed over the selected chart range. Includes downtime (where "
-"delivered = 0) so a bad stretch shows up in the average, not just the "
-"live card. Updates with the range selector above."
-msgstr "Duur-gewogen gemiddelde van de hashrate die Braiins meldt te leveren, "
-"berekend over het geselecteerde grafiekbereik. Inclusief downtime (waar "
-"geleverd = 0) zodat een slechte periode in het gemiddelde terugkomt en "
-"niet alleen op de live kaart. Wijzigt mee met de bereikselector "
-"hierboven."
 
 #: src/components/TilesBar.tsx
 msgid "Duration-weighted average of the hashrate Datum measures at the gateway "
@@ -2015,17 +1984,6 @@ msgstr "Tijdgewogen gemiddelde van de hashrate die Datum meet aan de gateway "
 "betekent dat Braiins factureert voor hashrate die Datum nooit zag "
 "aankomen."
 
-#: src/pages/Status.tsx
-msgid "Duration-weighted average of the hashrate Datum measures at the gateway, "
-"computed over the selected chart range. A sustained gap below Avg "
-"Braiins means Braiins is billing for hashrate Datum never saw arrive. "
-"Updates with the range selector above."
-msgstr "Duur-gewogen gemiddelde van de hashrate die Datum bij de gateway meet, "
-"berekend over het geselecteerde grafiekbereik. Een aanhoudend tekort "
-"onder Gem. Braiins betekent dat Braiins kosten in rekening brengt voor "
-"hashrate die Datum nooit zag aankomen. Wijzigt mee met de "
-"bereikselector hierboven."
-
 #: src/components/TilesBar.tsx
 msgid "Duration-weighted average of the hashrate Ocean credits to our payout "
 "address over the selected range. A sustained gap below Avg Braiins / Avg "
@@ -2035,41 +1993,15 @@ msgstr "Tijdgewogen gemiddelde van de hashrate die Ocean aan ons payout-adres "
 "Braiins / Avg Datum betekent dat de pool werk dat wij menen geleverd te "
 "hebben niet bijschrijft."
 
-#: src/pages/Status.tsx
-msgid "Duration-weighted average of the hashrate Ocean credits to our payout "
-"address, computed over the selected chart range. Each tick (every 60 s) "
-"the daemon calls Ocean's /v1/user_hashrate endpoint and reads the "
-"`hashrate_300s` field - Ocean's own 5-minute sliding-window estimate for "
-"this wallet. So: sampled every minute, each sample is a 5-minute "
-"smoothed value. A sustained gap below Avg Braiins / Avg Datum means the "
-"pool isn't crediting work we think we delivered. Updates with the range "
-"selector above."
-msgstr "Duur-gewogen gemiddelde van de hashrate die Ocean toeschrijft aan ons "
-"uitbetaaladres, berekend over het geselecteerde grafiekbereik. Elke "
-"tick (elke 60 s) roept de daemon Oceans /v1/user_hashrate-endpoint aan "
-"en leest het `hashrate_300s`-veld - Oceans eigen 5-minuten "
-"schuivend-venster schatting voor deze wallet. Dus: elke minuut "
-"bemonsterd, elke meting is een 5-minuten gladde waarde. Een aanhoudend "
-"tekort onder Gem. Braiins / Gem. Datum betekent dat de pool geen werk "
-"credit geeft waarvan wij denken dat het geleverd is. Wijzigt mee met de "
-"bereikselector hierboven."
-
 #: src/pages/Config.tsx
 msgid "Dynamic DNS"
 msgstr "Dynamic DNS"
-
-#: src/pages/Config.tsx
-msgid "e.g. 192.168.1.121 or electrs_electrs_1 on Umbrel"
-msgstr "bijv. 192.168.1.121 of electrs_electrs_1 op Umbrel"
-
-#: src/pages/Config.tsx
-msgid "e.g. http://192.168.1.121:8332 - your Bitcoin Knots RPC endpoint."
-msgstr "bijv. http://192.168.1.121:8332 - je Bitcoin Knots RPC-endpoint."
 
 #: src/components/ChartColorPicker.tsx
 msgid "Edit color"
 msgstr "Kleur bewerken"
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 #: src/pages/Config.tsx
 #: src/pages/History.tsx
@@ -2080,11 +2012,15 @@ msgstr "prijs aanpassen"
 msgid "Edit price"
 msgstr "Prijs aanpassen"
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 msgid "EDIT PRICE"
 msgstr "PRIJS AANPASSEN"
 
+#: src/components/BidEventDrawer.tsx
+#: src/components/HashrateChart.tsx
 #: src/components/PriceChart.tsx
+#: src/components/SpeedEditMarkers.tsx
 #: src/pages/Config.tsx
 #: src/pages/History.tsx
 msgid "edit speed"
@@ -2094,6 +2030,7 @@ msgstr "snelheid aanpassen"
 msgid "Edit speed"
 msgstr "Snelheid aanpassen"
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 msgid "EDIT SPEED"
 msgstr "SNELHEID AANPASSEN"
@@ -2114,6 +2051,7 @@ msgstr "snelheid-bewerk-markering"
 msgid "effective"
 msgstr "effectief"
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 #: src/pages/Status.tsx
 msgid "effective cap"
@@ -2155,27 +2093,28 @@ msgstr "Praktisch geen levering gedurende ten minste dit aantal minuten."
 msgid "Efficiency"
 msgstr "Efficiëntie"
 
-#: src/pages/Config.tsx
-msgid "Electrs"
-msgstr "Electrs"
+#: src/pages/Setup.tsx
+msgid "Electrum server - electrs / Fulcrum / ElectrumX (indexed lookup, faster)"
+msgstr "Electrum-server - electrs / Fulcrum / ElectrumX (geïndexeerde lookup, "
+"sneller)"
 
 #. placeholder {0}: form.electrs_host
 #. placeholder {1}: form.electrs_port
 #: src/pages/Setup.tsx
-msgid "Electrs ({0}:{1})"
-msgstr "Electrs ({0}:{1})"
-
-#: src/pages/Setup.tsx
-msgid "Electrs (Electrum-style indexed lookup, faster)"
-msgstr "Electrs (Electrum-achtige geïndexeerde lookup, sneller)"
+msgid "Electrum server ({0}:{1})"
+msgstr "Electrum-server ({0}:{1})"
 
 #: src/pages/Config.tsx
-msgid "Electrs (recommended)"
-msgstr "Electrs (aanbevolen)"
+msgid "Electrum server (electrs / Fulcrum / ElectrumX)"
+msgstr "Electrum-server (electrs / Fulcrum / ElectrumX)"
 
 #: src/pages/Config.tsx
-msgid "Electrs host"
-msgstr "Electrs-host"
+msgid "Electrum server (recommended)"
+msgstr "Electrum-server (aanbevolen)"
+
+#: src/pages/Config.tsx
+msgid "Electrum server host"
+msgstr "Electrum-server host"
 
 #: src/pages/Config.tsx
 msgid "Enable Bitaxe miner monitoring"
@@ -2214,15 +2153,6 @@ msgid "Estimated cap at current settings: ~ {totalStr} (logs only, indexes "
 msgstr "Geschat maximum bij huidige instellingen: ~ {totalStr} (alleen logs, "
 "exclusief indexen). Logs groeien ~ {dailyStr}/dag. Databasebestand is "
 "momenteel {dbStr}."
-
-#: src/pages/Config.tsx
-msgid "Even though the endpoint is named <0>/umbrel-api</0>, it lives inside "
-"Datum Gateway itself - compiled in via <1>#ifdef "
-"DATUM_API_FOR_UMBREL</1> and works on any Datum build with that flag "
-"set, regardless of host platform."
-msgstr "Hoewel de endpoint <0>/umbrel-api</0> heet, zit hij in Datum Gateway "
-"zelf - gecompileerd via <1>#ifdef DATUM_API_FOR_UMBREL</1> en werkt op "
-"elke Datum-build met die vlag gezet, ongeacht het hostplatform."
 
 #: src/pages/History.tsx
 msgid "events (end of history)"
@@ -2292,10 +2222,10 @@ msgid "failed to load: {0}"
 msgstr "laden mislukt: {0}"
 
 #: src/pages/Config.tsx
-msgid "Fast and lightweight. Polled every minute. Instant balance lookups via "
-"your Electrum server."
-msgstr "Snel en lichtgewicht. Elke minuut bevraagd. Directe saldo-opzoekingen "
-"via je Electrum-server."
+msgid "Fast and lightweight. Polled every minute. Instant balance lookups. "
+"Works with any Electrum-protocol server: electrs, Fulcrum, ElectrumX."
+msgstr "Snel en lichtgewicht. Elke minuut bevraagd. Directe saldo-lookups. "
+"Werkt met elke Electrum-protocol-server: electrs, Fulcrum, ElectrumX."
 
 #: src/pages/Config.tsx
 msgid "Fee protection"
@@ -2314,6 +2244,7 @@ msgstr "Haalt de BTC/USD spotprijs op van een publieke exchange-API. Schakelt "
 "een sats/USD eenheid-wisselaar in de dashboard-header in. Geen "
 "API-sleutel nodig - gebruikt niet-geauthenticeerde publieke endpoints."
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 #: src/pages/Config.tsx
 msgid "fillable"
@@ -2498,6 +2429,7 @@ msgid "Hard ceiling. If fillable + overpay would exceed this, the bid is "
 msgstr "Harde bovengrens. Als vulbaar + toeslag dit zou overschrijden, wordt "
 "het bod naar deze waarde teruggebracht (en mogelijk niet gevuld)."
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 #: src/pages/Config.tsx
 msgid "hashprice"
@@ -2524,6 +2456,12 @@ msgstr "hashprice nu"
 #: src/pages/Config.tsx
 msgid "Hashrate"
 msgstr "Hashrate"
+
+#: src/pages/Config.tsx
+msgid "Hashrate Autopilot first tries Datum's <0>/umbrel-api</0>JSON stats "
+"endpoint. If that endpoint is absent, as on the StartOS Datum package, "
+"it falls back to parsing the Datum dashboard at <1>/</1>."
+msgstr ""
 
 #: src/pages/Config.tsx
 msgid "Hashrate below floor for"
@@ -2729,14 +2667,15 @@ msgid "Informational. Off by default. Fires when the on-chain payout scanner "
 "observes a coinbase output crediting your payout address - i.e. the "
 "transaction Ocean committed has now confirmed. Includes block height, "
 "payout amount, and a truncated tx id. Source: reward_events ledger "
-"(populated by Electrs or bitcoind scantxoutset, whichever the operator "
-"has wired)."
-msgstr "Informatief. Standaard uit. Vuurt wanneer de on-chain payout-scanner "
-"een coinbase-output naar je payout-adres ziet - oftewel de transactie "
-"die Ocean heeft toegezegd is nu bevestigd. Bevat block-hoogte, "
-"uitbetalingsbedrag en een verkorte tx id. Bron: reward_events ledger "
-"(gevuld door Electrs of bitcoind scantxoutset, afhankelijk van wat de "
-"operator heeft aangesloten)."
+"(populated by your Electrum server or bitcoind scantxoutset, whichever "
+"the operator has wired)."
+msgstr "Informatief. Standaard uit. Vuurt wanneer de "
+"on-chain-uitbetalingsscanner een coinbase-output ziet die je "
+"uitbetalingsadres crediteert - d.w.z. de transactie die Ocean heeft "
+"vastgelegd is nu bevestigd. Bevat blokhoogte, uitbetalingsbedrag en een "
+"ingekorte tx-id. Bron: reward_events-grootboek (gevuld door je "
+"Electrum-server of bitcoind scantxoutset, wat de operator ook heeft "
+"aangesloten)."
 
 #: src/pages/Config.tsx
 msgid "Informational. Off by default. When on, every block Ocean credits to "
@@ -2918,14 +2857,7 @@ msgstr "Meer laden"
 msgid "load older"
 msgstr "oudere laden"
 
-#: src/components/PriceChart.tsx
-msgid "loading decision…"
-msgstr "beslissing laden…"
-
-#: src/pages/Status.tsx
-msgid "Loading or daemon restart required."
-msgstr "Laden of daemon-herstart vereist."
-
+#: src/components/BidEventDrawer.tsx
 #: src/pages/Alerts.tsx
 #: src/pages/Config.tsx
 #: src/pages/Status.tsx
@@ -2953,6 +2885,7 @@ msgstr "luck na"
 msgid "luck before"
 msgstr "luck voor"
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 msgid "manual"
 msgstr "handmatig"
@@ -2989,6 +2922,7 @@ msgstr "Markers zijn verborgen omdat het gecombineerde aantal de ingestelde "
 "chart-marker limiet overschrijdt. Pas de limiet aan via Config → "
 "Display & Logging."
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 msgid "market at this tick"
 msgstr "markt op deze tick"
@@ -3009,6 +2943,7 @@ msgstr "Komt overeen - hostnaam wijst naar deze machine."
 msgid "Max acceptable fee"
 msgstr "Max acceptabele fee"
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 #: src/pages/Config.tsx
 #: src/pages/Status.tsx
@@ -3031,6 +2966,7 @@ msgstr "Max getoonde markers"
 msgid "max over hashprice"
 msgstr "max boven hashprice"
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 msgid "max overpay vs hashprice"
 msgstr "max toeslag t.o.v. hashprice"
@@ -3088,6 +3024,21 @@ msgstr "Geen match. Als je daemon en Datum Gateway in hetzelfde thuisnetwerk "
 "DDNS niet is bijgewerkt sinds de ISP je publieke IP wijzigde - "
 "configureer DDNS hieronder om dit op te lossen."
 
+#: src/pages/History.tsx
+msgid "mode"
+msgstr "modus"
+
+#: src/components/PriceChart.tsx
+#: src/pages/Config.tsx
+#: src/pages/History.tsx
+msgid "mode change"
+msgstr "moduswissel"
+
+#: src/components/BidEventDrawer.tsx
+#: src/components/PriceChart.tsx
+msgid "MODE CHANGE"
+msgstr "MODUSWISSEL"
+
 #: src/pages/Config.tsx
 msgid "Monitor a fleet of home Bitaxe / Nerdaxe / ESP-Miner units alongside the "
 "autopilot's rented Braiins hashrate. The daemon polls each device's "
@@ -3099,16 +3050,16 @@ msgstr "Monitor een vloot van Bitaxe / Nerdaxe / ESP-Miner apparaten naast de "
 "share-percentages verschijnen op de Status-pagina."
 
 #: src/pages/Config.tsx
+msgid "More about Datum stats polling"
+msgstr ""
+
+#: src/pages/Config.tsx
 msgid "More about dynamic IPs and DDNS"
 msgstr "Meer over dynamische IP's en DDNS"
 
 #: src/pages/Config.tsx
 msgid "More about historical payouts backfill"
 msgstr "Meer over backfill van historische uitbetalingen"
-
-#: src/pages/Config.tsx
-msgid "More about the /umbrel-api naming"
-msgstr "Meer over de naam /umbrel-api"
 
 #: src/pages/Config.tsx
 msgid "More about the pre-installation earnings offset"
@@ -3186,7 +3137,9 @@ msgstr "De break-even rate van het netwerk bij de huidige moeilijkheidsgraad + "
 msgid "new difficulty"
 msgstr "nieuwe moeilijkheid"
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
+#: src/components/SpeedEditMarkers.tsx
 msgid "new speed"
 msgstr "nieuwe snelheid"
 
@@ -3273,6 +3226,10 @@ msgid "No on-chain balance tracking. The Profit & Loss panel won't show "
 msgstr "Geen on-chain saldo-tracking. Het Profit & Loss-paneel toont geen "
 "ontvangen BTC."
 
+#: src/components/BidEventDrawer.tsx
+msgid "no tick recorded near this event"
+msgstr "geen tick rond dit moment vastgelegd"
+
 #: src/pages/Status.tsx
 msgid "none"
 msgstr "geen"
@@ -3302,15 +3259,15 @@ msgid "Not configured"
 msgstr "Niet geconfigureerd"
 
 #: src/pages/Status.tsx
-msgid "Not configured. Go to Config → On-chain payouts and select Electrs or "
-"Bitcoin Knots RPC to track your on-chain balance. The net line treats "
-"missing collected as 0 so the arithmetic still reads - a blank row here "
-"is the hint that a piece of the income side isn't wired up."
-msgstr "Niet geconfigureerd. Ga naar Config → On-chain uitbetalingen en kies "
-"Electrs of Bitcoin Knots RPC om je on-chain saldo te volgen. De "
-"netto-regel behandelt ontbrekende ontvangsten als 0 zodat de berekening "
-"blijft kloppen - een lege rij hier is de hint dat een deel van de "
-"inkomstenzijde niet is aangesloten."
+msgid "Not configured. Go to Config → On-chain payouts and select Electrum "
+"server or Bitcoin Knots RPC to track your on-chain balance. The net line "
+"treats missing collected as 0 so the arithmetic still reads - a blank "
+"row here is the hint that a piece of the income side isn't wired up."
+msgstr "Niet geconfigureerd. Ga naar Config → On-chain-uitbetalingen en kies "
+"Electrum-server of Bitcoin Knots RPC om je on-chain-saldo te volgen. De "
+"netto-regel behandelt ontbrekend geïnd als 0 zodat de rekensom leesbaar "
+"blijft - een lege rij hier is de hint dat een deel van de inkomstenkant "
+"niet is aangesloten."
 
 #: src/components/HashrateChart.tsx
 #: src/components/PriceChart.tsx
@@ -3513,6 +3470,23 @@ msgstr "Oude destination:"
 msgid "On"
 msgstr "Aan"
 
+#: src/pages/Config.tsx
+msgid "On StartOS use <0>http://bitcoind.startos:8332</0> with RPC credentials "
+"generated by Bitcoin Knots/Core. Do not use the external StartOS proxy "
+"URL."
+msgstr ""
+
+#: src/pages/Config.tsx
+msgid "On StartOS use electrs.startos. Enter a host name or IP only, without "
+"http:// or a path."
+msgstr ""
+
+#: src/pages/Setup.tsx
+msgid "On StartOS use host <0>electrs.startos</0> and port <1>50001</1>. Enter "
+"the host only, without <2>http://</2> or a path. Any Electrum-protocol "
+"server works: electrs, Fulcrum, or ElectrumX."
+msgstr ""
+
 #: src/pages/Status.tsx
 msgid "On target - bid at fillable + overpay."
 msgstr "Op doel - bod gelijk aan vulbaar + toeslag."
@@ -3598,6 +3572,14 @@ msgid "Open Telegram and chat with <0>@BotFather</0>, send /newbot, follow the "
 msgstr "Open Telegram en start een chat met <0>@BotFather</0>, stuur /newbot en "
 "volg de stappen; @BotFather antwoordt met het token. Plak het hier."
 
+#: src/components/PriceChart.tsx
+msgid "Open the History row for this event"
+msgstr "Open de History-rij voor dit event"
+
+#: src/components/BidEventDrawer.tsx
+msgid "Open the price chart pinned to this event"
+msgstr "Open de prijsgrafiek vastgezet op dit event"
+
 #: src/pages/Status.tsx
 msgid "Operations & next action"
 msgstr "Bediening & volgende actie"
@@ -3635,12 +3617,10 @@ msgstr "Optionele dynamische bovengrens. Bij elke tick is de effectieve cap = "
 "alleen nog steeds zou toestaan. Zet op 0 om uit te schakelen."
 
 #: src/pages/Config.tsx
-msgid "Optional. The HTTP API exposed by Datum Gateway - e.g. "
-"http://192.168.1.121:7152. Leave empty to disable; the Datum panel will "
-"show \"not configured\"."
-msgstr "Optioneel. De HTTP-API die Datum Gateway aanbiedt - bv. "
-"http://192.168.1.121:7152. Leeg laten om uit te zetten; het "
-"Datum-paneel toont dan \"niet geconfigureerd\"."
+msgid "Optional. On StartOS use the base URL http://datum.startos:7152; do not "
+"append a path or use the external StartOS proxy URL. Leave empty to "
+"disable; the Datum panel will show \"not configured\"."
+msgstr ""
 
 #: src/pages/Setup.tsx
 msgid "Optional. Useful if you'd like a second token only for read paths."
@@ -3743,6 +3723,7 @@ msgstr "Totaal-% van het geselecteerde bereik waarin hashrate werd geleverd. "
 msgid "overdue {overdueFormatted}"
 msgstr "{overdueFormatted} te laat"
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 msgid "overpay"
 msgstr "toeslag"
@@ -3802,6 +3783,7 @@ msgstr "Geduld loopt af over"
 msgid "Pause"
 msgstr "Pauzeren"
 
+#: src/pages/History.tsx
 #: src/pages/Status.tsx
 msgid "paused"
 msgstr "gepauzeerd"
@@ -3830,11 +3812,11 @@ msgstr "UITBETALING GESTART"
 
 #: src/pages/Status.tsx
 msgid "Payout observer is starting up. Waiting for the first balance scan to "
-"complete - usually a few seconds with Electrs, up to a minute with "
-"bitcoind scantxoutset."
-msgstr "Uitbetaal-observer is aan het opstarten. Wachten op de eerste "
-"saldo-scan - meestal enkele seconden met Electrs, tot een minuut met "
-"bitcoind scantxoutset."
+"complete - usually a few seconds with an Electrum server, up to a minute "
+"with bitcoind scantxoutset."
+msgstr "De uitbetalingswaarnemer start op. Wachten tot de eerste saldoscan "
+"klaar is - meestal een paar seconden met een Electrum-server, tot een "
+"minuut met bitcoind scantxoutset."
 
 #: src/pages/Config.tsx
 msgid "Payout source"
@@ -4085,6 +4067,7 @@ msgstr "vorige"
 msgid "Previous month"
 msgstr "Vorige maand"
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 #: src/pages/History.tsx
 #: src/pages/Status.tsx
@@ -4218,10 +4201,6 @@ msgstr "Stuur uitvalmeldingen (Datum onbereikbaar, hashrate-vloer overschreden, 
 "minuten weet, niet uren. Zie de setup-walkthrough voor de @BotFather + "
 "@userinfobot stappen."
 
-#: src/components/HashrateChart.tsx
-msgid "range"
-msgstr "bereik"
-
 #: src/pages/Setup.tsx
 msgid "Re-setup"
 msgstr "Opnieuw instellen"
@@ -4237,6 +4216,14 @@ msgstr "Herschikken"
 #: src/components/Layout.tsx
 msgid "Rearrange cards"
 msgstr "Kaarten herschikken"
+
+#: src/components/BidEventDrawer.tsx
+msgid "reason"
+msgstr "reden"
+
+#: src/pages/History.tsx
+msgid "Reason"
+msgstr "Reden"
 
 #: src/pages/Status.tsx
 msgid "rebuild"
@@ -4368,6 +4355,10 @@ msgstr "Herstel de waarden die op deze pagina stonden toen je hem opende."
 #: src/pages/Config.tsx
 msgid "Resume last mode"
 msgstr "Laatste modus hervatten"
+
+#: src/pages/History.tsx
+msgid "resumed"
+msgstr "hervat"
 
 #: src/pages/Config.tsx
 msgid "Retry interval"
@@ -4653,6 +4644,10 @@ msgstr "Share-verwerpingsvenster (minuten)"
 msgid "Show"
 msgstr "Toon"
 
+#: src/components/PriceChart.tsx
+msgid "Show in history"
+msgstr "Toon in geschiedenis"
+
 #: src/pages/Setup.tsx
 msgid "Show value"
 msgstr "Toon waarde"
@@ -4694,6 +4689,7 @@ msgstr "grootte"
 msgid "Sound"
 msgstr "Geluid"
 
+#: src/components/BidEventDrawer.tsx
 #: src/components/PriceChart.tsx
 #: src/pages/History.tsx
 msgid "speed"
@@ -4895,12 +4891,13 @@ msgid "Testing…"
 msgstr "Bezig met testen…"
 
 #: src/pages/Config.tsx
-msgid "The \"Backfill now\" button walks the full address history via Electrs "
-"and adds any historical Ocean coinbase payouts that aren't already "
-"recorded. Safe to run repeatedly."
-msgstr "De knop \"Nu backfillen\" doorloopt de volledige adresgeschiedenis via "
-"Electrs en voegt historische Ocean coinbase-uitbetalingen toe die nog "
-"niet zijn vastgelegd. Veilig om herhaaldelijk uit te voeren."
+msgid "The \"Backfill now\" button walks the full address history via your "
+"Electrum server and adds any historical Ocean coinbase payouts that "
+"aren't already recorded. Safe to run repeatedly."
+msgstr "De knop \"Nu aanvullen\" doorloopt de volledige adresgeschiedenis via "
+"je Electrum-server en voegt historische Ocean-coinbase-uitbetalingen "
+"toe die nog niet zijn vastgelegd. Veilig om herhaaldelijk uit te "
+"voeren."
 
 #: src/components/Bip110ScanCard.tsx
 msgid "The 55% miner-activation threshold has been crossed. BIP 110 will "
@@ -5143,11 +5140,6 @@ msgstr "Update-URL"
 msgid "updated"
 msgstr "bijgewerkt"
 
-#. placeholder {0}: formatAgePrecise(epochMs)
-#: src/pages/Status.tsx
-msgid "updated {0}"
-msgstr "bijgewerkt {0}"
-
 #: src/pages/Config.tsx
 msgid "Uploaded - now active."
 msgstr "Geüpload - nu actief."
@@ -5158,7 +5150,6 @@ msgstr "Bezig met uploaden…"
 
 #: src/components/TilesBar.tsx
 #: src/pages/Config.tsx
-#: src/pages/Status.tsx
 msgid "uptime"
 msgstr "uptime"
 
@@ -5214,19 +5205,23 @@ msgstr "gebruikt de huidige share_log - een benadering voor oudere blokken, "
 
 #: src/pages/Config.tsx
 msgid "Uses scantxoutset -- CPU-heavy, 30+ seconds per scan. Polled hourly. Use "
-"only if you don't have Electrs."
+"only if you don't have an Electrum server."
 msgstr "Gebruikt scantxoutset -- CPU-intensief, 30+ seconden per scan. Elk uur "
-"bevraagd. Gebruik alleen als je geen Electrs hebt."
+"bevraagd. Gebruik dit alleen als je geen Electrum-server hebt."
 
 #: src/pages/Status.tsx
-msgid "UTXOs at the configured payout address. Read via Electrs (preferred, "
-"instant) or bitcoind RPC (slower)."
-msgstr "UTXO's op het geconfigureerde uitbetaaladres. Gelezen via Electrs "
-"(voorkeur, direct) of bitcoind RPC (trager)."
+msgid "UTXOs at the configured payout address. Read via your Electrum server "
+"(preferred, instant) or bitcoind RPC (slower)."
+msgstr "UTXO's op het geconfigureerde uitbetalingsadres. Gelezen via je "
+"Electrum-server (voorkeur, direct) of bitcoind RPC (langzamer)."
 
 #: src/pages/Setup.tsx
 msgid "v{__APP_VERSION__} · build {__BUILD_NUMBER__} · {__BUILD_HASH__}"
 msgstr "v{__APP_VERSION__} · build {__BUILD_NUMBER__} · {__BUILD_HASH__}"
+
+#: src/components/BidEventDrawer.tsx
+msgid "View on chart"
+msgstr "Bekijk in grafiek"
 
 #: src/components/SoloMinersCard.tsx
 msgid "VR temp"

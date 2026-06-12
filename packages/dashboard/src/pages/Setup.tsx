@@ -529,7 +529,7 @@ function MiningStep({
           >
             <option value="none">{t`None - skip payout tracking`}</option>
             <option value="bitcoind">{t`Bitcoin Knots (bitcoind RPC)`}</option>
-            <option value="electrs">{t`Electrs (Electrum-style indexed lookup, faster)`}</option>
+            <option value="electrs">{t`Electrum server - electrs / Fulcrum / ElectrumX (indexed lookup, faster)`}</option>
           </select>
         </Field>
         {form.payout_source === 'bitcoind' && (
@@ -600,7 +600,8 @@ function MiningStep({
             <p className="text-xs text-slate-500">
               <Trans>
                 On StartOS use host <code>electrs.startos</code> and port <code>50001</code>.
-                Enter the host only, without <code>http://</code> or a path.
+                Enter the host only, without <code>http://</code> or a path. Any
+                Electrum-protocol server works: electrs, Fulcrum, or ElectrumX.
               </Trans>
             </p>
           </div>
@@ -661,7 +662,7 @@ function ReviewStep({
             form.payout_source === 'bitcoind'
               ? t`Bitcoin Knots RPC (${form.bitcoind_rpc_url})`
               : form.payout_source === 'electrs'
-                ? t`Electrs (${form.electrs_host}:${form.electrs_port})`
+                ? t`Electrum server (${form.electrs_host}:${form.electrs_port})`
                 : t`None`
           }
         />

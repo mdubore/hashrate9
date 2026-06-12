@@ -188,6 +188,8 @@ export interface MetricPoint {
   primary_bid_shares_purchased_m: number | null;
   primary_bid_shares_accepted_m: number | null;
   primary_bid_shares_rejected_m: number | null;
+  /** #287 follow-up: run mode at the tick (worst-in-bucket when aggregated). Drives the idle-state chart bands. */
+  run_mode: 'DRY_RUN' | 'LIVE' | 'PAUSED';
 }
 
 /** #256 follow-up: one bid's roll-up shown as a collapsible header on the History page. */
@@ -209,7 +211,7 @@ export interface BidHistoryPage {
 
 /** #256 v2: flat-table toolbar filter shape. */
 export interface BidHistoryFilters {
-  kinds?: ReadonlyArray<'CREATE_BID' | 'EDIT_PRICE' | 'EDIT_SPEED' | 'CANCEL_BID'>;
+  kinds?: ReadonlyArray<'CREATE_BID' | 'EDIT_PRICE' | 'EDIT_SPEED' | 'CANCEL_BID' | 'MODE_CHANGE' | 'BID_PAUSED' | 'BID_RESUMED'>;
   source?: 'AUTOPILOT' | 'OPERATOR';
   orderIdContains?: string;
   sinceMs?: number;
@@ -233,7 +235,7 @@ export interface BidEventView {
   id: number;
   occurred_at: number;
   source: 'AUTOPILOT' | 'OPERATOR';
-  kind: 'CREATE_BID' | 'EDIT_PRICE' | 'EDIT_SPEED' | 'CANCEL_BID';
+  kind: 'CREATE_BID' | 'EDIT_PRICE' | 'EDIT_SPEED' | 'CANCEL_BID' | 'MODE_CHANGE' | 'BID_PAUSED' | 'BID_RESUMED';
   braiins_order_id: string | null;
   old_price_sat_per_ph_day: number | null;
   new_price_sat_per_ph_day: number | null;
